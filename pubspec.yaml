@@ -68,6 +68,8 @@ flutter:
     - assets/vehicles.webp
     - assets/documents_data.json
     - assets/user_profile.json
+    - assets/propietario_profile.json
+    - assets/propietario_dashboard.json
 
 
   # To add assets to your application, add an assets section, like this:

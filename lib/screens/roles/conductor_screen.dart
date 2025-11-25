@@ -20,7 +20,7 @@ class ConductorScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _ConductorScreenState createState() => _ConductorScreenState();
+  State<ConductorScreen> createState() => _ConductorScreenState();
 }
 
 class _ConductorScreenState extends State<ConductorScreen> {

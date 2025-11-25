@@ -31,14 +31,13 @@ class _InicioWidgetState extends State<InicioWidget> {
   late Map<String, DateTime> _documents;
   Map<String, DateTime>? _paymentDates; // Fechas de pago
   bool _isLoading = true;
+  List<Map<String, dynamic>> _fleetVehicles = [];
+  Map<String, String> _documentVehicle = {};
   
   // User profile data
   String _userName = 'Usuario';
   String _userCompany = 'Empresa';
   String? _userProfileImage;
-  List<Map<String, String>> _userStats = [];
-  String _userEmail = '';
-  String _userPhone = '';
 
   @override
   void initState() {
@@ -57,15 +56,22 @@ class _InicioWidgetState extends State<InicioWidget> {
         // Usar documentos proporcionados
         _documents = widget.documents!;
         _paymentDates = null;
+        _documentVehicle = {};
       } else {
         // Usar datos de ejemplo
         _documents = _exampleDocuments();
         _paymentDates = null;
+        _documentVehicle = {};
       }
     } catch (e) {
       print('Error cargando documentos: $e');
       _documents = _exampleDocuments();
       _paymentDates = null;
+      _documentVehicle = {};
+    }
+
+    if (_fleetVehicles.isEmpty) {
+      _fleetVehicles = _mockFleetVehicles();
     }
 
     setState(() {
@@ -83,19 +89,65 @@ class _InicioWidgetState extends State<InicioWidget> {
     try {
       final String jsonString = await rootBundle.loadString(path);
       final Map<String, dynamic> jsonData = json.decode(jsonString);
-      final List<dynamic> documentsList = jsonData['documents'];
+      final Map<String, DateTime> docs = {};
+      final Map<String, DateTime> payments = {};
+      final Map<String, String> docVehicles = {};
 
-      _documents = {};
-      _paymentDates = {};
+      final documentsList = jsonData['documents'];
+      if (documentsList is List) {
+        for (final rawDoc in documentsList) {
+          if (rawDoc is Map<String, dynamic>) {
+            final String? name = rawDoc['name']?.toString();
+            final String? expiryStr = rawDoc['expiryDate']?.toString();
+            if (name == null || expiryStr == null) continue;
 
-      for (var doc in documentsList) {
-        final String name = doc['name'];
-        final DateTime expiryDate = DateTime.parse(doc['expiryDate']);
-        final DateTime paymentDate = DateTime.parse(doc['paymentDate']);
+            final DateTime? expiryDate = DateTime.tryParse(expiryStr);
+            if (expiryDate == null) continue;
+            docs[name] = expiryDate;
 
-        _documents[name] = expiryDate;
-        _paymentDates![name] = paymentDate;
+            final String? paymentStr = rawDoc['paymentDate']?.toString();
+            final DateTime? paymentDate = paymentStr != null && paymentStr.isNotEmpty ? DateTime.tryParse(paymentStr) : null;
+            if (paymentDate != null) {
+              payments[name] = paymentDate;
+            }
+
+            final String? vehicle = rawDoc['vehicle']?.toString();
+            if (vehicle != null && vehicle.isNotEmpty) {
+              docVehicles[name] = vehicle;
+            }
+          }
+        }
       }
+
+      final vehiclesList = jsonData['vehicles'];
+      if (vehiclesList is List) {
+        final List<Map<String, dynamic>> parsedVehicles = [];
+        for (final rawVehicle in vehiclesList) {
+          if (rawVehicle is Map<String, dynamic>) {
+            final String? nextExpiryStr = rawVehicle['nextExpiry']?.toString();
+            final DateTime? nextExpiry = nextExpiryStr != null && nextExpiryStr.isNotEmpty ? DateTime.tryParse(nextExpiryStr) : null;
+            parsedVehicles.add({
+              'plate': rawVehicle['plate'] ?? '',
+              'model': rawVehicle['model'] ?? '',
+              'driver': rawVehicle['driver'] ?? '',
+              'status': rawVehicle['status'] ?? '',
+              'nextExpiry': nextExpiry,
+            });
+          }
+        }
+        if (parsedVehicles.isNotEmpty) {
+          _fleetVehicles = parsedVehicles;
+        }
+      }
+
+      if (docs.isNotEmpty) {
+        _documents = docs;
+      } else {
+        _documents = _exampleDocuments();
+      }
+
+      _paymentDates = payments.isEmpty ? null : payments;
+      _documentVehicle = docVehicles;
     } catch (e) {
       print('Error parsing JSON: $e');
       rethrow;
@@ -110,17 +162,21 @@ class _InicioWidgetState extends State<InicioWidget> {
         
         // Buscar el usuario por ID
         Map<String, dynamic>? userData;
+        List<dynamic>? records;
         if (jsonData['users'] != null) {
-          final List<dynamic> users = jsonData['users'];
+          records = jsonData['users'];
+        } else if (jsonData['owners'] != null) {
+          records = jsonData['owners'];
+        }
+
+        if (records != null) {
           if (widget.userId != null) {
-            // Buscar usuario por ID
-            userData = users.firstWhere(
-              (user) => user['id'].toString() == widget.userId,
-              orElse: () => users.isNotEmpty ? users[0] : null,
+            userData = records.firstWhere(
+              (item) => item['id'].toString() == widget.userId,
+              orElse: () => records!.isNotEmpty ? records[0] : null,
             );
           } else {
-            // Si no hay ID, tomar el primero
-            userData = users.isNotEmpty ? users[0] : null;
+            userData = records.isNotEmpty ? records[0] : null;
           }
         } else {
           // Formato antiguo sin array de usuarios
@@ -132,17 +188,7 @@ class _InicioWidgetState extends State<InicioWidget> {
             _userName = userData!['name'] ?? 'Usuario';
             _userCompany = userData['company'] ?? 'Empresa';
             _userProfileImage = userData['profileImage'];
-            _userEmail = userData['email'] ?? '';
-            _userPhone = userData['phone'] ?? '';
             
-            if (userData['stats'] != null) {
-              _userStats = (userData['stats'] as List)
-                  .map((stat) => {
-                        'value': stat['value'].toString(),
-                        'label': stat['label'].toString(),
-                      })
-                  .toList();
-            }
           });
         }
       }
@@ -159,6 +205,45 @@ class _InicioWidgetState extends State<InicioWidget> {
       'Matricula': now.add(const Duration(days: 80)),
       'Seguro': now.add(const Duration(days: 200)),
     };
+  }
+
+  List<Map<String, dynamic>> _mockFleetVehicles() {
+    final now = DateTime.now();
+    return [
+      {
+        'plate': 'ABC-123',
+        'model': 'Chevrolet NHR 2023',
+        'driver': 'Donal Glover',
+        'status': 'Al día',
+        'nextExpiry': now.add(const Duration(days: 25)),
+        'lastService': now.subtract(const Duration(days: 40)),
+        'mileage': 54000,
+      },
+      {
+        'plate': 'JKL-456',
+        'model': 'Hino Dutro 2021',
+        'driver': 'María González',
+        'status': 'Documentos pendientes',
+        'nextExpiry': now.add(const Duration(days: 10)),
+        'lastService': now.subtract(const Duration(days: 70)),
+        'mileage': 68500,
+      },
+      {
+        'plate': 'MNO-789',
+        'model': 'Foton BJ 2020',
+        'driver': 'Disponible',
+        'status': 'En mantenimiento',
+        'nextExpiry': now.add(const Duration(days: 60)),
+        'lastService': now.subtract(const Duration(days: 12)),
+        'mileage': 41200,
+      },
+    ];
+  }
+
+  String _formatDate(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    return '$day/$month/${date.year}';
   }
 
   /// Return list of entries sorted by soonest expiry
@@ -307,7 +392,12 @@ class _InicioWidgetState extends State<InicioWidget> {
               CircleAvatar(
                 radius: 30,
                 backgroundColor: Colors.white24,
-                child: Icon(Icons.person, size: 35, color: Colors.white70),
+                backgroundImage: _userProfileImage != null && _userProfileImage!.isNotEmpty
+                    ? AssetImage(_userProfileImage!)
+                    : null,
+                child: _userProfileImage == null || _userProfileImage!.isEmpty
+                    ? const Icon(Icons.person, size: 35, color: Colors.white70)
+                    : null,
               ),
               const SizedBox(width: 12),
               // Nombre y empresa
@@ -373,62 +463,237 @@ class _InicioWidgetState extends State<InicioWidget> {
             color: Colors.white30,
           ),
           const SizedBox(height: 12),
-          // Estadísticas
-          Row(
-            children: _userStats.isEmpty
-                ? [
-                    Expanded(child: _buildStatCard('16', 'Años en la\nempresa')),
-                    Container(width: 1, height: 60, color: Colors.white30),
-                    Expanded(child: _buildStatCard('10', 'Años\nmanejando')),
-                    Container(width: 1, height: 60, color: Colors.white30),
-                    Expanded(child: _buildStatCard('16', 'Años en la\nempresa')),
-                  ]
-                : _buildStatsFromData(),
+          // Accesos rápidos relevantes para el conductor
+          const SizedBox(height: 12),
+          Builder(
+            builder: (_) {
+              final bool showPaymentCard = _role.toLowerCase() != 'propietario';
+              final children = <Widget>[
+                Expanded(child: _buildQuickAccessCard(Icons.folder_open, 'Ver\ndocumentos', _showDocumentsOverview)),
+              ];
+              if (showPaymentCard) {
+                children
+                  ..add(const SizedBox(width: 12))
+                  ..add(Expanded(child: _buildQuickAccessCard(Icons.payments, 'Pagos\npendientes', _showPaymentSchedule)));
+              }
+              return Row(children: children);
+            },
           ),
         ],
       ),
     );
   }
 
-  List<Widget> _buildStatsFromData() {
-    List<Widget> widgets = [];
-    for (int i = 0; i < _userStats.length; i++) {
-      if (i > 0) {
-        widgets.add(Container(width: 1, height: 60, color: Colors.white30));
-      }
-      widgets.add(
-        Expanded(
-          child: _buildStatCard(
-            _userStats[i]['value']!,
-            _userStats[i]['label']!,
-          ),
+  Widget _buildQuickAccessCard(IconData icon, String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 88),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white24),
         ),
-      );
-    }
-    return widgets;
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 24),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              softWrap: true,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
-  Widget _buildStatCard(String number, String label) {
-    return Column(
-      children: [
-        Text(
-          number,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-          ),
+  void _showDocumentsOverview() {
+    final entries = _documents.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+
+    final sheetChildren = <Widget>[
+      Center(
+        child: Container(
+          width: 36,
+          height: 4,
+          decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 11,
+      ),
+      const SizedBox(height: 16),
+      const Text(
+        'Documentos del conductor',
+        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 12),
+    ];
+
+    if (entries.isEmpty) {
+      sheetChildren.add(const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Text('No hay documentos registrados.', style: TextStyle(color: Colors.white70)),
+      ));
+    } else {
+      for (var i = 0; i < entries.length; i++) {
+        final entry = entries[i];
+        final expiry = entry.value;
+        final payment = _paymentDates?[entry.key];
+        final days = expiry.difference(DateTime.now()).inDays;
+        final details = <String>['Vence: ${_formatDate(expiry)}'];
+        if (payment != null) details.add('Pago: ${_formatDate(payment)}');
+
+        if (i > 0) {
+          sheetChildren.add(const Divider(color: Colors.white24, height: 24));
+        }
+
+        sheetChildren.add(
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const CircleAvatar(
+              backgroundColor: Colors.white12,
+              child: Icon(Icons.description, color: Colors.white),
+            ),
+            title: Text(entry.key, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+            subtitle: Text(
+              '${details.join(' • ')}\n${days.clamp(0, 999)} días restantes',
+              style: const TextStyle(color: Colors.white70, height: 1.2),
+            ),
+            isThreeLine: true,
+            onTap: () {
+              Navigator.of(context).pop();
+              DocumentModal.show(
+                context: context,
+                documentName: entry.key,
+                paymentDate: payment,
+                expiryDate: expiry,
+              );
+            },
           ),
+        );
+      }
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF0F1445),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: sheetChildren,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPaymentSchedule() {
+    final entries = (_paymentDates ?? {}).entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+
+    final sheetChildren = <Widget>[
+      Center(
+        child: Container(
+          width: 36,
+          height: 4,
+          decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
         ),
-      ],
+      ),
+      const SizedBox(height: 16),
+      const Text(
+        'Próximos pagos',
+        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 12),
+    ];
+
+    if (entries.isEmpty) {
+      sheetChildren.add(const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Text('No hay pagos programados.', style: TextStyle(color: Colors.white70)),
+      ));
+    } else {
+      for (var i = 0; i < entries.length; i++) {
+        final entry = entries[i];
+        final relatedExpiry = _documents[entry.key];
+
+        if (i > 0) {
+          sheetChildren.add(const Divider(color: Colors.white24, height: 24));
+        }
+
+        sheetChildren.add(
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const CircleAvatar(
+              backgroundColor: Colors.white12,
+              child: Icon(Icons.payments, color: Colors.white),
+            ),
+            title: Text(entry.key, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+            subtitle: Text(
+              'Pago: ${_formatDate(entry.value)}${relatedExpiry != null ? '\nVence: ${_formatDate(relatedExpiry)}' : ''}',
+              style: const TextStyle(color: Colors.white70, height: 1.2),
+            ),
+            isThreeLine: relatedExpiry != null,
+            onTap: () {
+              Navigator.of(context).pop();
+              if (relatedExpiry != null) {
+                DocumentModal.show(
+                  context: context,
+                  documentName: entry.key,
+                  paymentDate: entry.value,
+                  expiryDate: relatedExpiry,
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('No hay fecha de vencimiento para ${entry.key}'),
+                    backgroundColor: const Color(0xFF16C79A),
+                  ),
+                );
+              }
+            },
+          ),
+        );
+      }
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF0F1445),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: sheetChildren,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -448,15 +713,121 @@ class _InicioWidgetState extends State<InicioWidget> {
   }
 
   Widget _propietarioInicio() {
+    final totalVehicles = _fleetVehicles.length;
+    final docsExpiringSoon = _documents.entries
+        .where((entry) => entry.value.isBefore(DateTime.now().add(const Duration(days: 30))))
+        .length;
+    final vehiclesToShow = _fleetVehicles.take(3).toList();
+    final upcomingDocs = _buildVehicleDocumentCountdowns(limit: 4);
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Bienvenido, Propietario', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        const Text('Información de rendimiento de tus activos.', style: TextStyle(color: Colors.white70)),
-        const SizedBox(height: 20),
-        _infoCard(Icons.account_balance_wallet, 'Ingresos', '\u0002 24K'),
-      ]),
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: double.infinity,
+                    height: 200,
+                    color: Colors.transparent,
+                    child: Image.asset(
+                      'assets/vehicles.webp',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Panel Propietario', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                const Text('Resumen de tu flota y próximos vencimientos.', style: TextStyle(color: Colors.white70)),
+                const SizedBox(height: 20),
+                  Align(
+                    alignment: Alignment.center,
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        _buildSummaryChip(Icons.directions_bus, '$totalVehicles vehículos', 'Activos registrados'),
+                        _buildSummaryChip(Icons.warning_amber_rounded, '$docsExpiringSoon vencimientos', 'Próximos 30 días'),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 24),
+                if (upcomingDocs.isNotEmpty) ...[
+                  const Text('Documentos próximos a vencer', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.center,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: upcomingDocs,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TextButton.icon(
+                        onPressed: _showDocumentsOverview,
+                        icon: const Icon(Icons.folder_copy, color: Color(0xFF16C79A)),
+                        label: const Text('Ver todos los documentos', style: TextStyle(color: Color(0xFF16C79A))),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                const Text('Vehículos asignados', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.center,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 460),
+                    child: ListView.separated(
+                      itemCount: vehiclesToShow.length,
+                      physics: const NeverScrollableScrollPhysics(),
+                      shrinkWrap: true,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final vehicle = vehiclesToShow[index];
+                        return _buildVehicleCard(vehicle);
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.directions_car, color: Colors.white),
+                      label: const Text('Ver todos los vehículos'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white24),
+                      ),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Ver todos los vehículos aún no está disponible.')),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -503,9 +874,187 @@ class _InicioWidgetState extends State<InicioWidget> {
       ),
     );
   }
+
+  Widget _buildSummaryChip(IconData icon, String value, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: const Color(0xFF16C79A), size: 20),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVehicleInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 110,
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildVehicleDocumentCountdowns({int limit = 3}) {
+    final entries = _documents.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+
+    return entries.take(limit).map((entry) {
+      final paymentDate = _paymentDates?[entry.key];
+      final vehicleName = _documentVehicle[entry.key] ?? 'Vehículo sin asignar';
+      final expiry = entry.value;
+      final daysRemaining = expiry.difference(DateTime.now()).inDays;
+      final totalDays = daysRemaining <= 90 ? 90 : daysRemaining;
+      return Padding(
+        padding: const EdgeInsets.only(right: 12.0),
+        child: SizedBox(
+          width: 110,
+          child: GestureDetector(
+            onTap: () => DocumentModal.show(
+              context: context,
+              documentName: entry.key,
+              paymentDate: paymentDate,
+              expiryDate: expiry,
+            ),
+            child: DocumentCountdown(
+              expiry: expiry,
+              paymentDate: paymentDate,
+              totalDuration: Duration(days: totalDays),
+              title: entry.key,
+              subtitle: '$vehicleName\n${daysRemaining.clamp(0, 999)} días',
+              size: 92,
+            ),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  Widget _buildVehicleCard(Map<String, dynamic> vehicle) {
+    final DateTime? nextExpiry = vehicle['nextExpiry'] as DateTime?;
+
+    Color statusColor;
+    switch ((vehicle['status'] as String).toLowerCase()) {
+      case 'al día':
+        statusColor = const Color(0xFF16C79A);
+        break;
+      case 'documentos pendientes':
+        statusColor = const Color(0xFFEFB549);
+        break;
+      case 'en mantenimiento':
+        statusColor = const Color(0xFFE66B6B);
+        break;
+      default:
+        statusColor = Colors.white54;
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white10,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white24),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: Colors.white12,
+            child: Text(
+              (vehicle['plate'] as String).split('-').first,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(vehicle['plate'] as String, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        vehicle['status'] as String,
+                        style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                _buildVehicleInfoRow('Modelo', vehicle['model'] as String),
+                _buildVehicleInfoRow('Conductor', vehicle['driver'] as String),
+                if (nextExpiry != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: _buildVehicleInfoRow('Próximo vencimiento', _formatDate(nextExpiry)),
+                  ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.open_in_new, color: Colors.white70, size: 20),
+            onPressed: () {
+              if (nextExpiry != null) {
+                DocumentModal.show(
+                  context: context,
+                  documentName: 'Ficha vehículo ${vehicle['plate']}',
+                  expiryDate: nextExpiry,
+                  paymentDate: null,
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('No hay documento asociado para ${vehicle['plate']}'),
+                    backgroundColor: const Color(0xFF16C79A),
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
 }
 
-// A small reusable countdown + circular progress widget for documents.
+// A small reusable countdown + circular progress widget for documentos.
+
 class DocumentCountdown extends StatefulWidget {
   final DateTime expiry;
   final DateTime? paymentDate; // Fecha de pago
