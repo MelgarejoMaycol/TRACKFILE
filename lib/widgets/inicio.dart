@@ -13,13 +13,13 @@ class InicioWidget extends StatefulWidget {
   final String? userId; // ID del usuario a cargar
 
   const InicioWidget({
-    Key? key,
+    super.key,
     this.role,
     this.documents,
     this.jsonPath,
     this.userProfilePath,
     this.userId,
-  }) : super(key: key);
+  });
 
   @override
   State<InicioWidget> createState() => _InicioWidgetState();

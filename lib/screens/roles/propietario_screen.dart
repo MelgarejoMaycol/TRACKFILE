@@ -204,7 +204,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
                 ),
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -371,7 +371,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         children: [
           const Text('Vehículos', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          ..._ownerVehicles.map((vehicle) => _buildVehicleCardFromDashboard(vehicle)).toList(),
+          ..._ownerVehicles.map(_buildVehicleCardFromDashboard),
         ],
       ),
     );
@@ -399,7 +399,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         children: [
           const Text('Documentos', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          ...sortedDocuments.map((doc) => _buildDocumentCard(doc)).toList(),
+          ...sortedDocuments.map(_buildDocumentCard),
         ],
       ),
     );
@@ -427,7 +427,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         children: [
           const Text('Calendario de vencimientos', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          ...upcomingDocs.map((doc) => _buildCalendarItem(doc)).toList(),
+          ...upcomingDocs.map(_buildCalendarItem),
         ],
       ),
     );

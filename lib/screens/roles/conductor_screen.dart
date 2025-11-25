@@ -253,7 +253,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
 
     return Center(
       child: Text(
-        'Contenido: ${_selectedIndex}',
+        'Contenido: $_selectedIndex',
         style: const TextStyle(fontSize: 20, color: Colors.white),
       ),
     );
