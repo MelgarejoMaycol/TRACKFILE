@@ -405,7 +405,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   indicatorWeight: 0,
                                   indicatorPadding: EdgeInsets.zero,
                                   indicatorSize: TabBarIndicatorSize.tab,
-                                  overlayColor: MaterialStatePropertyAll(Colors.transparent),
+                                  overlayColor: WidgetStatePropertyAll<Color>(Colors.transparent),
                                   tabs: const [Tab(text: 'ÚNETE'), Tab(text: 'INICIA SESIÓN')],
                                 ),
                                 const SizedBox(height: 8),

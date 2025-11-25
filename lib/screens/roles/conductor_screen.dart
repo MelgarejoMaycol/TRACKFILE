@@ -11,13 +11,13 @@ class ConductorScreen extends StatefulWidget {
   final String? userId; // ID del usuario
 
   const ConductorScreen({
-    Key? key,
+    super.key,
     this.profileImagePath = '',
     this.companyName = 'Empresa Demo',
     this.personName = 'Nombre Persona',
     this.notificationsCount = 0,
     this.userId,
-  }) : super(key: key);
+  });
 
   @override
   State<ConductorScreen> createState() => _ConductorScreenState();
@@ -128,7 +128,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
                 ),
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -261,8 +261,15 @@ class _ConductorScreenState extends State<ConductorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF3330BE),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: Color(0xFF3330BE),
+      backgroundColor: const Color(0xFF3330BE),
       body: SafeArea(
         child: Row(
           children: [
