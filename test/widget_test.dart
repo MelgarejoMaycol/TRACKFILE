@@ -23,10 +23,14 @@ void main() {
     await tester.pumpAndSettle();
 
     // Debe verse el botón "ÚNETE" del onboarding
-    expect(find.text('ÚNETE'), findsOneWidget);
+    final joinFinder = find.text('ÚNETE');
+    expect(joinFinder, findsOneWidget);
+
+    // Garantiza que el botón esté visible para la interacción en pantallas pequeñas
+    await tester.ensureVisible(joinFinder);
 
     // Tocar y navegar a la pantalla de login
-    await tester.tap(find.text('ÚNETE'));
+    await tester.tap(joinFinder);
     await tester.pumpAndSettle();
 
     // Verifica que estás en Login
