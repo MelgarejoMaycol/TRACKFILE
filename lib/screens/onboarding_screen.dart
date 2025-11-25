@@ -17,7 +17,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _controller = PageController();
   Timer? _timer;
   int _currentPage = 0;
-  int _previousPage = 0;
   int _pageDirection = 1; // 1 = forward (from right), -1 = backward
   Offset _incomingOffset = const Offset(0.3, 0);
 
@@ -116,7 +115,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           setState(() {
                             _pageDirection = i > _currentPage ? 1 : -1;
                             _incomingOffset = Offset(_pageDirection * 0.3, 0);
-                            _previousPage = _currentPage;
                             _currentPage = i;
                           });
                         },
