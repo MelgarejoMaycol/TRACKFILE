@@ -64,7 +64,7 @@ class _InicioWidgetState extends State<InicioWidget> {
         _documentVehicle = {};
       }
     } catch (e) {
-      print('Error cargando documentos: $e');
+      debugPrint('Error cargando documentos: $e');
       _documents = _exampleDocuments();
       _paymentDates = null;
       _documentVehicle = {};
@@ -149,7 +149,7 @@ class _InicioWidgetState extends State<InicioWidget> {
       _paymentDates = payments.isEmpty ? null : payments;
       _documentVehicle = docVehicles;
     } catch (e) {
-      print('Error parsing JSON: $e');
+      debugPrint('Error parsing JSON: $e');
       rethrow;
     }
   }
@@ -193,7 +193,7 @@ class _InicioWidgetState extends State<InicioWidget> {
         }
       }
     } catch (e) {
-      print('Error cargando perfil de usuario: $e');
+      debugPrint('Error cargando perfil de usuario: $e');
     }
   }
 
@@ -491,7 +491,7 @@ class _InicioWidgetState extends State<InicioWidget> {
       child: Container(
         constraints: const BoxConstraints(minHeight: 88),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
+          color: Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.white24),
         ),
@@ -879,7 +879,7 @@ class _InicioWidgetState extends State<InicioWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
+        color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white24),
       ),
@@ -1005,7 +1005,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.15),
+                        color: statusColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -1064,14 +1064,14 @@ class DocumentCountdown extends StatefulWidget {
   final double size;
 
   const DocumentCountdown({
-    Key? key,
+    super.key,
     required this.expiry,
     this.paymentDate,
     required this.totalDuration,
     this.title = '',
     this.subtitle = '',
     this.size = 120,
-  }) : super(key: key);
+  });
 
   @override
   State<DocumentCountdown> createState() => _DocumentCountdownState();

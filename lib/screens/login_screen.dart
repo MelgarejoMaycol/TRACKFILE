@@ -397,7 +397,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 TabBar(
                                   controller: _tabController,
                                   labelColor: darkBlue,
-                                  unselectedLabelColor: darkBlue.withOpacity(0.6),
+                                  unselectedLabelColor: darkBlue.withValues(alpha: 0.6),
                                   labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                                   unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
                                   // Ensure the TabBar does not draw any underline or indicator

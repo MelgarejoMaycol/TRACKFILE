@@ -67,7 +67,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
         });
       }
     } catch (e) {
-      print('Error cargando datos de usuario: $e');
+      debugPrint('Error cargando datos de usuario: $e');
       setState(() {
         _userName = widget.personName;
         _userCompany = widget.companyName;

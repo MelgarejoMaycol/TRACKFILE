@@ -465,7 +465,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white24),
       ),
@@ -482,8 +482,8 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
               ),
               Chip(
                 label: Text(status, style: const TextStyle(color: Colors.white, fontSize: 12)),
-                backgroundColor: _vehicleStatusColor(status).withOpacity(0.25),
-                side: BorderSide(color: _vehicleStatusColor(status).withOpacity(0.5)),
+                backgroundColor: _vehicleStatusColor(status).withValues(alpha: 0.25),
+                side: BorderSide(color: _vehicleStatusColor(status).withValues(alpha: 0.5)),
               ),
             ],
           ),
@@ -522,7 +522,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white24),
       ),
@@ -575,7 +575,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white24),
       ),

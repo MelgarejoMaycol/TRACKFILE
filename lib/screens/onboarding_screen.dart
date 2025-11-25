@@ -206,10 +206,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ).merge(
                     ButtonStyle(
                       // degradado manual con Ink
-                      foregroundColor:
+                        foregroundColor:
                           WidgetStateProperty.all<Color>(Colors.white),
-                      overlayColor: WidgetStateProperty.all<Color>(
-                          Colors.white.withOpacity(0.08)),
+                        overlayColor: WidgetStateProperty.all<Color>(
+                          Colors.white.withValues(alpha: 0.08)),
                     ),
                   ),
                   child: Ink(
