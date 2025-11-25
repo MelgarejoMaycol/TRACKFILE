@@ -30,6 +30,6 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verifica que estás en Login
-    expect(find.text('Iniciar sesión'), findsOneWidget);
+    expect(find.text('INICIA SESIÓN'), findsOneWidget);
   });
 }
