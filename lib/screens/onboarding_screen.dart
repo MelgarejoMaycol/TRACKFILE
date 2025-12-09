@@ -51,8 +51,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     _SlideData(
       title: 'Todo centralizado',
-      description:
-          'Documentos de vehículos y conductores ordenados y seguros.',
+      description: 'Documentos de vehículos y conductores ordenados y seguros.',
       imagePath: 'assets/slide3.webp',
     ),
   ];
@@ -72,21 +71,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             final double imageWidth = math.min(size.width * widthFactor, 380.0);
 
             final double maxImageHeight = constraints.maxHeight * 0.48;
-            final double outerImageHeight = _clampDouble(maxImageHeight, 220.0, 420.0);
-            final double innerImageHeight = _clampDouble(outerImageHeight * 0.9, 200.0, 400.0);
+            final double outerImageHeight = _clampDouble(
+              maxImageHeight,
+              220.0,
+              420.0,
+            );
+            final double innerImageHeight = _clampDouble(
+              outerImageHeight * 0.9,
+              200.0,
+              400.0,
+            );
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-              // Header con logo (alineado a la izquierda)
-              Row(
-                mainAxisSize: MainAxisSize.max,
-                mainAxisAlignment: MainAxisAlignment.start,
+            final EdgeInsets contentPadding = const EdgeInsets.symmetric(
+              horizontal: 22,
+              vertical: 16,
+            );
+            final bool shouldScroll = constraints.maxHeight < 630;
+
+            final header = Align(
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Image.asset('assets/logo.png', height: 64),
                   const SizedBox(width: 10),
@@ -101,123 +106,136 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              // Imagen corrediza (solo la imagen dentro del PageView)
-              SizedBox(
-                height: outerImageHeight,
-                child: Center(
-                  child: Container(
-                    width: imageWidth,
-                    height: innerImageHeight,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: PageView.builder(
-                        controller: _controller,
-                        itemCount: _slides.length,
-                        onPageChanged: (i) {
-                          // determina la dirección y actualiza el índice
-                          setState(() {
-                            _pageDirection = i > _currentPage ? 1 : -1;
-                            _incomingOffset = Offset(_pageDirection * 0.3, 0);
-                            _currentPage = i;
-                          });
-                        },
-                        itemBuilder: (_, i) {
-                          final s = _slides[i];
-                          return Image.asset(s.imagePath, fit: BoxFit.cover);
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
+            );
 
-              // Texto fuera de la imagen: título + descripción con animación
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 350),
-                  transitionBuilder: (child, animation) {
-                    final offsetAnim = Tween<Offset>(
-                      begin: _incomingOffset,
-                      end: Offset.zero,
-                    ).animate(animation);
-                    return SlideTransition(
-                      position: offsetAnim,
-                      child: FadeTransition(opacity: animation, child: child),
-                    );
-                  },
-                  child: Column(
-                    key: ValueKey<int>(_currentPage),
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        _slides[_currentPage].title,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
+            final middleSection = Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    height: outerImageHeight,
+                    child: Center(
+                      child: Container(
+                        width: imageWidth,
+                        height: innerImageHeight,
+                        decoration: BoxDecoration(
                           color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: PageView.builder(
+                            controller: _controller,
+                            itemCount: _slides.length,
+                            onPageChanged: (i) {
+                              setState(() {
+                                _pageDirection = i > _currentPage ? 1 : -1;
+                                _incomingOffset = Offset(
+                                  _pageDirection * 0.3,
+                                  0,
+                                );
+                                _currentPage = i;
+                              });
+                            },
+                            itemBuilder: (_, i) {
+                              final s = _slides[i];
+                              return Image.asset(
+                                s.imagePath,
+                                fit: BoxFit.cover,
+                              );
+                            },
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _slides[_currentPage].description,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 18),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 350),
+                      transitionBuilder: (child, animation) {
+                        final offsetAnim = Tween<Offset>(
+                          begin: _incomingOffset,
+                          end: Offset.zero,
+                        ).animate(animation);
+                        return SlideTransition(
+                          position: offsetAnim,
+                          child: FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: Column(
+                        key: ValueKey<int>(_currentPage),
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            _slides[_currentPage].title,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _slides[_currentPage].description,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SmoothPageIndicator(
+                    controller: _controller,
+                    count: _slides.length,
+                    effect: const ExpandingDotsEffect(
+                      dotHeight: 8,
+                      dotWidth: 8,
+                      spacing: 8,
+                      activeDotColor: Color(0xFF14C6A4),
+                      dotColor: Colors.white24,
+                    ),
+                  ),
+                ],
               ),
+            );
 
-              const SizedBox(height: 24),
-
-              // Indicador de páginas al final
-              SmoothPageIndicator(
-                controller: _controller,
-                count: _slides.length,
-                effect: const ExpandingDotsEffect(
-                  dotHeight: 8,
-                  dotWidth: 8,
-                  spacing: 8,
-                  activeDotColor: Color(0xFF14C6A4),
-                  dotColor: Colors.white24,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Botón "ÚNETE" (alineado al centro con ancho del contenedor de imagen)
-              SizedBox(
+            final joinButton = Align(
+              alignment: Alignment.center,
+              child: SizedBox(
                 width: imageWidth,
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(context).pushNamed(LoginScreen.route);
                   },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                  ).merge(
-                    ButtonStyle(
-                      // degradado manual con Ink
-                        foregroundColor:
-                          WidgetStateProperty.all<Color>(Colors.white),
-                        overlayColor: WidgetStateProperty.all<Color>(
-                          Colors.white.withValues(alpha: 0.08)),
-                    ),
-                  ),
+                  style:
+                      ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                      ).merge(
+                        ButtonStyle(
+                          foregroundColor: WidgetStateProperty.all<Color>(
+                            Colors.white,
+                          ),
+                          overlayColor: WidgetStateProperty.all<Color>(
+                            Colors.white.withValues(alpha: 0.08),
+                          ),
+                        ),
+                      ),
                   child: Ink(
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
@@ -240,8 +258,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 ),
               ),
+            );
+
+            if (shouldScroll) {
+              return SingleChildScrollView(
+                padding: contentPadding,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    header,
+                    const SizedBox(height: 24),
+                    middleSection,
+                    const SizedBox(height: 32),
+                    joinButton,
                   ],
                 ),
+              );
+            }
+
+            return Padding(
+              padding: contentPadding,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  header,
+                  const SizedBox(height: 24),
+                  Expanded(child: middleSection),
+                  const SizedBox(height: 32),
+                  joinButton,
+                ],
               ),
             );
           },
@@ -262,7 +307,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (value > max) return max;
     return value;
   }
-
 }
 
 class _SlideData {

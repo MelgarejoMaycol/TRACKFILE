@@ -1,14 +1,17 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io' as io;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/services.dart';
 import './roles/admin_screen.dart';
 import './roles/conductor_screen.dart';
 import './roles/propietario_screen.dart';
 import './roles/empresa_screen.dart';
 import './roles/secretaria_screen.dart';
-import 'dart:io' show Platform;
+import 'package:http/http.dart' as http;
 
 
 class LoginScreen extends StatefulWidget {
@@ -29,7 +32,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   final _emailCtrl = TextEditingController();
   final _signupPassCtrl = TextEditingController();
   final _confirmPassCtrl = TextEditingController();
-  bool _loading = false;
+  bool _loginLoading = false;
+  bool _signUpLoading = false;
   late final TabController _tabController;
   bool _isUneteValid = false;
   bool _isLoginValid = false;
@@ -38,10 +42,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   bool _confirmPassObscure = true;
   bool _loginPassObscure = true;
 
-  String? _lastPickError;
+  static const String _compiledBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
 
-  // Mock upload state
-  String? _uploadedFileName;
+  String get _baseUrl {
+    if (_compiledBaseUrl.isNotEmpty) return _compiledBaseUrl;
+    if (kIsWeb) return 'http://localhost:8080';
+    if (io.Platform.isAndroid) return 'http://10.0.2.2:8080';
+    return 'http://localhost:8080';
+  }
 
   @override
   void initState() {
@@ -79,9 +87,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     final emailOk = _isValidEmail(_emailCtrl.text.trim());
     final passOk = _isValidSignupPassword(_signupPassCtrl.text.trim());
     final confirmOk = _signupPassCtrl.text.trim().isNotEmpty && _signupPassCtrl.text.trim() == _confirmPassCtrl.text.trim();
-    final hasPdf = _uploadedFileName != null && _uploadedFileName!.toLowerCase().endsWith('.pdf');
-
-    final newUnete = nameOk && nitOk && repOk && emailOk && passOk && confirmOk && hasPdf;
+    final newUnete = nameOk && nitOk && repOk && emailOk && passOk && confirmOk;
     final newLogin = _userCtrl.text.trim().isNotEmpty && _passCtrl.text.trim().isNotEmpty;
     if (newUnete != _isUneteValid || newLogin != _isLoginValid) {
       setState(() {
@@ -107,11 +113,47 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }
 
   Future<void> _doSignUp() async {
-    // Show the validation modal (48h notice) and then reset fields.
-    if (!mounted) return;
-    await _showValidationModal();
-    // After user closes modal, clear form fields (simulate a reset)
-    if (!mounted) return;
+    if (!_isUneteValid || _signUpLoading) return;
+    setState(() => _signUpLoading = true);
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/api/empresas'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'nombreEmpresa': _nameCtrl.text.trim(),
+              'nit': _nitCtrl.text.trim(),
+              'correo': _emailCtrl.text.trim(),
+              'representanteLegal': _repCtrl.text.trim(),
+              'cedulaRepresentante': _repCtrl.text.trim(),
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        await _showValidationModal();
+        if (!mounted) return;
+        _resetSignUpForm();
+      } else {
+        final message = response.body.isNotEmpty ? response.body : 'No se pudo completar el registro.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } on TimeoutException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El servidor tardó demasiado en responder. Inténtalo de nuevo.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al registrar la empresa: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _signUpLoading = false);
+    }
+  }
+
+  void _resetSignUpForm() {
     setState(() {
       _signupPassCtrl.clear();
       _confirmPassCtrl.clear();
@@ -119,9 +161,27 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       _nitCtrl.clear();
       _repCtrl.clear();
       _nameCtrl.clear();
-      _uploadedFileName = null;
       _isUneteValid = false;
     });
+  }
+
+  Widget? _screenForRole(Map<String, dynamic> userData) {
+    final rol = (userData['rol'] as String? ?? '').toUpperCase();
+    switch (rol) {
+      case 'ADMIN':
+        return const AdminScreen();
+      case 'EMPRESA':
+        return const EmpresaScreen();
+      case 'PROPIETARIO':
+        return const PropietarioScreen();
+      case 'CONDUCTOR':
+        final id = userData['id']?.toString() ?? '';
+        return ConductorScreen(userId: id);
+      case 'SECRETARIA':
+        return const SecretariaScreen();
+      default:
+        return null;
+    }
   }
 
   Future<void> _showValidationModal() async {
@@ -194,173 +254,66 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }
 
   Future<void> _doLogin() async {
-    setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', 'demo-token');
-    if (mounted) Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-  }
+    if (!_isLoginValid || _loginLoading) return;
+    setState(() => _loginLoading = true);
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/api/auth/login'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'correo': _userCtrl.text.trim(),
+              'contrasena': _passCtrl.text.trim(),
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
 
-  Future<void> _simulateUpload() async {
-    String? name = await _pickFileOnce();
-    if (name != null) {
-      // Ensure selected file is PDF (case-insensitive)
-      if (name.toLowerCase().endsWith('.pdf')) {
-        if (mounted) setState(() => _uploadedFileName = name);
-        if (mounted) _validateForms();
-      } else {
-        _lastPickError = 'El archivo debe ser un PDF';
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Seleccione un archivo PDF válido')));
-      }
-      return;
-    }
+      if (!mounted) return;
 
-    // If the picker failed or returned null, offer retry or manual entry
-    if (!mounted) return;
-    final choice = await showDialog<String?>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Seleccionar archivo'),
-          content: const Text('No se pudo abrir el selector de archivos. ¿Quieres intentar de nuevo o ingresar el nombre manualmente?'),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop('retry'), child: const Text('Reintentar')),
-            TextButton(onPressed: () => Navigator.of(ctx).pop('manual'), child: const Text('Ingresar manualmente')),
-            TextButton(onPressed: () => Navigator.of(ctx).pop(null), child: const Text('Cancelar')),
-          ],
-        );
-      },
-    );
-
-    if (choice == 'retry') {
-      final retryName = await _pickFileOnce();
-      if (retryName != null && mounted) {
-        if (retryName.toLowerCase().endsWith('.pdf')) {
-          setState(() => _uploadedFileName = retryName);
-          _validateForms();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El archivo debe ser un PDF')));
-        }
-      }
-      return;
-    }
-
-    if (choice == 'manual') {
-      final manual = await _enterFileNameManually();
-      if (manual != null && mounted) {
-        if (manual.toLowerCase().endsWith('.pdf')) {
-          setState(() => _uploadedFileName = manual);
-          _validateForms();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El archivo debe ser un PDF')));
-        }
-      }
-    }
-    // If we get here, both pick attempts failed or user cancelled. Show helpful error message.
-    if (_lastPickError != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al seleccionar archivo: $_lastPickError')));
-    }
-  }
-
-  /// Called when the user taps the "Subir documento" button.
-  /// On Android we'll try the native chooser via MethodChannel first so the
-  /// user can pick which app (Files, Drive, etc.) to use. If that fails or
-  /// on other platforms, fall back to the existing picker flow.
-  Future<void> _onUploadPressed() async {
-    if (!mounted) return;
-    // Try Android native chooser first
-    if (Platform.isAndroid) {
-      try {
-        const platform = MethodChannel('app.channel/files');
-        final String? name = await platform.invokeMethod('openDocumentPicker');
-        if (name != null) {
-          if (name.toLowerCase().endsWith('.pdf')) {
-            if (mounted) setState(() => _uploadedFileName = name);
-            if (mounted) _validateForms();
-          } else {
-            _lastPickError = 'El archivo debe ser un PDF';
-            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Seleccione un archivo PDF válido')));
+      if (response.statusCode == 200) {
+        try {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final estado = (data['estado'] as String?)?.toUpperCase();
+          if (estado != null && estado != 'ACTIVO') {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Tu usuario se encuentra en estado $estado. Comunícate con soporte.')));
+            return;
           }
-          return;
+
+          final prefs = await SharedPreferences.getInstance();
+          if (!mounted) return;
+          await prefs.setString('auth_user', response.body);
+          if (!mounted) return;
+
+          final target = _screenForRole(data);
+          if (target == null) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rol no reconocido para este usuario.')));
+            return;
+          }
+
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => target),
+            (route) => false,
+          );
+        } on FormatException {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Respuesta del servidor inválida.')));
         }
-      } catch (e) {
-        // keep the error in _lastPickError for diagnostics and fall through
-        _lastPickError = 'platform intent failed: $e';
-        debugPrint(_lastPickError);
+      } else if (response.statusCode == 401) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response.body.isNotEmpty ? response.body : 'Credenciales incorrectas.')));
+      } else {
+        final message = response.body.isNotEmpty ? response.body : 'No se pudo iniciar sesión.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
-    }
-
-    // Non-Android or intent failed: use the pickers
-    await _simulateUpload();
-  }
-
-  Future<String?> _pickFileOnce() async {
-    // On Android try the native intent chooser implemented in MainActivity first
-    if (Platform.isAndroid) {
-      try {
-        const platform = MethodChannel('app.channel/files');
-        final String? name = await platform.invokeMethod('openDocumentPicker');
-        if (name != null) return name;
-      } catch (e) {
-        _lastPickError = 'platform intent failed: $e';
-        debugPrint(_lastPickError);
+    } on TimeoutException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tiempo de espera agotado. Verifica tu conexión.')));
       }
-    }
-
-    // First try file_picker and restrict to PDF only for the signup flow
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        allowMultiple: false,
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-      );
-      if (result != null && result.files.isNotEmpty) return result.files.single.name;
     } catch (e) {
-      _lastPickError = 'file_picker failed: $e';
-      debugPrint(_lastPickError);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al iniciar sesión: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _loginLoading = false);
     }
-
-    // Fallback: try file_selector which is often better behaved on desktop platforms
-    try {
-      final typeGroup = fs.XTypeGroup(label: 'documents', extensions: ['pdf']);
-      final fs.XFile? xf = await fs.openFile(acceptedTypeGroups: [typeGroup]);
-      if (xf != null) return xf.name;
-    } catch (e) {
-      _lastPickError = 'file_selector fallback failed: $e';
-      debugPrint(_lastPickError);
-    }
-
-    return null;
-  }
-
-  Future<String?> _enterFileNameManually() async {
-    final controller = TextEditingController();
-    final res = await showDialog<String?>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Ingresar nombre de archivo'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(hintText: 'ej: documento.pdf'),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(null), child: const Text('Cancelar')),
-            TextButton(onPressed: () {
-              final txt = controller.text.trim();
-              if (!txt.toLowerCase().endsWith('.pdf')) {
-                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('El nombre debe terminar en .pdf')));
-                return;
-              }
-              Navigator.of(ctx).pop(txt);
-            }, child: const Text('Aceptar')),
-          ],
-        );
-      },
-    );
-    controller.dispose();
-    if (res != null && res.isNotEmpty) return res;
-    return null;
   }
 
   @override
@@ -534,36 +487,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             errorText: _confirmPassCtrl.text.isEmpty ? null : (_confirmPassCtrl.text == _signupPassCtrl.text ? null : 'Las contraseñas no coinciden'),
           ),
         ),
-        const SizedBox(height: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              onPressed: _onUploadPressed,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                backgroundColor: const Color(0xFFF5F7FA),
-                shadowColor: Colors.transparent,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.upload_file, color: Color(0xFF06135E)),
-                  SizedBox(width: 8),
-                  Text('Subir documento', style: TextStyle(color: Color(0xFF06135E))),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (_uploadedFileName != null) Text('Archivo subido: $_uploadedFileName'),
-          ],
-        ),
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: _isUneteValid ? _doSignUp : null,
+            onPressed: (_isUneteValid && !_signUpLoading) ? _doSignUp : null,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 0),
               backgroundColor: Colors.transparent,
@@ -572,11 +500,23 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
             child: Ink(
               decoration: BoxDecoration(
-                gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: _isUneteValid ? const [Color(0xFF06135E), Color(0xFF16C79A)] : [Colors.grey.shade400, Colors.grey.shade500]),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: (_isUneteValid && !_signUpLoading)
+                      ? const [Color(0xFF06135E), Color(0xFF16C79A)]
+                      : [Colors.grey.shade400, Colors.grey.shade500],
+                ),
                 borderRadius: const BorderRadius.all(Radius.circular(12)),
               ),
               // Reducimos la altura mínima para que el botón sea más angosto verticalmente
-              child: Container(alignment: Alignment.center, constraints: const BoxConstraints(minHeight: 40), child: const Text('Únete', style: TextStyle(color: Colors.white))),
+              child: Container(
+                alignment: Alignment.center,
+                constraints: const BoxConstraints(minHeight: 40),
+                child: _signUpLoading
+                    ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Únete', style: TextStyle(color: Colors.white)),
+              ),
             ),
           ),
         ),
@@ -608,7 +548,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: (_isLoginValid && !_loading) ? _doLogin : null,
+            onPressed: (_isLoginValid && !_loginLoading) ? _doLogin : null,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 0),
               backgroundColor: Colors.transparent,
@@ -624,7 +564,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               child: Container(
                 alignment: Alignment.center,
                 constraints: const BoxConstraints(minHeight: 40),
-                child: _loading ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Inicia Sesion', style: TextStyle(color: Colors.white)),
+                child: _loginLoading
+                  ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Inicia Sesion', style: TextStyle(color: Colors.white)),
               ),
             ),
           ),

@@ -86,15 +86,11 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         String? targetId = widget.userId;
         targetId ??= owners.first['id']?.toString();
 
-        if (targetId != null) {
-          userData = owners.firstWhere(
-            (owner) => owner['id']?.toString() == targetId,
-            orElse: () => owners.first,
-          );
-        } else {
-          userData = owners.first;
-        }
-      } else if (jsonData.isNotEmpty) {
+        userData = owners.firstWhere(
+          (owner) => owner['id']?.toString() == targetId,
+          orElse: () => owners.first,
+        );
+            } else if (jsonData.isNotEmpty) {
         userData = jsonData;
       }
 
