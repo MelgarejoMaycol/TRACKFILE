@@ -307,214 +307,298 @@ class _InicioWidgetState extends State<InicioWidget> {
   }
 
   Widget _conductorInicio() {
-    // Example data: replace with DB values when integrating
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < 480;
+        final double imageHeight = isCompact ? 160 : 200;
+        final double countdownSize = isCompact ? 80 : 90;
+        final double countdownWidth = isCompact ? 108 : 120;
+        final EdgeInsets outerPadding = EdgeInsets.symmetric(
+          horizontal: isCompact ? 16 : 20,
+          vertical: 20,
+        );
+        final List<MapEntry<String, DateTime>> upcoming = _upcomingDocs(limit: 3);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Top image area: larger vehicle image
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: double.infinity,
-            // Imagen más grande (doble tamaño)
-            height: 200,
-            color: Colors.transparent,
-            child: Image.asset(
-              'assets/vehicles.webp',
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Horizontal list of upcoming document countdowns
-        Center(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: _upcomingDocs(limit: 3).map((e) {
-                final name = e.key;
-                final expiry = e.value;
-                final paymentDate = _paymentDates?[name];
-                final daysRemaining = expiry.difference(DateTime.now()).inDays;
-                final totalDays = daysRemaining <= 90 ? 90 : daysRemaining;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 12.0),
-                  child: SizedBox(
-                    width: 120,
-                    child: GestureDetector(
-                      onTap: () => DocumentModal.show(
-                        context: context,
-                        documentName: name,
-                        paymentDate: paymentDate,
-                        expiryDate: expiry,
-                      ),
-                      child: DocumentCountdown(
-                        expiry: expiry,
-                        paymentDate: paymentDate,
-                        totalDuration: Duration(days: totalDays),
-                        title: name,
-                        subtitle: '${daysRemaining.clamp(0, 999)} días',
-                        size: 90,
+        return SingleChildScrollView(
+          padding: outerPadding,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 540),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: double.infinity,
+                      height: imageHeight,
+                      color: Colors.transparent,
+                      child: Image.asset(
+                        'assets/vehicles.webp',
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
-                );
-              }).toList(),
+                  SizedBox(height: isCompact ? 12 : 16),
+                  if (upcoming.isNotEmpty)
+                    Align(
+                      alignment: Alignment.center,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (var i = 0; i < upcoming.length; i++)
+                              Padding(
+                                padding: EdgeInsets.only(right: i == upcoming.length - 1 ? 0 : 12),
+                                child: SizedBox(
+                                  width: countdownWidth,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      final entry = upcoming[i];
+                                      final paymentDate = _paymentDates?[entry.key];
+                                      DocumentModal.show(
+                                        context: context,
+                                        documentName: entry.key,
+                                        paymentDate: paymentDate,
+                                        expiryDate: entry.value,
+                                      );
+                                    },
+                                    child: DocumentCountdown(
+                                      expiry: upcoming[i].value,
+                                      paymentDate: _paymentDates?[upcoming[i].key],
+                                      totalDuration: Duration(
+                                        days: upcoming[i].value.difference(DateTime.now()).inDays <= 90
+                                            ? 90
+                                            : upcoming[i].value.difference(DateTime.now()).inDays,
+                                      ),
+                                      title: upcoming[i].key,
+                                      subtitle:
+                                          '${upcoming[i].value.difference(DateTime.now()).inDays.clamp(0, 999)} días',
+                                      size: countdownSize,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  SizedBox(height: isCompact ? 18 : 24),
+                  Align(
+                    alignment: Alignment.center,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      child: _buildUserProfile(isCompact: isCompact),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 60),
-          child: _buildUserProfile(),
-        ),
-      ]),
+        );
+      },
     );
   }
 
-  Widget _buildUserProfile() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white12,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white30, width: 1.5),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Header con foto, nombre y botones
-          Row(
+  Widget _buildUserProfile({required bool isCompact}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool stackActions = constraints.maxWidth < 360;
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white24, width: 1.4),
+          ),
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 14 : 18,
+            vertical: isCompact ? 14 : 18,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Foto de perfil
-              CircleAvatar(
-                radius: 30,
-                backgroundColor: Colors.white24,
-                backgroundImage: _userProfileImage != null && _userProfileImage!.isNotEmpty
-                    ? AssetImage(_userProfileImage!)
-                    : null,
-                child: _userProfileImage == null || _userProfileImage!.isEmpty
-                    ? const Icon(Icons.person, size: 35, color: Colors.white70)
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              // Nombre y empresa
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _userName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: isCompact ? 28 : 30,
+                    backgroundColor: Colors.white24,
+                    backgroundImage: _userProfileImage != null && _userProfileImage!.isNotEmpty
+                        ? AssetImage(_userProfileImage!)
+                        : null,
+                    child: _userProfileImage == null || _userProfileImage!.isEmpty
+                        ? const Icon(Icons.person, size: 34, color: Colors.white70)
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _userName,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isCompact ? 17 : 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _userCompany,
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: isCompact ? 13 : 14,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _userCompany,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
-                    ),
+                  ),
+                  if (!stackActions) ...[
+                    const SizedBox(width: 12),
+                    _buildProfileActions(centered: false),
                   ],
-                ),
+                ],
               ),
-              // Botones de acción
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF16C79A),
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  iconSize: 20,
-                  icon: const Icon(Icons.person, color: Colors.white),
-                  onPressed: () {},
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF16C79A),
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  iconSize: 20,
-                  icon: const Icon(Icons.email, color: Colors.white),
-                  onPressed: () {},
-                ),
+              if (stackActions) ...[
+                const SizedBox(height: 12),
+                _buildProfileActions(centered: true),
+              ],
+              const SizedBox(height: 14),
+              const Divider(color: Colors.white24, thickness: 0.8, height: 1),
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (context, boxConstraints) {
+                  final bool stackQuickActions = boxConstraints.maxWidth < 420;
+                  final bool showPaymentCard = _role.toLowerCase() != 'propietario';
+                  final quickCards = <Widget>[
+                    _buildQuickAccessCard(Icons.folder_open, 'Ver\ndocumentos', _showDocumentsOverview),
+                    if (showPaymentCard)
+                      _buildQuickAccessCard(Icons.payments, 'Pagos\npendientes', _showPaymentSchedule),
+                  ];
+
+                  if (stackQuickActions) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < quickCards.length; i++) ...[
+                          if (i > 0) const SizedBox(height: 12),
+                          quickCards[i],
+                        ],
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(child: quickCards[0]),
+                      if (quickCards.length > 1) ...[
+                        const SizedBox(width: 12),
+                        Expanded(child: quickCards[1]),
+                      ],
+                    ],
+                  );
+                },
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          // Línea divisoria
-          Container(
-            height: 1,
-            color: Colors.white30,
-          ),
-          const SizedBox(height: 12),
-          // Accesos rápidos relevantes para el conductor
-          const SizedBox(height: 12),
-          Builder(
-            builder: (_) {
-              final bool showPaymentCard = _role.toLowerCase() != 'propietario';
-              final children = <Widget>[
-                Expanded(child: _buildQuickAccessCard(Icons.folder_open, 'Ver\ndocumentos', _showDocumentsOverview)),
-              ];
-              if (showPaymentCard) {
-                children
-                  ..add(const SizedBox(width: 12))
-                  ..add(Expanded(child: _buildQuickAccessCard(Icons.payments, 'Pagos\npendientes', _showPaymentSchedule)));
-              }
-              return Row(children: children);
-            },
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildQuickAccessCard(IconData icon, String label, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 88),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white24),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Colors.white, size: 24),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              softWrap: true,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < 180;
+        final double iconSize = isCompact ? 22 : 24;
+        final double fontSize = isCompact ? 12 : 13;
+        final double verticalPadding = isCompact ? 16 : 18;
+
+        return InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-          ],
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: verticalPadding),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: iconSize + 16,
+                  height: iconSize + 16,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: iconSize),
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    label.replaceAll('\n', ' '),
+                    textAlign: TextAlign.left,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProfileActions({required bool centered}) {
+    final buttons = <Widget>[
+      _buildProfileActionButton(Icons.person, () {}),
+      _buildProfileActionButton(Icons.email, () {}),
+    ];
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: centered ? MainAxisAlignment.center : MainAxisAlignment.end,
+      children: [
+        for (var i = 0; i < buttons.length; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          buttons[i],
+        ],
+      ],
+    );
+  }
+
+  Widget _buildProfileActionButton(IconData icon, VoidCallback onTap) {
+    return Material(
+      color: const Color(0xFF16C79A),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(icon, color: Colors.white, size: 20),
         ),
       ),
     );
@@ -718,7 +802,10 @@ class _InicioWidgetState extends State<InicioWidget> {
         .where((entry) => entry.value.isBefore(DateTime.now().add(const Duration(days: 30))))
         .length;
     final vehiclesToShow = _fleetVehicles.take(3).toList();
-    final upcomingDocs = _buildVehicleDocumentCountdowns(limit: 4);
+
+    final List<MapEntry<String, DateTime>> upcomingDocEntries = _documents.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+    final List<MapEntry<String, DateTime>> limitedUpcoming = upcomingDocEntries.take(3).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(vertical: 20),
@@ -760,19 +847,10 @@ class _InicioWidgetState extends State<InicioWidget> {
                     ),
                   ),
                 const SizedBox(height: 24),
-                if (upcomingDocs.isNotEmpty) ...[
+                if (limitedUpcoming.isNotEmpty) ...[
                   const Text('Documentos próximos a vencer', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.center,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: upcomingDocs,
-                      ),
-                    ),
-                  ),
+                  _buildOwnerDocumentCountdowns(limitedUpcoming),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -923,39 +1001,70 @@ class _InicioWidgetState extends State<InicioWidget> {
     );
   }
 
-  List<Widget> _buildVehicleDocumentCountdowns({int limit = 3}) {
-    final entries = _documents.entries.toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
+  Widget _buildOwnerDocumentCountdowns(List<MapEntry<String, DateTime>> docs) {
+    const double spacing = 14.0;
 
-    return entries.take(limit).map((entry) {
-      final paymentDate = _paymentDates?[entry.key];
-      final vehicleName = _documentVehicle[entry.key] ?? 'Vehículo sin asignar';
-      final expiry = entry.value;
-      final daysRemaining = expiry.difference(DateTime.now()).inDays;
-      final totalDays = daysRemaining <= 90 ? 90 : daysRemaining;
-      return Padding(
-        padding: const EdgeInsets.only(right: 12.0),
-        child: SizedBox(
-          width: 110,
-          child: GestureDetector(
-            onTap: () => DocumentModal.show(
-              context: context,
-              documentName: entry.key,
-              paymentDate: paymentDate,
-              expiryDate: expiry,
-            ),
-            child: DocumentCountdown(
-              expiry: expiry,
-              paymentDate: paymentDate,
-              totalDuration: Duration(days: totalDays),
-              title: entry.key,
-              subtitle: '$vehicleName\n${daysRemaining.clamp(0, 999)} días',
-              size: 92,
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        double maxWidth = constraints.maxWidth;
+        if (maxWidth.isInfinite || maxWidth <= 0) {
+          maxWidth = MediaQuery.of(context).size.width;
+        }
+
+        int columns = docs.isEmpty ? 1 : docs.length;
+        if (columns > 3) {
+          columns = 3;
+        }
+
+        while (columns > 1) {
+          final double candidateWidth = (maxWidth - spacing * (columns - 1)) / columns;
+          if (candidateWidth >= 80) {
+            break;
+          }
+          columns -= 1;
+        }
+
+        final double totalSpacing = spacing * (columns - 1);
+        final double itemWidth = (maxWidth - totalSpacing) / columns;
+        final double countdownSize = itemWidth.clamp(78.0, 110.0);
+
+        return Align(
+          alignment: Alignment.center,
+          child: Wrap(
+            spacing: spacing,
+            runSpacing: spacing,
+            alignment: WrapAlignment.center,
+            children: docs.map((entry) {
+              final DateTime expiry = entry.value;
+              final int daysRemaining = expiry.difference(DateTime.now()).inDays;
+              final int totalDays = daysRemaining <= 90 ? 90 : daysRemaining;
+              final DateTime? paymentDate = _paymentDates?[entry.key];
+              final String vehicleName = _documentVehicle[entry.key] ?? 'Vehículo sin asignar';
+
+              return SizedBox(
+                width: itemWidth,
+                child: GestureDetector(
+                  onTap: () => DocumentModal.show(
+                    context: context,
+                    documentName: entry.key,
+                    paymentDate: paymentDate,
+                    expiryDate: expiry,
+                  ),
+                  child: DocumentCountdown(
+                    expiry: expiry,
+                    paymentDate: paymentDate,
+                    totalDuration: Duration(days: totalDays),
+                    title: entry.key,
+                    subtitle: '$vehicleName\n${daysRemaining.clamp(0, 999)} días',
+                    size: countdownSize,
+                  ),
+                ),
+              );
+            }).toList(),
           ),
-        ),
-      );
-    }).toList();
+        );
+      },
+    );
   }
 
   Widget _buildVehicleCard(Map<String, dynamic> vehicle) {

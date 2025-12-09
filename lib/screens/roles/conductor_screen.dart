@@ -24,6 +24,11 @@ class ConductorScreen extends StatefulWidget {
 }
 
 class _ConductorScreenState extends State<ConductorScreen> {
+  static const Color _primaryColor = Color(0xFF3330BE);
+  static const Color _surfaceColor = Color(0xFF131760);
+  static const Color _accentColor = Color(0xFF4F4CE8);
+  static const Color _chipBorderColor = Color(0xFF6B68F1);
+
   int _selectedIndex = 0;
   String _userName = 'Nombre Persona';
   String _userCompany = 'Empresa Demo';
@@ -134,72 +139,95 @@ class _ConductorScreenState extends State<ConductorScreen> {
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar({required bool isCompact}) {
     return Container(
-      height: 64,
-      color: const Color(0xFF3330BE),
+      height: isCompact ? 60 : 64,
+      color: _primaryColor,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildBottomIcon(Icons.home, 0, 'Inicio'),
-          _buildBottomIcon(Icons.map, 1, 'Rutas'),
-          _buildBottomIcon(Icons.add_box, 2, 'Nuevo'),
-          _buildBottomIcon(Icons.chat, 3, 'Mensajes'),
-          _buildBottomIcon(Icons.person, 4, 'Perfil'),
+          _buildBottomIcon(Icons.home, 0, 'Inicio', isCompact: isCompact),
+          _buildBottomIcon(Icons.map, 1, 'Rutas', isCompact: isCompact),
+          _buildBottomIcon(Icons.add_box, 2, 'Nuevo', isCompact: isCompact),
+          _buildBottomIcon(Icons.chat, 3, 'Mensajes', isCompact: isCompact),
+          _buildBottomIcon(Icons.person, 4, 'Perfil', isCompact: isCompact),
         ],
       ),
     );
   }
 
-  Widget _buildBottomIcon(IconData icon, int idx, String label) {
+  Widget _buildBottomIcon(IconData icon, int idx, String label, {required bool isCompact}) {
     final selected = _selectedIndex == idx;
     return InkWell(
       onTap: () => _onBottomTap(idx),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: selected ? Colors.white : Colors.white70),
-          const SizedBox(height: 4),
-          Text(label, style: TextStyle(fontSize: 11, color: selected ? Colors.white : Colors.white70)),
-        ],
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: EdgeInsets.symmetric(
+          horizontal: isCompact ? 10 : 12,
+          vertical: isCompact ? 6 : 8,
+        ),
+        decoration: BoxDecoration(
+          color: selected ? _accentColor.withValues(alpha: 0.28) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: isCompact ? 22 : 24, color: Colors.white),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(fontSize: isCompact ? 10 : 11, color: Colors.white),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader({required bool isCompact}) {
     return Container(
-      color: Color(0xFF3330BE),
-      padding: EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+      color: _primaryColor,
+      padding: EdgeInsets.symmetric(vertical: isCompact ? 20 : 28, horizontal: isCompact ? 16 : 20),
       child: Row(
         children: [
           CircleAvatar(
-            radius: 36,
+            radius: isCompact ? 30 : 36,
             backgroundColor: Colors.white24,
             backgroundImage: widget.profileImagePath.isNotEmpty ? NetworkImage(widget.profileImagePath) : null,
-            child: widget.profileImagePath.isEmpty ? Icon(Icons.person, size: 36, color: Colors.white) : null,
+            child: widget.profileImagePath.isEmpty
+                ? Icon(Icons.person, size: isCompact ? 32 : 36, color: Colors.white)
+                : null,
           ),
-          SizedBox(width: 12),
+          SizedBox(width: isCompact ? 10 : 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_userName, style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                SizedBox(height: 4),
-                Text(_userCompany, style: TextStyle(color: Colors.white70, fontSize: 14)),
+                Text(
+                  _userName,
+                  style: TextStyle(color: Colors.white, fontSize: isCompact ? 16 : 18, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: isCompact ? 2 : 4),
+                Text(_userCompany, style: TextStyle(color: Colors.white70, fontSize: isCompact ? 13 : 14)),
               ],
             ),
           ),
           Stack(
             children: [
-              Icon(Icons.notifications_none, color: Colors.white, size: 28),
+              Icon(Icons.notifications_none, color: Colors.white, size: isCompact ? 24 : 28),
               if (widget.notificationsCount > 0)
                 Positioned(
                   right: 0,
                   child: Container(
-                    padding: EdgeInsets.all(6),
+                    padding: EdgeInsets.all(isCompact ? 5 : 6),
                     decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                    child: Text('${widget.notificationsCount}', style: TextStyle(color: Colors.white, fontSize: 10)),
+                    child: Text(
+                      '${widget.notificationsCount}',
+                      style: TextStyle(color: Colors.white, fontSize: isCompact ? 9 : 10),
+                    ),
                   ),
                 ),
             ],
@@ -209,33 +237,73 @@ class _ConductorScreenState extends State<ConductorScreen> {
     );
   }
 
-  Widget _buildSearchAndWelcome() {
+  Widget _buildSearchAndWelcome({required bool isCompact}) {
     return Container(
-      color: Color(0xFF3330BE),
-      padding: EdgeInsets.symmetric(vertical: 16),
+      color: _primaryColor,
+      padding: EdgeInsets.symmetric(vertical: isCompact ? 12 : 16),
       child: Center(
         child: FractionallySizedBox(
-          widthFactor: 0.8,
+          widthFactor: isCompact ? 0.92 : 0.8,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Transform.translate(
-                offset: Offset(-8, 0),
-                child: Text('Bienvenido', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                offset: const Offset(-8, 0),
+                child: Text(
+                  'Bienvenido',
+                  style: TextStyle(color: Colors.white, fontSize: isCompact ? 18 : 20, fontWeight: FontWeight.bold),
+                ),
               ),
-              SizedBox(height: 10),
+              SizedBox(height: isCompact ? 8 : 10),
               TextField(
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: Colors.white.withValues(alpha: 0.14),
                   hintText: 'Buscar',
-                  prefixIcon: Icon(Icons.search),
-                  contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                  hintStyle: const TextStyle(color: Colors.white70),
+                  prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileMenuTabs() {
+    return Container(
+      color: _primaryColor,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: SizedBox(
+        height: 44,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          scrollDirection: Axis.horizontal,
+          itemBuilder: (context, index) {
+            final label = _leftMenuItems[index];
+            final selected = _selectedIndex == index;
+            return ChoiceChip(
+              label: Text(label),
+              selected: selected,
+              onSelected: (_) => _onLeftMenuTap(index),
+              selectedColor: _accentColor,
+              backgroundColor: _accentColor.withValues(alpha: 0.12),
+              showCheckmark: false,
+              visualDensity: VisualDensity.comfortable,
+              labelStyle: TextStyle(
+                color: Colors.white,
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+              ),
+              side: BorderSide(
+                color: selected ? _chipBorderColor : Colors.white24,
+              ),
+            );
+          },
+          separatorBuilder: (context, index) => const SizedBox(width: 12),
+          itemCount: _leftMenuItems.length,
         ),
       ),
     );
@@ -269,33 +337,60 @@ class _ConductorScreenState extends State<ConductorScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF3330BE),
+      backgroundColor: _primaryColor,
       body: SafeArea(
-        child: Row(
-          children: [
-            _buildLeftSidebar(),
-            Expanded(
-              child: Column(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isCompact = constraints.maxWidth < 700;
+
+            if (isCompact) {
+              return Column(
                 children: [
-                  _buildHeader(),
-                  _buildSearchAndWelcome(),
+                  _buildHeader(isCompact: true),
+                  _buildSearchAndWelcome(isCompact: true),
+                  _buildMobileMenuTabs(),
                   Expanded(
                     child: Container(
                       width: double.infinity,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF131760),
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(24),
-                        ),
+                        color: _surfaceColor,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                       ),
                       child: _buildContentForIndex(),
                     ),
                   ),
-                  _buildBottomBar(),
+                  _buildBottomBar(isCompact: true),
                 ],
-              ),
-            ),
-          ],
+              );
+            }
+
+            return Row(
+              children: [
+                _buildLeftSidebar(),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildHeader(isCompact: false),
+                      _buildSearchAndWelcome(isCompact: false),
+                      Expanded(
+                        child: Container(
+                          width: double.infinity,
+                          decoration: const BoxDecoration(
+                            color: _surfaceColor,
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(24),
+                            ),
+                          ),
+                          child: _buildContentForIndex(),
+                        ),
+                      ),
+                      _buildBottomBar(isCompact: false),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

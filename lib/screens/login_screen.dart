@@ -366,6 +366,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final bool isCompactWidth = size.width <= 360;
+    final double cardWidthFactor = isCompactWidth
+        ? 0.92
+        : (size.width <= 420 ? 0.86 : 0.80);
+    final double cardWidth = size.width * cardWidthFactor;
+    final double cardHeight = size.height * (size.height < 720 ? 0.82 : 0.75);
+
+    final double logoDiameter = _responsiveClamp(
+      value: size.width * 0.34,
+      min: 110,
+      max: 180,
+    );
+    final double logoRadius = logoDiameter / 2;
     const darkBlue = Color(0xFF06135E);
     return Scaffold(
       backgroundColor: const Color(0xFF0C1C58),
@@ -379,9 +392,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   alignment: Alignment.topCenter,
                   children: [
                     Container(
-                      width: size.width * 0.80,
-                      height: size.height * 0.75,
-                      margin: const EdgeInsets.only(top: 70),
+                      width: cardWidth,
+                      height: cardHeight,
+                      margin: EdgeInsets.only(top: logoRadius * 1.2),
                       child: Card(
                         color: Colors.white,
                         elevation: 0,
@@ -430,10 +443,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       right: 0,
                       child: Center(
                         child: CircleAvatar(
-                          radius: 88,
+                          radius: logoRadius,
                           backgroundColor: Colors.transparent,
                           child: ClipOval(
-                            child: Image.asset('assets/logoCirculo.png', width: 160, height: 160, fit: BoxFit.contain),
+                            child: Image.asset(
+                              'assets/logoCirculo.png',
+                              width: logoDiameter,
+                              height: logoDiameter,
+                              fit: BoxFit.contain,
+                            ),
                           ),
                         ),
                       ),
@@ -630,6 +648,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         ),
       );
     });
+  }
+
+  double _responsiveClamp({required double value, required double min, required double max}) {
+    return value.clamp(min, max).toDouble();
   }
 
   InputDecoration _inputDecoration(String label) {

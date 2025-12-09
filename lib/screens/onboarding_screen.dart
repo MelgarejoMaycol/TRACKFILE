@@ -59,16 +59,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-  final size = MediaQuery.of(context).size;
-  // clamp image heights to avoid overflow on small screens
-  final outerImageHeight = math.min(size.height * 0.605, 520.0);
-  final innerImageHeight = math.min(size.height * 0.528, 480.0);
-
     return Scaffold(
       backgroundColor: const Color(0xFF0C1C58),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final size = MediaQuery.of(context).size;
+            final bool isCompactWidth = size.width <= 360;
+            final double widthFactor = isCompactWidth
+                ? 0.82
+                : (size.width <= 420 ? 0.72 : 0.62);
+            final double imageWidth = math.min(size.width * widthFactor, 380.0);
+
+            final double maxImageHeight = constraints.maxHeight * 0.48;
+            final double outerImageHeight = _clampDouble(maxImageHeight, 220.0, 420.0);
+            final double innerImageHeight = _clampDouble(outerImageHeight * 0.9, 200.0, 400.0);
+
             return SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
               child: ConstrainedBox(
@@ -98,12 +104,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const SizedBox(height: 16),
               // Imagen corrediza (solo la imagen dentro del PageView)
               SizedBox(
-                // aumentamos la altura de la caja de imagenes un 10% (con tope)
                 height: outerImageHeight,
                 child: Center(
                   child: Container(
-                    width: size.width * 0.62,
-                    // la altura interna también se incrementa un 10% (con tope)
+                    width: imageWidth,
                     height: innerImageHeight,
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -193,7 +197,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
               // Botón "ÚNETE" (alineado al centro con ancho del contenedor de imagen)
               SizedBox(
-                width: size.width * 0.62,
+                width: imageWidth,
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(context).pushNamed(LoginScreen.route);
@@ -251,6 +255,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _timer?.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  double _clampDouble(double value, double min, double max) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
   }
 
 }
