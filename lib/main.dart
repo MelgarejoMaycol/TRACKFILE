@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:frontendproyecto/utils/role_router.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/login_screen.dart';
 
@@ -50,49 +50,41 @@ class _Root extends StatefulWidget {
 }
 
 class _RootState extends State<_Root> {
-  Future<bool> _isLoggedIn() async {
-    final prefs = await SharedPreferences.getInstance();
-    // Guarda un token real después de iniciar sesión; aquí solo verificamos su existencia.
-    return prefs.getString('auth_token') != null;
+  late final Future<Map<String, dynamic>?> _sessionFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessionFuture = loadSession();
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: _isLoggedIn(),
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _sessionFuture,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        // Si NO hay sesión -> mostrar Onboarding.
-        return snapshot.data! ? const _DummyHome() : const OnboardingScreen();
+
+        if (snapshot.hasError) {
+          return const OnboardingScreen();
+        }
+
+        final Map<String, dynamic>? userData = snapshot.data;
+        if (userData == null) {
+          return const OnboardingScreen();
+        }
+
+        final Widget? target = screenForRole(userData);
+        if (target == null) {
+          return const OnboardingScreen();
+        }
+
+        return target;
       },
-    );
-  }
-}
-
-/// Pantalla temporal (reemplázala por tu Home real)
-class _DummyHome extends StatelessWidget {
-  const _DummyHome();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Home')),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () async {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.remove('auth_token');
-            if (context.mounted) {
-              Navigator.of(context).pushReplacementNamed(OnboardingScreen.route);
-            }
-          },
-          child: const Text('Cerrar sesión (demo)'),
-        ),
-      ),
     );
   }
 }

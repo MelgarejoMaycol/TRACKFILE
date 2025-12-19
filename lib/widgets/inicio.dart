@@ -11,6 +11,10 @@ class InicioWidget extends StatefulWidget {
   final String? jsonPath; // Ruta al archivo JSON
   final String? userProfilePath; // Ruta al JSON del perfil
   final String? userId; // ID del usuario a cargar
+  final VoidCallback? onNavigateToDocuments;
+  final VoidCallback? onNavigateToPayments;
+  final VoidCallback? onNavigateToProfile;
+  final VoidCallback? onNavigateToMessages;
 
   const InicioWidget({
     super.key,
@@ -19,6 +23,10 @@ class InicioWidget extends StatefulWidget {
     this.jsonPath,
     this.userProfilePath,
     this.userId,
+    this.onNavigateToDocuments,
+    this.onNavigateToPayments,
+    this.onNavigateToProfile,
+    this.onNavigateToMessages,
   });
 
   @override
@@ -78,11 +86,6 @@ class _InicioWidgetState extends State<InicioWidget> {
       _isLoading = false;
     });
 
-    // You would replace `_exampleDocuments` with a real fetch from your API
-    if (_role.isEmpty) {
-      // Delay showing the picker until after build
-      WidgetsBinding.instance.addPostFrameCallback((_) => _askForRole());
-    }
   }
 
   Future<void> _loadFromJson(String path) async {
@@ -184,16 +187,37 @@ class _InicioWidgetState extends State<InicioWidget> {
         }
 
         if (userData != null) {
-          setState(() {
-            _userName = userData!['name'] ?? 'Usuario';
-            _userCompany = userData['company'] ?? 'Empresa';
-            _userProfileImage = userData['profileImage'];
-            
-          });
+          String? profileImageCandidate;
+          final dynamic rawImage = userData['profileImage'];
+          if (rawImage is String && rawImage.isNotEmpty) {
+            final bool assetExists = await _assetExists(rawImage);
+            if (assetExists) {
+              profileImageCandidate = rawImage;
+            } else {
+              debugPrint('Imagen de perfil no encontrada: $rawImage. Se usará el ícono por defecto.');
+            }
+          }
+
+          if (mounted) {
+            setState(() {
+              _userName = userData!['name'] ?? 'Usuario';
+              _userCompany = userData['company'] ?? 'Empresa';
+              _userProfileImage = profileImageCandidate;
+            });
+          }
         }
       }
     } catch (e) {
       debugPrint('Error cargando perfil de usuario: $e');
+    }
+  }
+
+  Future<bool> _assetExists(String path) async {
+    try {
+      await rootBundle.load(path);
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -253,32 +277,6 @@ class _InicioWidgetState extends State<InicioWidget> {
     return entries.take(limit).toList();
   }
 
-  Future<void> _askForRole() async {
-    final choice = await showDialog<String?>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Selecciona rol'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(title: const Text('Conductor'), onTap: () => Navigator.of(ctx).pop('Conductor')),
-              ListTile(title: const Text('Empresa'), onTap: () => Navigator.of(ctx).pop('Empresa')),
-              ListTile(title: const Text('Propietario'), onTap: () => Navigator.of(ctx).pop('Propietario')),
-              ListTile(title: const Text('Secretaria'), onTap: () => Navigator.of(ctx).pop('Secretaria')),
-              ListTile(title: const Text('Admin'), onTap: () => Navigator.of(ctx).pop('Admin')),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (choice != null && mounted) {
-      setState(() => _role = choice);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -286,11 +284,20 @@ class _InicioWidgetState extends State<InicioWidget> {
     }
 
     if (_role.isEmpty) {
-      // Waiting for selection
-      return const Center(child: SizedBox.shrink());
+      return _buildRoleSelectionLanding();
     }
 
-    // Render role-specific content
+    final Widget roleContent = _buildRoleContent();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(child: roleContent),
+      ],
+    );
+  }
+
+  Widget _buildRoleContent() {
     switch (_role.toLowerCase()) {
       case 'conductor':
         return _conductorInicio();
@@ -304,6 +311,33 @@ class _InicioWidgetState extends State<InicioWidget> {
       default:
         return _adminInicio();
     }
+  }
+
+  Widget _buildRoleSelectionLanding() {
+    final theme = Theme.of(context);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(height: 40),
+          Icon(Icons.dashboard_customize, size: 72, color: theme.colorScheme.primary),
+          const SizedBox(height: 16),
+          Text(
+            'Selecciona un rol para explorar su panel.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium,
+          ),
+          const SizedBox(height: 32),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 16,
+            runSpacing: 16
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _conductorInicio() {
@@ -421,15 +455,18 @@ class _InicioWidgetState extends State<InicioWidget> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: isCompact ? 28 : 30,
-                    backgroundColor: Colors.white24,
-                    backgroundImage: _userProfileImage != null && _userProfileImage!.isNotEmpty
-                        ? AssetImage(_userProfileImage!)
-                        : null,
-                    child: _userProfileImage == null || _userProfileImage!.isEmpty
-                        ? const Icon(Icons.person, size: 34, color: Colors.white70)
-                        : null,
+                  GestureDetector(
+                    onTap: _handleViewProfile,
+                    child: CircleAvatar(
+                      radius: isCompact ? 28 : 30,
+                      backgroundColor: Colors.white24,
+                      backgroundImage: _userProfileImage != null && _userProfileImage!.isNotEmpty
+                          ? AssetImage(_userProfileImage!)
+                          : null,
+                      child: _userProfileImage == null || _userProfileImage!.isEmpty
+                          ? const Icon(Icons.person, size: 34, color: Colors.white70)
+                          : null,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -473,9 +510,9 @@ class _InicioWidgetState extends State<InicioWidget> {
                   final bool stackQuickActions = boxConstraints.maxWidth < 420;
                   final bool showPaymentCard = _role.toLowerCase() != 'propietario';
                   final quickCards = <Widget>[
-                    _buildQuickAccessCard(Icons.folder_open, 'Ver\ndocumentos', _showDocumentsOverview),
+                    _buildQuickAccessCard(Icons.folder_open, 'Ver\ndocumentos', _handleViewDocuments),
                     if (showPaymentCard)
-                      _buildQuickAccessCard(Icons.payments, 'Pagos\npendientes', _showPaymentSchedule),
+                      _buildQuickAccessCard(Icons.payments, 'Pagos\npendientes', _handleViewPayments),
                   ];
 
                   if (stackQuickActions) {
@@ -572,8 +609,7 @@ class _InicioWidgetState extends State<InicioWidget> {
 
   Widget _buildProfileActions({required bool centered}) {
     final buttons = <Widget>[
-      _buildProfileActionButton(Icons.person, () {}),
-      _buildProfileActionButton(Icons.email, () {}),
+      _buildProfileActionButton(Icons.chat_bubble_outline, _handleViewMessages),
     ];
 
     return Row(
@@ -602,6 +638,38 @@ class _InicioWidgetState extends State<InicioWidget> {
         ),
       ),
     );
+  }
+
+  void _handleViewDocuments() {
+    if (widget.onNavigateToDocuments != null) {
+      widget.onNavigateToDocuments!();
+    } else {
+      _showDocumentsOverview();
+    }
+  }
+
+  void _handleViewPayments() {
+    if (widget.onNavigateToPayments != null) {
+      widget.onNavigateToPayments!();
+    } else {
+      _showPaymentSchedule();
+    }
+  }
+
+  void _handleViewProfile() {
+    if (widget.onNavigateToProfile != null) {
+      widget.onNavigateToProfile!();
+    } else {
+      _showNavigationFallback('el perfil');
+    }
+  }
+
+  void _handleViewMessages() {
+    if (widget.onNavigateToMessages != null) {
+      widget.onNavigateToMessages!();
+    } else {
+      _showNavigationFallback('los mensajes');
+    }
   }
 
   void _showDocumentsOverview() {
@@ -778,6 +846,16 @@ class _InicioWidgetState extends State<InicioWidget> {
           ),
         );
       },
+    );
+  }
+
+  void _showNavigationFallback(String destination) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Configura la navegación hacia $destination para continuar.'),
+        backgroundColor: const Color(0xFF16C79A),
+      ),
     );
   }
 

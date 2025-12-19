@@ -4,14 +4,9 @@ import 'dart:io' as io;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
-import './roles/admin_screen.dart';
-import './roles/conductor_screen.dart';
-import './roles/propietario_screen.dart';
-import './roles/empresa_screen.dart';
-import './roles/secretaria_screen.dart';
 import 'package:http/http.dart' as http;
+import 'package:frontendproyecto/utils/role_router.dart';
 
 
 class LoginScreen extends StatefulWidget {
@@ -165,25 +160,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     });
   }
 
-  Widget? _screenForRole(Map<String, dynamic> userData) {
-    final rol = (userData['rol'] as String? ?? '').toUpperCase();
-    switch (rol) {
-      case 'ADMIN':
-        return const AdminScreen();
-      case 'EMPRESA':
-        return const EmpresaScreen();
-      case 'PROPIETARIO':
-        return const PropietarioScreen();
-      case 'CONDUCTOR':
-        final id = userData['id']?.toString() ?? '';
-        return ConductorScreen(userId: id);
-      case 'SECRETARIA':
-        return const SecretariaScreen();
-      default:
-        return null;
-    }
-  }
-
   Future<void> _showValidationModal() async {
     if (!mounted) return;
     return showDialog<void>(
@@ -279,12 +255,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             return;
           }
 
-          final prefs = await SharedPreferences.getInstance();
-          if (!mounted) return;
-          await prefs.setString('auth_user', response.body);
+          await persistSession(data);
           if (!mounted) return;
 
-          final target = _screenForRole(data);
+          final target = screenForRole(data);
           if (target == null) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rol no reconocido para este usuario.')));
             return;
@@ -412,22 +386,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   ],
                 ),
                 const SizedBox(height: 24),
-                // Role quick-navigation buttons (temporary)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      ElevatedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminScreen())), child: const Text('Admin')),
-                      ElevatedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ConductorScreen(userId: '1'))), child: const Text('Conductor')),
-                      ElevatedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PropietarioScreen())), child: const Text('Propietario')),
-                      ElevatedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EmpresaScreen())), child: const Text('Empresa')),
-                      ElevatedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SecretariaScreen())), child: const Text('Secretaría')),
-                    ],
-                  ),
-                ),
+                _buildRoleShortcutButtons(),
               ],
             ),
           ),
@@ -603,6 +562,74 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       fillColor: const Color(0xFFF5F7FA),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
     );
+  }
+
+  Widget _buildRoleShortcutButtons() {
+    const roleConfigs = [
+      {'label': 'Conductor', 'role': 'CONDUCTOR', 'icon': Icons.directions_bus},
+      {'label': 'Empresa', 'role': 'EMPRESA', 'icon': Icons.apartment},
+      {'label': 'Propietario', 'role': 'PROPIETARIO', 'icon': Icons.person_pin},
+      {'label': 'Secretaria', 'role': 'SECRETARIA', 'icon': Icons.support_agent},
+      {'label': 'Admin', 'role': 'ADMIN', 'icon': Icons.admin_panel_settings},
+    ];
+
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        children: [
+          const SizedBox(height: 4),
+          Text(
+            'Ingresar directo por rol',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.center,
+            children: roleConfigs.map((config) {
+              final String label = config['label']! as String;
+              final String roleKey = config['role']! as String;
+              final IconData icon = config['icon']! as IconData;
+
+              return SizedBox(
+                width: 150,
+                child: ElevatedButton.icon(
+                  icon: Icon(icon, size: 20),
+                  label: Text(label),
+                  onPressed: () => _openRoleShortcut(roleKey),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF06135E),
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openRoleShortcut(String roleKey) {
+    final Map<String, dynamic> demoUser = {
+      'rol': roleKey,
+      'id': 'demo_$roleKey',
+      'nombre': 'Usuario',
+      'apellido': roleKey.toLowerCase(),
+      'empresa': {
+        'nombreEmpresa': 'Demo Logistics',
+        'representanteLegal': 'Demo Admin',
+        'nit': '900123456',
+      },
+    };
+
+    final Widget? target = screenForRole(demoUser);
+    if (target == null) return;
+
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => target));
   }
 
 }

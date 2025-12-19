@@ -2,6 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'package:frontendproyecto/widgets/inicio.dart';
+import 'package:frontendproyecto/widgets/documentos.dart';
+import 'package:frontendproyecto/widgets/mensajes.dart';
+
+class _MenuOption {
+  final String label;
+  final IconData icon;
+  final String subtitle;
+
+  const _MenuOption(this.label, this.icon, this.subtitle);
+}
 
 class ConductorScreen extends StatefulWidget {
   final String profileImagePath;
@@ -29,7 +39,9 @@ class _ConductorScreenState extends State<ConductorScreen> {
   static const Color _accentColor = Color(0xFF4F4CE8);
   static const Color _chipBorderColor = Color(0xFF6B68F1);
 
-  int _selectedIndex = 0;
+  int? _selectedUpperIndex;
+  int? _selectedLowerIndex = 0;
+  String _activeSection = 'Inicio';
   String _userName = 'Nombre Persona';
   String _userCompany = 'Empresa Demo';
   bool _isLoading = true;
@@ -81,60 +93,394 @@ class _ConductorScreenState extends State<ConductorScreen> {
     }
   }
 
-  final List<String> _leftMenuItems = [
-    'Inicio',
-    'Empresa',
-    'Documentos',
-    'Solicitudes',
-    'Calendario',
+  final List<_MenuOption> _upperMenuOptions = const [
+    _MenuOption('Mensajes', Icons.chat_bubble_rounded, 'Conversaciones y alertas'),
+    _MenuOption('Pagos', Icons.payments_rounded, 'Cuotas y obligaciones'),
+    _MenuOption('Vehículo', Icons.directions_car_filled_rounded, 'Asignaciones activas'),
+    _MenuOption('Empresa', Icons.apartment_rounded, 'Gestión corporativa'),
+    _MenuOption('Calendario', Icons.calendar_month_rounded, 'Programación diaria'),
   ];
 
-  void _onLeftMenuTap(int idx) {
-    setState(() => _selectedIndex = idx);
+  final List<_MenuOption> _lowerMenuOptions = const [
+    _MenuOption('Inicio', Icons.dashboard_rounded, 'Resumen general'),
+    _MenuOption('Documentos', Icons.folder_special_rounded, 'RUT, contratos y más'),
+    _MenuOption('Certificaciones', Icons.verified_rounded, 'Reporte de cumplimiento'),
+    _MenuOption('Perfil', Icons.person_rounded, 'Datos del conductor'),
+  ];
+
+  void _onUpperMenuTap(int idx) {
+    setState(() {
+      _selectedUpperIndex = idx;
+      _selectedLowerIndex = null;
+      _activeSection = _upperMenuOptions[idx].label;
+    });
   }
 
-  void _onBottomTap(int idx) {
-    setState(() => _selectedIndex = idx);
+  void _onLowerMenuTap(int idx) {
+    setState(() {
+      _selectedLowerIndex = idx;
+      _selectedUpperIndex = null;
+      _activeSection = _lowerMenuOptions[idx].label;
+    });
+  }
+
+  void _onBottomTap(String label) {
+    setState(() {
+      _activeSection = label;
+      final int upperIdx = _upperMenuOptions.indexWhere((option) => option.label == label);
+      _selectedUpperIndex = upperIdx != -1 ? upperIdx : null;
+      final int lowerIdx = _lowerMenuOptions.indexWhere((option) => option.label == label);
+      _selectedLowerIndex = lowerIdx != -1 ? lowerIdx : null;
+    });
+  }
+
+  void _navigateToDocuments() {
+    final int docsIndex = _lowerMenuOptions.indexWhere((option) => option.label == 'Documentos');
+    if (docsIndex != -1) {
+      _onLowerMenuTap(docsIndex);
+    }
+  }
+
+  void _navigateToPayments() {
+    final int paymentsIndex = _upperMenuOptions.indexWhere((option) => option.label == 'Pagos');
+    if (paymentsIndex != -1) {
+      _onUpperMenuTap(paymentsIndex);
+    }
+  }
+
+  void _navigateToProfile() {
+    final int profileIndex = _lowerMenuOptions.indexWhere((option) => option.label == 'Perfil');
+    if (profileIndex != -1) {
+      _onLowerMenuTap(profileIndex);
+    }
+  }
+
+  void _navigateToMessages() {
+    final int messagesIndex = _upperMenuOptions.indexWhere((option) => option.label == 'Mensajes');
+    if (messagesIndex != -1) {
+      _onUpperMenuTap(messagesIndex);
+    }
   }
 
   Widget _buildLeftSidebar() {
-    const double gap = 40.0; // mayor espacio entre botones
-    final int lastIndex = _leftMenuItems.length - 1;
     return Container(
-      width: 72,
-      color: Colors.transparent,
+      width: 216,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            _surfaceColor.withOpacity(0.92),
+            _primaryColor.withOpacity(0.88),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        border: Border(
+          right: BorderSide(color: Colors.white.withOpacity(0.12)),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.28),
+            blurRadius: 24,
+            offset: const Offset(8, 0),
+          ),
+        ],
+      ),
       child: Column(
-        // Alinear la lista hacia arriba (inicio)
-        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 220), // empujar el grupo significativamente hacia abajo
-          // los items
-          ..._leftMenuItems.asMap().entries.map((e) {
-            final i = e.key;
-            final label = e.value;
-            final selected = _selectedIndex == i;
-            return Padding(
-              padding: EdgeInsets.only(bottom: i == lastIndex ? 20.0 : gap),
-              child: GestureDetector(
-                onTap: () => _onLeftMenuTap(i),
-                child: Container(
-                  height: 120,
-                  alignment: Alignment.center,
-                  child: RotatedBox(
-                    quarterTurns: -1,
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        color: selected ? Colors.white : Colors.white70,
-                        fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+          _buildQuickAccessButton(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(26, 42, 26, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Panel de control',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: 44,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: _upperMenuOptions.asMap().entries.map((entry) {
+                final int index = entry.key;
+                final _MenuOption option = entry.value;
+                return _buildSidebarButton(
+                  option: option,
+                  selected: _selectedUpperIndex == index,
+                  isLast: index == _upperMenuOptions.length - 1,
+                  onTap: () => _onUpperMenuTap(index),
+                );
+              }).toList(),
+            ),
+          ),
+          const Spacer(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 34),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: _lowerMenuOptions.asMap().entries.map((entry) {
+                final int index = entry.key;
+                final _MenuOption option = entry.value;
+                return _buildSidebarButton(
+                  option: option,
+                  selected: _selectedLowerIndex == index,
+                  isLast: index == _lowerMenuOptions.length - 1,
+                  onTap: () => _onLowerMenuTap(index),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebarButton({
+    required _MenuOption option,
+    required bool selected,
+    required bool isLast,
+    required VoidCallback onTap,
+  }) {
+    final Color labelColor = selected ? Colors.white : Colors.white.withOpacity(0.86);
+    final Color subtitleColor = selected ? Colors.white70 : Colors.white54;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          splashColor: _accentColor.withOpacity(0.18),
+          highlightColor: Colors.transparent,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              color: selected ? Colors.white.withOpacity(0.14) : Colors.white.withOpacity(0.05),
+              border: Border.all(
+                color: selected
+                    ? _accentColor.withOpacity(0.6)
+                    : Colors.white.withOpacity(0.08),
+              ),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: _accentColor.withOpacity(0.32),
+                        blurRadius: 20,
+                        offset: const Offset(0, 12),
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.12),
+                        blurRadius: 12,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+            ),
+            child: Row(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
+                  width: 4,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    gradient: selected
+                        ? LinearGradient(
+                            colors: [
+                              _accentColor,
+                              _accentColor.withOpacity(0.3),
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          )
+                        : null,
+                    color: selected ? null : Colors.transparent,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? _accentColor.withOpacity(0.2) : Colors.white.withOpacity(0.08),
+                    border: Border.all(
+                      color: selected
+                          ? _accentColor.withOpacity(0.65)
+                          : Colors.white.withOpacity(0.1),
+                    ),
+                  ),
+                  child: Icon(
+                    option.icon,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        option.label,
+                        style: TextStyle(
+                          color: labelColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        option.subtitle,
+                        style: TextStyle(
+                          color: subtitleColor,
+                          fontSize: 11,
+                          height: 1.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  width: 26,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 180),
+                    opacity: selected ? 1 : 0,
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _accentColor.withOpacity(0.2),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 14,
+                        color: Colors.white,
                       ),
                     ),
                   ),
                 ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickAccessButton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(24),
+        child: InkWell(
+          onTap: () {},
+          borderRadius: BorderRadius.circular(24),
+          splashColor: Colors.white.withOpacity(0.18),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.white.withOpacity(0.86),
+                  Colors.white.withOpacity(0.72),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-            );
-          }),
-        ],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.18),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _accentColor,
+                    ),
+                    child: const Icon(
+                      Icons.flash_on_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Text(
+                          'Accesos directos',
+                          style: TextStyle(
+                            color: Color(0xFF131760),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Configura tus rutas frecuentes',
+                          style: TextStyle(
+                            color: Color(0xFF131760),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: _surfaceColor.withOpacity(0.8),
+                    size: 16,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -145,21 +491,31 @@ class _ConductorScreenState extends State<ConductorScreen> {
       color: _primaryColor,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildBottomIcon(Icons.home, 0, 'Inicio', isCompact: isCompact),
-          _buildBottomIcon(Icons.map, 1, 'Rutas', isCompact: isCompact),
-          _buildBottomIcon(Icons.add_box, 2, 'Nuevo', isCompact: isCompact),
-          _buildBottomIcon(Icons.chat, 3, 'Mensajes', isCompact: isCompact),
-          _buildBottomIcon(Icons.person, 4, 'Perfil', isCompact: isCompact),
-        ],
+        children: _lowerMenuOptions.asMap().entries.map((entry) {
+          final int index = entry.key;
+          final _MenuOption option = entry.value;
+          final bool selected = _selectedLowerIndex == index;
+          return _buildBottomIcon(
+            icon: option.icon,
+            label: option.label,
+            selected: selected,
+            isCompact: isCompact,
+          );
+        }).toList(),
       ),
     );
   }
 
-  Widget _buildBottomIcon(IconData icon, int idx, String label, {required bool isCompact}) {
-    final selected = _selectedIndex == idx;
+  Widget _buildBottomIcon({
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required bool isCompact,
+  }) {
     return InkWell(
-      onTap: () => _onBottomTap(idx),
+      onTap: () {
+        _onBottomTap(label);
+      },
       borderRadius: BorderRadius.circular(16),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
@@ -283,12 +639,14 @@ class _ConductorScreenState extends State<ConductorScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           scrollDirection: Axis.horizontal,
           itemBuilder: (context, index) {
-            final label = _leftMenuItems[index];
-            final selected = _selectedIndex == index;
+            final _MenuOption option = _upperMenuOptions[index];
+            final bool selected = _selectedUpperIndex == index;
             return ChoiceChip(
-              label: Text(label),
+              label: Text(option.label),
               selected: selected,
-              onSelected: (_) => _onLeftMenuTap(index),
+              onSelected: (_) {
+                _onUpperMenuTap(index);
+              },
               selectedColor: _accentColor,
               backgroundColor: _accentColor.withValues(alpha: 0.12),
               showCheckmark: false,
@@ -303,25 +661,56 @@ class _ConductorScreenState extends State<ConductorScreen> {
             );
           },
           separatorBuilder: (context, index) => const SizedBox(width: 12),
-          itemCount: _leftMenuItems.length,
+          itemCount: _upperMenuOptions.length,
         ),
       ),
     );
   }
 
-  Widget _buildContentForIndex() {
-    if (_selectedIndex == 0) {
-      return InicioWidget(
-        role: 'Conductor',
-        jsonPath: 'assets/documents_data.json',
-        userProfilePath: 'assets/user_profile.json',
-        userId: widget.userId ?? '1', // Usa el userId del widget o '1' por defecto
-      );
+  Widget _buildContentView() {
+    switch (_activeSection) {
+      case 'Inicio':
+        return InicioWidget(
+          role: 'Conductor',
+          jsonPath: 'assets/documents_data.json',
+          userProfilePath: 'assets/user_profile.json',
+          userId: widget.userId ?? '1',
+          onNavigateToDocuments: _navigateToDocuments,
+          onNavigateToPayments: _navigateToPayments,
+          onNavigateToProfile: _navigateToProfile,
+          onNavigateToMessages: _navigateToMessages,
+        );
+      case 'Documentos':
+        return DocumentosWidget(
+          role: 'Conductor',
+          jsonPath: 'assets/documents_data.json',
+        );
+      case 'Certificaciones':
+        return _buildPlaceholderSection('Certificaciones');
+      case 'Perfil':
+        return _buildPlaceholderSection('Perfil del conductor');
+      case 'Mensajes':
+        return MensajesWidget(
+          role: 'Conductor',
+          userId: widget.userId,
+        );
+      case 'Pagos':
+        return _buildPlaceholderSection('Pagos pendientes');
+      case 'Vehículo':
+        return _buildPlaceholderSection('Vehículo asignado');
+      case 'Empresa':
+        return _buildPlaceholderSection('Gestión de empresa');
+      case 'Calendario':
+        return _buildPlaceholderSection('Calendario de actividades');
+      default:
+        return _buildPlaceholderSection(_activeSection);
     }
+  }
 
+  Widget _buildPlaceholderSection(String label) {
     return Center(
       child: Text(
-        'Contenido: $_selectedIndex',
+        label,
         style: const TextStyle(fontSize: 20, color: Colors.white),
       ),
     );
@@ -356,7 +745,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
                         color: _surfaceColor,
                         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                       ),
-                      child: _buildContentForIndex(),
+                      child: _buildContentView(),
                     ),
                   ),
                   _buildBottomBar(isCompact: true),
@@ -381,7 +770,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
                               topLeft: Radius.circular(24),
                             ),
                           ),
-                          child: _buildContentForIndex(),
+                          child: _buildContentView(),
                         ),
                       ),
                       _buildBottomBar(isCompact: false),
