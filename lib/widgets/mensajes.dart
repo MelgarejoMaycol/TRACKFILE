@@ -451,7 +451,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
+        color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white24),
       ),
@@ -462,7 +462,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.22),
+              color: color.withValues(alpha: 0.22),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 22),
@@ -532,7 +532,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
+            color: Colors.white.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: Colors.white24),
           ),
@@ -560,15 +560,15 @@ class _MensajesWidgetState extends State<MensajesWidget> {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [baseColor.withOpacity(0.92), baseColor.withOpacity(0.65)],
+          colors: [baseColor.withValues(alpha: 0.92), baseColor.withValues(alpha: 0.65)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.12)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         boxShadow: [
           BoxShadow(
-            color: baseColor.withOpacity(0.18),
+            color: baseColor.withValues(alpha: 0.18),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -585,7 +585,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.18),
+                  color: Colors.white.withValues(alpha: 0.18),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: Colors.white, size: 24),
@@ -621,9 +621,9 @@ class _MensajesWidgetState extends State<MensajesWidget> {
             children: [
               _buildAlertChip(_AlertTypeX.label(alert.type)),
               _buildAlertChip('Urgencia ${_AlertUrgencyX.label(alert.urgency)}', color: urgencyColor),
-              _buildAlertChip(dueLabel, color: Colors.white.withOpacity(0.25)),
+              _buildAlertChip(dueLabel, color: Colors.white.withValues(alpha: 0.25)),
               if (alert.isDueSoon)
-                _buildAlertChip('Atención esta semana', color: Colors.white.withOpacity(0.35)),
+                _buildAlertChip('Atención esta semana', color: Colors.white.withValues(alpha: 0.35)),
               if (alert.isExpired)
                 _buildAlertChip('Vencida', color: const Color(0xFFFF6B6B)),
             ],
@@ -634,13 +634,13 @@ class _MensajesWidgetState extends State<MensajesWidget> {
   }
 
   Widget _buildAlertChip(String text, {Color? color}) {
-    final Color resolved = color ?? Colors.white.withOpacity(0.22);
+    final Color resolved = color ?? Colors.white.withValues(alpha: 0.22);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: resolved,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.18)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
       child: Text(
         text,
@@ -685,7 +685,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
         return const Color(0xFF7ED957);
       case _AlertUrgency.media:
       default:
-        return Colors.white.withOpacity(0.22);
+        return Colors.white.withValues(alpha: 0.22);
     }
   }
 
@@ -736,7 +736,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
               });
             },
             selectedColor: _accentColor,
-            backgroundColor: _accentColor.withOpacity(0.14),
+            backgroundColor: _accentColor.withValues(alpha: 0.14),
             showCheckmark: false,
             labelStyle: TextStyle(
               color: Colors.white,
@@ -766,9 +766,9 @@ class _MensajesWidgetState extends State<MensajesWidget> {
         },
         child: Container(
           decoration: BoxDecoration(
-            color: _surfaceColor.withOpacity(0.82),
+            color: _surfaceColor.withValues(alpha: 0.82),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           child: Row(
@@ -779,7 +779,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
                 height: 44,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.08),
+                  color: Colors.white.withValues(alpha: 0.08),
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -857,13 +857,13 @@ class _MensajesWidgetState extends State<MensajesWidget> {
     Color border;
     switch (type) {
       case _TagType.status:
-        background = Colors.white.withOpacity(0.14);
+        background = Colors.white.withValues(alpha: 0.14);
         border = Colors.white24;
         break;
       case _TagType.category:
-      default:
-        background = _accentColor.withOpacity(0.16);
+        background = _accentColor.withValues(alpha: 0.16);
         border = Colors.white24;
+        break;
     }
 
     return Container(
@@ -885,7 +885,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white24),
       ),
@@ -920,7 +920,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
+          color: Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white24),
         ),
