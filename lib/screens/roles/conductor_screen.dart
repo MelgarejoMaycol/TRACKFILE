@@ -168,18 +168,18 @@ class _ConductorScreenState extends State<ConductorScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            _surfaceColor.withOpacity(0.92),
-            _primaryColor.withOpacity(0.88),
+            _surfaceColor.withValues(alpha: 0.92),
+            _primaryColor.withValues(alpha: 0.88),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
         border: Border(
-          right: BorderSide(color: Colors.white.withOpacity(0.12)),
+          right: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.28),
+            color: Colors.black.withValues(alpha: 0.28),
             blurRadius: 24,
             offset: const Offset(8, 0),
           ),
@@ -208,7 +208,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
                   width: 44,
                   height: 3,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.5),
+                    color: Colors.white.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
@@ -259,7 +259,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
     required bool isLast,
     required VoidCallback onTap,
   }) {
-    final Color labelColor = selected ? Colors.white : Colors.white.withOpacity(0.86);
+    final Color labelColor = selected ? Colors.white : Colors.white.withValues(alpha: 0.86);
     final Color subtitleColor = selected ? Colors.white70 : Colors.white54;
 
     return Padding(
@@ -270,7 +270,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(22),
-          splashColor: _accentColor.withOpacity(0.18),
+          splashColor: _accentColor.withValues(alpha: 0.18),
           highlightColor: Colors.transparent,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
@@ -278,23 +278,23 @@ class _ConductorScreenState extends State<ConductorScreen> {
             padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(22),
-              color: selected ? Colors.white.withOpacity(0.14) : Colors.white.withOpacity(0.05),
+              color: selected ? Colors.white.withValues(alpha: 0.14) : Colors.white.withValues(alpha: 0.05),
               border: Border.all(
                 color: selected
-                    ? _accentColor.withOpacity(0.6)
-                    : Colors.white.withOpacity(0.08),
+                  ? _accentColor.withValues(alpha: 0.6)
+                  : Colors.white.withValues(alpha: 0.08),
               ),
               boxShadow: selected
                   ? [
                       BoxShadow(
-                        color: _accentColor.withOpacity(0.32),
+                        color: _accentColor.withValues(alpha: 0.32),
                         blurRadius: 20,
                         offset: const Offset(0, 12),
                       ),
                     ]
                   : [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.12),
+                        color: Colors.black.withValues(alpha: 0.12),
                         blurRadius: 12,
                         offset: const Offset(0, 8),
                       ),
@@ -313,7 +313,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
                         ? LinearGradient(
                             colors: [
                               _accentColor,
-                              _accentColor.withOpacity(0.3),
+                              _accentColor.withValues(alpha: 0.3),
                             ],
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
@@ -328,11 +328,11 @@ class _ConductorScreenState extends State<ConductorScreen> {
                   height: 42,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: selected ? _accentColor.withOpacity(0.2) : Colors.white.withOpacity(0.08),
+                    color: selected ? _accentColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.08),
                     border: Border.all(
-                      color: selected
-                          ? _accentColor.withOpacity(0.65)
-                          : Colors.white.withOpacity(0.1),
+                        color: selected
+                          ? _accentColor.withValues(alpha: 0.65)
+                          : Colors.white.withValues(alpha: 0.1),
                     ),
                   ),
                   child: Icon(
@@ -380,7 +380,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
                       height: 26,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: _accentColor.withOpacity(0.2),
+                        color: _accentColor.withValues(alpha: 0.2),
                       ),
                       child: const Icon(
                         Icons.arrow_forward_ios_rounded,
@@ -407,21 +407,21 @@ class _ConductorScreenState extends State<ConductorScreen> {
         child: InkWell(
           onTap: () {},
           borderRadius: BorderRadius.circular(24),
-          splashColor: Colors.white.withOpacity(0.18),
+          splashColor: Colors.white.withValues(alpha: 0.18),
           child: Ink(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
               gradient: LinearGradient(
                 colors: [
-                  Colors.white.withOpacity(0.86),
-                  Colors.white.withOpacity(0.72),
+                  Colors.white.withValues(alpha: 0.86),
+                  Colors.white.withValues(alpha: 0.72),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.18),
+                  color: Colors.black.withValues(alpha: 0.18),
                   blurRadius: 18,
                   offset: const Offset(0, 10),
                 ),
@@ -473,7 +473,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
                   ),
                   Icon(
                     Icons.arrow_forward_ios_rounded,
-                    color: _surfaceColor.withOpacity(0.8),
+                    color: _surfaceColor.withValues(alpha: 0.8),
                     size: 16,
                   ),
                 ],

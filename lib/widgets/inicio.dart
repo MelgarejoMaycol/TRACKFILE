@@ -308,9 +308,9 @@ class _InicioWidgetState extends State<InicioWidget> {
       case 'secretaria':
         return _secretariaInicio();
       case 'admin':
-      default:
         return _adminInicio();
     }
+    return _adminInicio();
   }
 
   Widget _buildRoleSelectionLanding() {

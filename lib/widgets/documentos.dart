@@ -112,9 +112,9 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
       case 'admin':
         return _adminDocumentos();
       case 'conductor':
-      default:
         return _conductorDocumentos();
     }
+    return _conductorDocumentos();
   }
 
   Widget _conductorDocumentos() {
@@ -176,14 +176,14 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                 gradient: LinearGradient(
                   colors: [
                     isNearExpiry ? const Color(0xFFFF6B6B) : _accentColor,
-                    isNearExpiry ? const Color(0xFFFF8E53) : _accentColor.withOpacity(0.7),
+                    isNearExpiry ? const Color(0xFFFF8E53) : _accentColor.withValues(alpha: 0.7),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.25),
+                    color: Colors.black.withValues(alpha: 0.25),
                     blurRadius: 18,
                     offset: const Offset(0, 12),
                   ),
@@ -251,9 +251,9 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
         return Container(
           margin: const EdgeInsets.only(bottom: 14),
           decoration: BoxDecoration(
-            color: _cardColor.withOpacity(0.82),
+            color: _cardColor.withValues(alpha: 0.82),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
           child: ListTile(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -304,7 +304,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: highlight ? _accentColor.withOpacity(0.2) : Colors.white.withOpacity(0.06),
+        color: highlight ? _accentColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: highlight ? _chipBorderColor : Colors.white24,
@@ -338,7 +338,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
+          color: Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white24),
         ),

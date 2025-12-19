@@ -125,7 +125,6 @@ class _AlertTypeX {
       case _AlertType.recordatorio:
         return 'Recordatorio';
       case _AlertType.otro:
-      default:
         return 'Otro';
     }
   }
@@ -151,7 +150,6 @@ class _AlertUrgencyX {
       case _AlertUrgency.baja:
         return 'Baja';
       case _AlertUrgency.media:
-      default:
         return 'Media';
     }
   }
@@ -329,9 +327,9 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       case 'admin':
         return _adminMensajes();
       case 'conductor':
-      default:
         return _conductorMensajes();
     }
+    return _conductorMensajes();
   }
 
   Widget _conductorMensajes() {
@@ -658,7 +656,6 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       case _AlertType.recordatorio:
         return const Color(0xFF16C79A);
       case _AlertType.otro:
-      default:
         return const Color(0xFF1F9EDC);
     }
   }
@@ -672,7 +669,6 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       case _AlertType.recordatorio:
         return Icons.notifications_active_rounded;
       case _AlertType.otro:
-      default:
         return Icons.info_rounded;
     }
   }
@@ -684,7 +680,6 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       case _AlertUrgency.baja:
         return const Color(0xFF7ED957);
       case _AlertUrgency.media:
-      default:
         return Colors.white.withValues(alpha: 0.22);
     }
   }
