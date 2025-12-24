@@ -343,9 +343,9 @@ class _PagosWidgetState extends State<PagosWidget> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
@@ -373,9 +373,9 @@ class _PagosWidgetState extends State<PagosWidget> {
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: isCompact ? 14 : 18, vertical: 24),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -468,19 +468,19 @@ class _PagosWidgetState extends State<PagosWidget> {
         gradient: LinearGradient(
           colors: [
             _accentColor,
-            _accentColor.withOpacity(0.75),
+            _accentColor.withValues(alpha: 0.75),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 18, offset: const Offset(0, 12)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 18, offset: const Offset(0, 12)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Proximo compromiso', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: isCompact ? 12 : 13)),
+          Text('Proximo compromiso', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: isCompact ? 12 : 13)),
           const SizedBox(height: 8),
           Text(payment.concepto, style: TextStyle(color: Colors.white, fontSize: isCompact ? 18 : 20, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
@@ -501,7 +501,7 @@ class _PagosWidgetState extends State<PagosWidget> {
             pendingCount == 1
                 ? 'Tienes 1 pago pendiente por completar.'
                 : 'Tienes $pendingCount pagos pendientes en la cola.',
-            style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: isCompact ? 12 : 13),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: isCompact ? 12 : 13),
           ),
         ],
       ),
@@ -547,9 +547,9 @@ class _PagosWidgetState extends State<PagosWidget> {
     return Container(
       padding: EdgeInsets.all(isCompact ? 18 : 22),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.12)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -710,11 +710,11 @@ class _PagosWidgetState extends State<PagosWidget> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20, vertical: isCompact ? 16 : 20),
       decoration: BoxDecoration(
-        color: _cardColor.withOpacity(0.9),
+        color: _cardColor.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.22), blurRadius: 18, offset: const Offset(0, 12)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.22), blurRadius: 18, offset: const Offset(0, 12)),
         ],
       ),
       child: Column(
@@ -781,12 +781,14 @@ class _PagosWidgetState extends State<PagosWidget> {
   }
 
   Widget _buildPaymentRow(_Payment payment, {required bool isCompact}) {
+    final DateTime? fechaPago = payment.fechaPago;
+    final String fechaTexto = fechaPago != null ? _dateFormat.format(fechaPago) : 'Sin fecha';
     return Container(
       padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
         children: [
@@ -796,7 +798,7 @@ class _PagosWidgetState extends State<PagosWidget> {
           ),
           Expanded(
             flex: 2,
-            child: Text(payment.fechaPago != null ? _dateFormat.format(payment.fechaPago!) : 'Sin fecha', style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13)),
+            child: Text(fechaTexto, style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13)),
           ),
           Expanded(
             flex: 2,
@@ -813,15 +815,14 @@ class _PagosWidgetState extends State<PagosWidget> {
   }
 
   Widget _buildMetricChip(String label, String value, Color color, {bool dense = false, String? statusKey}) {
-    final bool isInteractive = statusKey != null;
-    final bool isSelected = isInteractive && _isFilterActive(statusKey!);
+    final bool isSelected = statusKey != null && _isFilterActive(statusKey);
 
     final Widget content = Container(
       padding: EdgeInsets.symmetric(horizontal: dense ? 12 : 16, vertical: dense ? 8 : 10),
       decoration: BoxDecoration(
-        color: isSelected ? color.withOpacity(0.28) : color.withOpacity(0.18),
+        color: isSelected ? color.withValues(alpha: 0.28) : color.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isSelected ? color : color.withOpacity(0.45)),
+        border: Border.all(color: isSelected ? color : color.withValues(alpha: 0.45)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -849,7 +850,7 @@ class _PagosWidgetState extends State<PagosWidget> {
       ),
     );
 
-    if (!isInteractive) {
+    if (statusKey == null) {
       return content;
     }
 
@@ -867,9 +868,9 @@ class _PagosWidgetState extends State<PagosWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: _statusColor(normalized).withOpacity(0.18),
+        color: _statusColor(normalized).withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _statusColor(normalized).withOpacity(0.5)),
+        border: Border.all(color: _statusColor(normalized).withValues(alpha: 0.5)),
       ),
       child: Text(
         _capitalize(normalized),

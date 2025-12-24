@@ -232,11 +232,10 @@ class _PerfilWidgetState extends State<PerfilWidget> {
       final String objetivo = widget.userId?.trim().isNotEmpty == true
           ? widget.userId!.trim()
           : usuarios.first['id']?.toString() ?? '0';
-      Map<String, dynamic>? usuario = usuarios.firstWhere(
+      final Map<String, dynamic> usuario = usuarios.firstWhere(
         (item) => item['id']?.toString() == objetivo,
         orElse: () => usuarios.first,
       );
-      usuario ??= usuarios.first;
       final _PerfilUsuario perfil = _PerfilUsuario.fromMap(usuario);
       final _PerfilConfiguracion configuracion = _generarConfiguracion(perfil);
       if (!mounted) {
@@ -385,9 +384,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.orangeAccent.withOpacity(0.12),
+              color: Colors.orangeAccent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.orangeAccent.withOpacity(0.4)),
+              border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.4)),
             ),
             child: Row(
               children: const [
@@ -407,14 +406,14 @@ class _PerfilWidgetState extends State<PerfilWidget> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: _primaryColor.withOpacity(0.2),
+            color: _primaryColor.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.verified_user_rounded, color: Colors.white.withOpacity(0.9), size: 18),
+              Icon(Icons.verified_user_rounded, color: Colors.white.withValues(alpha: 0.9), size: 18),
               const SizedBox(width: 8),
               Text(
                 perfil.empresa,
@@ -433,9 +432,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
       width: isCompact ? double.infinity : 360,
       padding: EdgeInsets.fromLTRB(isCompact ? 18 : 22, 22, isCompact ? 18 : 22, 22),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -484,7 +483,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                   label: const Text('Actualizar datos'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    side: BorderSide(color: Colors.white.withOpacity(0.28)),
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.28)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
@@ -517,9 +516,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
       width: isCompact ? double.infinity : 640,
       padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -553,9 +552,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(isCompact ? 18 : 22, 22, isCompact ? 18 : 22, 22),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -568,7 +567,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
             ],
           ),
           const SizedBox(height: 18),
-          ...configuracion.toggles.map(_buildToggleTile).toList(),
+          ...configuracion.toggles.map(_buildToggleTile),
           const Divider(color: Colors.white24, height: 32),
           Wrap(
             spacing: 18,
@@ -592,9 +591,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(isCompact ? 18 : 22, 22, isCompact ? 18 : 22, 22),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -612,9 +611,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.04),
+                color: Colors.white.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
               child: const Text(
                 'Todavía no registras certificaciones en el sistema.',
@@ -642,9 +641,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(isCompact ? 18 : 22, 22, isCompact ? 18 : 22, 22),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -662,9 +661,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.04),
+                color: Colors.white.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
               child: const Text(
                 'Sin vehículos en asignación actual.',
@@ -692,12 +691,12 @@ class _PerfilWidgetState extends State<PerfilWidget> {
       return CircleAvatar(
         radius: 36,
         backgroundImage: AssetImage(imagen),
-        backgroundColor: Colors.white.withOpacity(0.1),
+        backgroundColor: Colors.white.withValues(alpha: 0.1),
       );
     }
     return CircleAvatar(
       radius: 36,
-      backgroundColor: Colors.white.withOpacity(0.1),
+      backgroundColor: Colors.white.withValues(alpha: 0.1),
       child: const Icon(Icons.person, color: Colors.white, size: 32),
     );
   }
@@ -706,9 +705,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: _chipColor.withOpacity(0.18),
+        color: _chipColor.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _chipColor.withOpacity(0.4)),
+        border: Border.all(color: _chipColor.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -726,9 +725,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -753,9 +752,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -777,7 +776,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                 _toggleValues[toggle.id] = newValue;
               });
             },
-            activeColor: Colors.white,
+            activeThumbColor: Colors.white,
             activeTrackColor: _accentColor,
           ),
         ],
@@ -790,9 +789,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -800,7 +799,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
           Text(select.titulo, style: const TextStyle(color: Colors.white60, fontSize: 12)),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: currentValue,
+            initialValue: currentValue,
             isExpanded: true,
             items: select.opciones
                 .map(
@@ -844,9 +843,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
         children: [
@@ -855,8 +854,8 @@ class _PerfilWidgetState extends State<PerfilWidget> {
             height: 42,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _accentColor.withOpacity(0.2),
-              border: Border.all(color: _accentColor.withOpacity(0.45)),
+              color: _accentColor.withValues(alpha: 0.2),
+              border: Border.all(color: _accentColor.withValues(alpha: 0.45)),
             ),
             child: const Icon(Icons.assignment_turned_in_rounded, color: Colors.white, size: 22),
           ),
@@ -889,9 +888,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
         children: [
@@ -900,8 +899,8 @@ class _PerfilWidgetState extends State<PerfilWidget> {
             height: 42,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _accentColor.withOpacity(0.2),
-              border: Border.all(color: _accentColor.withOpacity(0.45)),
+              color: _accentColor.withValues(alpha: 0.2),
+              border: Border.all(color: _accentColor.withValues(alpha: 0.45)),
             ),
             child: const Icon(Icons.directions_car_rounded, color: Colors.white, size: 22),
           ),
@@ -920,9 +919,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: _chipColor.withOpacity(0.18),
+              color: _chipColor.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _chipColor.withOpacity(0.4)),
+              border: Border.all(color: _chipColor.withValues(alpha: 0.4)),
             ),
             child: Text(
               vehiculo.estado,

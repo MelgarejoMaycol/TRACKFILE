@@ -313,7 +313,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
           onPressed: _clearFilters,
           style: TextButton.styleFrom(
             foregroundColor: Colors.white,
-            backgroundColor: Colors.white.withOpacity(0.08),
+            backgroundColor: Colors.white.withValues(alpha: 0.08),
             padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 16, vertical: 12),
           ),
           icon: const Icon(Icons.clear_all, size: 18),
@@ -334,15 +334,15 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
         hintStyle: const TextStyle(color: Colors.white54),
         prefixIcon: const Icon(Icons.search, color: Colors.white54),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.08),
+        fillColor: Colors.white.withValues(alpha: 0.08),
         contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(24),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(24),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(24),
@@ -374,10 +374,10 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
               padding: EdgeInsets.symmetric(horizontal: isCompact ? 14 : 16, vertical: 10),
               decoration: BoxDecoration(
                 color: selected
-                    ? _statusColor(key).withOpacity(0.28)
-                    : _statusColor(key).withOpacity(0.18),
+                  ? _statusColor(key).withValues(alpha: 0.28)
+                  : _statusColor(key).withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: selected ? _statusColor(key) : _statusColor(key).withOpacity(0.5)),
+                border: Border.all(color: selected ? _statusColor(key) : _statusColor(key).withValues(alpha: 0.5)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -419,9 +419,9 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       margin: const EdgeInsets.only(bottom: 18),
       padding: EdgeInsets.symmetric(horizontal: isCompact ? 14 : 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
         children: [
@@ -435,7 +435,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                   .map((label) => Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.08),
+                          color: Colors.white.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Text(label, style: TextStyle(color: Colors.white, fontSize: isCompact ? 11 : 12)),
@@ -458,9 +458,9 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20, vertical: 24),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -480,11 +480,11 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20, vertical: isCompact ? 18 : 22),
       decoration: BoxDecoration(
-        color: _cardColor.withOpacity(0.92),
+        color: _cardColor.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.22), blurRadius: 18, offset: const Offset(0, 12)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.22), blurRadius: 18, offset: const Offset(0, 12)),
         ],
       ),
       child: Column(
@@ -544,9 +544,9 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
+        color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -564,9 +564,9 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.18),
+        color: color.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Text(
         _statusLabel(status),

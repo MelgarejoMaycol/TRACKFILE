@@ -154,8 +154,6 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
   bool _hasError = false;
   List<_SolicitudDetalle> _detalles = const [];
   Map<String, int> _conteoEstados = const {};
-  List<_TipoSolicitud> _tipos = const [];
-  Map<int, _TipoSolicitud> _tiposPorId = const {};
   Map<int, _SolicitudDetalle> _detallesPorId = const {};
   List<_SolicitudDetalle> _todosDetalles = const [];
 
@@ -220,8 +218,6 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
         _assignDetalles(detallesSeleccionados);
         _isLoading = false;
         _hasError = false;
-        _tipos = tipos;
-        _tiposPorId = tiposById;
       });
     } catch (e) {
       debugPrint('Error cargando certificaciones: $e');
@@ -401,9 +397,9 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
       return Container(
         padding: EdgeInsets.symmetric(horizontal: isCompact ? 14 : 16, vertical: 10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.18),
+          color: color.withValues(alpha: 0.18),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: color.withOpacity(0.55)),
+          border: Border.all(color: color.withValues(alpha: 0.55)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -451,9 +447,9 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -485,9 +481,9 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
       child: Column(
@@ -549,9 +545,9 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -599,9 +595,9 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -649,9 +645,9 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
+        color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -669,9 +665,9 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.18),
+        color: color.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.55)),
+        border: Border.all(color: color.withValues(alpha: 0.55)),
       ),
       child: Text(
         _statusLabel(estado),
@@ -742,7 +738,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: CircleAvatar(
-                        backgroundColor: _statusColor(registro.accion).withOpacity(0.2),
+                        backgroundColor: _statusColor(registro.accion).withValues(alpha: 0.2),
                         child: Icon(Icons.check_circle, color: _statusColor(registro.accion)),
                       ),
                       title: Text(
@@ -906,9 +902,9 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     return Container(
       padding: EdgeInsets.fromLTRB(isCompact ? 16 : 20, 18, isCompact ? 16 : 20, 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -950,9 +946,9 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.04),
+            color: Colors.white.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.07)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -962,7 +958,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                 height: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: color.withOpacity(0.18),
+                  color: color.withValues(alpha: 0.18),
                 ),
                 child: Icon(Icons.auto_awesome, color: color, size: 18),
               ),
@@ -1007,9 +1003,9 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.18),
+                      color: color.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: color.withOpacity(0.4)),
+                      border: Border.all(color: color.withValues(alpha: 0.4)),
                     ),
                     child: Text(
                       '#${registro.idSolicitud}',
@@ -1039,7 +1035,8 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
       return bDate.compareTo(aDate);
     });
 
-    final bool hasDocumento = solicitud?.urlDocumento != null && solicitud!.urlDocumento!.isNotEmpty;
+    final String urlDocumento = solicitud?.urlDocumento ?? '';
+    final bool hasDocumento = urlDocumento.isNotEmpty;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -1121,9 +1118,9 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.04),
+                        color: Colors.white.withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.white.withOpacity(0.06)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1133,7 +1130,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                             height: 32,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: itemColor.withOpacity(0.18),
+                              color: itemColor.withValues(alpha: 0.18),
                             ),
                             child: Icon(Icons.history_rounded, color: itemColor, size: 16),
                           ),
@@ -1169,7 +1166,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton.icon(
-                  onPressed: hasDocumento ? () => _handleDownload(solicitud!.urlDocumento!) : null,
+                  onPressed: hasDocumento ? () => _handleDownload(urlDocumento) : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _accentColor,
                     foregroundColor: Colors.white,

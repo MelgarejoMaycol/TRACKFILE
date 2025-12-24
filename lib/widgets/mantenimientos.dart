@@ -69,7 +69,7 @@ class _Mantenimiento {
   });
 
   factory _Mantenimiento.fromMap(Map<String, dynamic> map) {
-    DateTime? _parseDate(dynamic value) {
+    DateTime? parseDate(dynamic value) {
       final String raw = value?.toString() ?? '';
       if (raw.isEmpty) return null;
       return DateTime.tryParse(raw);
@@ -80,9 +80,9 @@ class _Mantenimiento {
       vehiculoId: int.tryParse(map['id_vehiculo']?.toString() ?? '') ?? 0,
       usuarioId: map['id_usuario']?.toString() ?? '',
       tipoId: int.tryParse(map['id_tipo_mantenimiento']?.toString() ?? '') ?? 0,
-      fechaSugerida: _parseDate(map['fecha_sugerida']),
-      fechaProgramada: _parseDate(map['fecha_programada']),
-      fechaRealizada: _parseDate(map['fecha_realizado']),
+      fechaSugerida: parseDate(map['fecha_sugerida']),
+      fechaProgramada: parseDate(map['fecha_programada']),
+      fechaRealizada: parseDate(map['fecha_realizado']),
       kilometraje: int.tryParse(map['kilometraje']?.toString() ?? '') ?? 0,
       costo: int.tryParse(map['costo']?.toString() ?? '') ?? 0,
       taller: map['taller']?.toString() ?? 'Sin taller definido',
@@ -384,9 +384,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04),
+          color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.06)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,9 +444,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       return Container(
         padding: EdgeInsets.symmetric(horizontal: isCompact ? 14 : 16, vertical: 10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.18),
+          color: color.withValues(alpha: 0.18),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: color.withOpacity(0.55)),
+          border: Border.all(color: color.withValues(alpha: 0.55)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -479,9 +479,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.orangeAccent.withOpacity(0.1),
+        color: Colors.orangeAccent.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.orangeAccent.withOpacity(0.4)),
+        border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.4)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -505,9 +505,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -591,9 +591,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
       child: Column(
@@ -675,9 +675,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -695,9 +695,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.16),
+        color: color.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -729,9 +729,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04),
+          color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.06)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
         ),
         child: const Text(
           'Aun no hay mantenimientos completados.',
@@ -746,9 +746,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -774,7 +774,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
   }
 
   Widget _buildHistorialItem(_HistorialMantenimiento registro) {
-    final _MantenimientoDetalle? detalle = _detalles.firstWhere(
+    final _MantenimientoDetalle detalle = _detalles.firstWhere(
       (element) => element.mantenimiento.id == registro.mantenimientoId,
       orElse: () => _todosLosDetalles.firstWhere(
         (element) => element.mantenimiento.id == registro.mantenimientoId,
@@ -797,7 +797,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
               height: 36,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: color.withOpacity(0.18),
+                color: color.withValues(alpha: 0.18),
               ),
               child: Icon(Icons.auto_fix_high, color: color, size: 18),
             ),
@@ -878,7 +878,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                     ),
                     const SizedBox(height: 20),
                     DropdownButtonFormField<String>(
-                      value: tipoSeleccionado,
+                      initialValue: tipoSeleccionado,
                       items: const [
                         DropdownMenuItem(value: 'Comentario', child: Text('Comentario general')),
                         DropdownMenuItem(value: 'Solicitud de ajuste', child: Text('Solicitud de ajuste')), 

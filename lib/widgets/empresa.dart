@@ -271,12 +271,12 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             gradient: LinearGradient(
-              colors: [_accentColor.withOpacity(0.85), _accentColor.withOpacity(0.6)],
+              colors: [_accentColor.withValues(alpha: 0.85), _accentColor.withValues(alpha: 0.6)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.28), blurRadius: 18, offset: const Offset(0, 12)),
+              BoxShadow(color: Colors.black.withValues(alpha: 0.28), blurRadius: 18, offset: const Offset(0, 12)),
             ],
           ),
           child: Row(
@@ -297,9 +297,9 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: isCompact ? 18 : 22, vertical: 20),
       decoration: BoxDecoration(
-        color: _cardColor.withOpacity(0.95),
+        color: _cardColor.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -332,9 +332,9 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: isCompact ? 18 : 22, vertical: 20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,11 +357,11 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
               hintText: 'Escribe tu mensaje...',
               hintStyle: const TextStyle(color: Colors.white54),
               filled: true,
-              fillColor: Colors.white.withOpacity(0.08),
+              fillColor: Colors.white.withValues(alpha: 0.08),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
+                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
               ),
               focusedBorder: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
