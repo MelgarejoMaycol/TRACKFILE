@@ -6,8 +6,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:file_picker/file_picker.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:frontendproyecto/utils/api_config.dart';
 import 'package:frontendproyecto/utils/role_router.dart';
-
 
 class LoginScreen extends StatefulWidget {
   static const route = '/login';
@@ -17,7 +19,8 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final _userCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   // Controllers for Únete form
@@ -36,20 +39,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   bool _signupPassObscure = true;
   bool _confirmPassObscure = true;
   bool _loginPassObscure = true;
-
-  static const String _compiledBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
-
-  String get _baseUrl {
-    if (_compiledBaseUrl.isNotEmpty) return _compiledBaseUrl;
-    if (kIsWeb) return 'http://localhost:8080';
-    if (io.Platform.isAndroid) return 'http://10.0.2.2:8080';
-    return 'http://localhost:8080';
-  }
+  PlatformFile? _rutPdfFile;
+  String _baseUrl = ApiConfig.fallbackBaseUrl();
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _initBaseUrl();
     // Listen to inputs to update button states
     _nameCtrl.addListener(_validateForms);
     _nitCtrl.addListener(_validateForms);
@@ -77,18 +74,120 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   void _validateForms() {
     final nameOk = _nameCtrl.text.trim().isNotEmpty;
-    final nitOk = _nitCtrl.text.trim().isNotEmpty && RegExp(r'^\d+$').hasMatch(_nitCtrl.text.trim());
+    final nitOk =
+        _nitCtrl.text.trim().isNotEmpty &&
+        RegExp(r'^\d+$').hasMatch(_nitCtrl.text.trim());
     final repOk = _repCtrl.text.trim().isNotEmpty;
     final emailOk = _isValidEmail(_emailCtrl.text.trim());
     final passOk = _isValidSignupPassword(_signupPassCtrl.text.trim());
-    final confirmOk = _signupPassCtrl.text.trim().isNotEmpty && _signupPassCtrl.text.trim() == _confirmPassCtrl.text.trim();
-    final newUnete = nameOk && nitOk && repOk && emailOk && passOk && confirmOk;
-    final newLogin = _userCtrl.text.trim().isNotEmpty && _passCtrl.text.trim().isNotEmpty;
+    final confirmOk =
+        _signupPassCtrl.text.trim().isNotEmpty &&
+        _signupPassCtrl.text.trim() == _confirmPassCtrl.text.trim();
+    final pdfOk = _rutPdfFile != null;
+    final newUnete =
+        nameOk && nitOk && repOk && emailOk && passOk && confirmOk && pdfOk;
+    final newLogin =
+        _userCtrl.text.trim().isNotEmpty && _passCtrl.text.trim().isNotEmpty;
     if (newUnete != _isUneteValid || newLogin != _isLoginValid) {
       setState(() {
         _isUneteValid = newUnete;
         _isLoginValid = newLogin;
       });
+    }
+  }
+
+  Future<void> _initBaseUrl() async {
+    final resolved = await ApiConfig.loadBaseUrl();
+    if (!mounted) return;
+    setState(() => _baseUrl = resolved);
+  }
+
+  Uri _endpoint(String path) => ApiConfig.resolve(_baseUrl, path);
+
+  Future<void> _promptBaseUrlChange() async {
+    if (_loginLoading || _signUpLoading) return;
+    final controller = TextEditingController(text: _baseUrl);
+    String? errorText;
+
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (innerCtx, setDialogState) {
+            return AlertDialog(
+              title: const Text('Configura el servidor'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.url,
+                    decoration: InputDecoration(
+                      labelText: 'URL base',
+                      hintText: 'http://192.168.0.5:8080',
+                      errorText: errorText,
+                    ),
+                    autofocus: true,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Usa la IP del equipo que ejecuta el backend. Ejemplo: http://192.168.1.10:8080',
+                    style: Theme.of(innerCtx).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(innerCtx).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogCtx).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final normalized = ApiConfig.normalize(controller.text);
+                    if (normalized == null) {
+                      setDialogState(
+                        () => errorText =
+                            'Ingresa una URL válida (http:// o https://)',
+                      );
+                      return;
+                    }
+                    Navigator.of(dialogCtx).pop(normalized);
+                  },
+                  child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    controller.dispose();
+
+    final String? normalizedResult = result == null
+        ? null
+        : ApiConfig.normalize(result);
+    if (normalizedResult == null || normalizedResult == _baseUrl) {
+      return;
+    }
+
+    try {
+      await ApiConfig.saveBaseUrl(normalizedResult);
+      if (!mounted) return;
+      setState(() => _baseUrl = normalizedResult);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Servidor actualizado')));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo guardar la URL ingresada')),
+        );
+      }
     }
   }
 
@@ -109,21 +208,61 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   Future<void> _doSignUp() async {
     if (!_isUneteValid || _signUpLoading) return;
+    final file = _rutPdfFile;
+    if (file == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes adjuntar el RUT en formato PDF.')),
+      );
+      return;
+    }
+
     setState(() => _signUpLoading = true);
     try {
-      final response = await http
-          .post(
-            Uri.parse('$_baseUrl/api/empresas'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'nombreEmpresa': _nameCtrl.text.trim(),
-              'nit': _nitCtrl.text.trim(),
-              'correo': _emailCtrl.text.trim(),
-              'representanteLegal': _repCtrl.text.trim(),
-              'cedulaRepresentante': _repCtrl.text.trim(),
-            }),
-          )
-          .timeout(const Duration(seconds: 30));
+      final uri = _endpoint('/api/auth/registro-empresa');
+      final request = http.MultipartRequest('POST', uri)
+        ..fields.addAll({
+          'nombreEmpresa': _nameCtrl.text.trim(),
+          'nit': _nitCtrl.text.trim(),
+          'correo': _emailCtrl.text.trim(),
+          'representanteLegal': _repCtrl.text.trim(),
+          'cedulaRepresentante': _repCtrl.text.trim(),
+          'contrasena': _signupPassCtrl.text.trim(),
+        });
+
+      http.MultipartFile? multipartFile;
+      if (file.bytes != null) {
+        multipartFile = http.MultipartFile.fromBytes(
+          'rutPdf',
+          file.bytes!,
+          filename: file.name,
+          contentType: MediaType('application', 'pdf'),
+        );
+      } else if (file.path != null) {
+        multipartFile = await http.MultipartFile.fromPath(
+          'rutPdf',
+          file.path!,
+          filename: file.name,
+          contentType: MediaType('application', 'pdf'),
+        );
+      }
+
+      if (multipartFile == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No se pudo leer el archivo seleccionado.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      request.files.add(multipartFile);
+
+      final streamed = await request.send().timeout(
+        const Duration(seconds: 45),
+      );
+      final response = await http.Response.fromStream(streamed);
 
       if (!mounted) return;
 
@@ -132,16 +271,28 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         if (!mounted) return;
         _resetSignUpForm();
       } else {
-        final message = response.body.isNotEmpty ? response.body : 'No se pudo completar el registro.';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        final message = response.body.isNotEmpty
+            ? response.body
+            : 'No se pudo completar el registro.';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     } on TimeoutException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El servidor tardó demasiado en responder. Inténtalo de nuevo.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'El servidor tardó demasiado en responder. Inténtalo de nuevo.',
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al registrar la empresa: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al registrar la empresa: $e')),
+        );
       }
     } finally {
       if (mounted) setState(() => _signUpLoading = false);
@@ -156,8 +307,39 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       _nitCtrl.clear();
       _repCtrl.clear();
       _nameCtrl.clear();
+      _rutPdfFile = null;
       _isUneteValid = false;
     });
+  }
+
+  Future<void> _pickRutPdf() async {
+    if (_signUpLoading) return;
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf'],
+        withData: kIsWeb,
+      );
+      if (!mounted || result == null || result.files.isEmpty) return;
+      setState(() {
+        _rutPdfFile = result.files.single;
+      });
+      _validateForms();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudo adjuntar el PDF: $e')),
+        );
+      }
+    }
+  }
+
+  void _clearRutPdf() {
+    if (!mounted) return;
+    setState(() {
+      _rutPdfFile = null;
+    });
+    _validateForms();
   }
 
   Future<void> _showValidationModal() async {
@@ -168,7 +350,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       builder: (ctx) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
+          ),
           child: Stack(
             alignment: Alignment.topCenter,
             children: [
@@ -176,7 +361,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 margin: const EdgeInsets.only(top: 48),
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF06135E), Color(0xFF162A89)], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF06135E), Color(0xFF162A89)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 padding: const EdgeInsets.fromLTRB(20, 64, 20, 20),
@@ -184,13 +373,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Tu cuenta tiene una validación de 48h',
+                      'Revisa tu correo y confirma el enlace de verificación',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'En máximo 48 horas recibirás respuesta.',
+                      'Después de verificar tu correo validaremos la empresa y te responderemos en máximo 48 horas.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.white70, fontSize: 14),
                     ),
@@ -199,10 +392,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF06135E)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF06135E),
+                        ),
                         child: const Padding(
                           padding: EdgeInsets.symmetric(vertical: 12.0),
-                          child: Text('Aceptar', style: TextStyle(fontWeight: FontWeight.w600)),
+                          child: Text(
+                            'Aceptar',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
                         ),
                       ),
                     ),
@@ -218,7 +417,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   child: CircleAvatar(
                     radius: 44,
                     backgroundColor: const Color(0xFF0D2B7B),
-                    child: const Icon(Icons.notifications, color: Color(0xFF16C79A), size: 36),
+                    child: const Icon(
+                      Icons.notifications,
+                      color: Color(0xFF16C79A),
+                      size: 36,
+                    ),
                   ),
                 ),
               ),
@@ -235,7 +438,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     try {
       final response = await http
           .post(
-            Uri.parse('$_baseUrl/api/auth/login'),
+            _endpoint('/api/auth/login'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'correo': _userCtrl.text.trim(),
@@ -248,19 +451,83 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
       if (response.statusCode == 200) {
         try {
-          final data = jsonDecode(response.body) as Map<String, dynamic>;
-          final estado = (data['estado'] as String?)?.toUpperCase();
-          if (estado != null && estado != 'ACTIVO') {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Tu usuario se encuentra en estado $estado. Comunícate con soporte.')));
+          final dynamic decoded = jsonDecode(response.body);
+          if (decoded is! Map) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Respuesta del servidor inválida.')),
+            );
             return;
           }
 
-          await persistSession(data);
+          final Map<String, dynamic> loginData = Map<String, dynamic>.from(
+            decoded.cast<String, dynamic>(),
+          );
+          final bool emailConfirmado = loginData['emailConfirmado'] == true;
+          final String email =
+              loginData['correo']?.toString() ?? _userCtrl.text.trim();
+
+          if (!emailConfirmado) {
+            await _showVerificationPendingDialog(email);
+            return;
+          }
+
+          final String role = (loginData['rol']?.toString() ?? '')
+              .toUpperCase();
+          final String? estadoVerificacion = loginData['estadoVerificacion']
+              ?.toString();
+          if (role == 'EMPRESA' && estadoVerificacion != null) {
+            final Set<String> allowedStates = {'APROBADA', 'APROBADO'};
+            if (!allowedStates.contains(estadoVerificacion.toUpperCase())) {
+              await _showEmpresaEstadoDialog(estadoVerificacion);
+              return;
+            }
+          }
+
+          final int? usuarioId = _toInt(loginData['usuarioId']);
+          if (usuarioId == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'El servidor no devolvió el identificador del usuario.',
+                ),
+              ),
+            );
+            return;
+          }
+
+          final Map<String, dynamic>? profile = await _fetchUserDetails(
+            usuarioId,
+          );
+          if (!mounted) return;
+          if (profile == null) {
+            return;
+          }
+
+          profile['id'] ??= usuarioId;
+          profile['usuarioId'] ??= usuarioId;
+          profile['rol'] = (profile['rol']?.toString() ?? role).toUpperCase();
+          profile['emailConfirmado'] ??= emailConfirmado;
+          profile['empresaId'] ??= _toInt(loginData['empresaId']);
+
+          if (estadoVerificacion != null) {
+            final company = profile['empresa'];
+            if (company is Map<String, dynamic>) {
+              company['estadoVerificacion'] ??= estadoVerificacion;
+            } else {
+              profile['estadoVerificacion'] ??= estadoVerificacion;
+            }
+          }
+
+          await persistSession(profile);
           if (!mounted) return;
 
-          final target = screenForRole(data);
+          final target = screenForRole(profile);
           if (target == null) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rol no reconocido para este usuario.')));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Rol no reconocido para este usuario.'),
+              ),
+            );
             return;
           }
 
@@ -269,25 +536,155 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             (route) => false,
           );
         } on FormatException {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Respuesta del servidor inválida.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Respuesta del servidor inválida.')),
+          );
         }
       } else if (response.statusCode == 401) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response.body.isNotEmpty ? response.body : 'Credenciales incorrectas.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              response.body.isNotEmpty
+                  ? response.body
+                  : 'Credenciales incorrectas.',
+            ),
+          ),
+        );
       } else {
-        final message = response.body.isNotEmpty ? response.body : 'No se pudo iniciar sesión.';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        final message = response.body.isNotEmpty
+            ? response.body
+            : 'No se pudo iniciar sesión.';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     } on TimeoutException {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tiempo de espera agotado. Verifica tu conexión.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tiempo de espera agotado. Verifica tu conexión.'),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al iniciar sesión: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al iniciar sesión: $e')));
       }
     } finally {
       if (mounted) setState(() => _loginLoading = false);
     }
+  }
+
+  int? _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    if (value is double) return value.toInt();
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> _fetchUserDetails(int userId) async {
+    try {
+      final response = await http
+          .get(_endpoint('/api/usuarios/$userId'))
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is Map) {
+          return Map<String, dynamic>.from(decoded.cast<String, dynamic>());
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Formato inesperado al consultar el perfil.'),
+            ),
+          );
+        }
+        return null;
+      }
+
+      final message = response.body.isNotEmpty
+          ? response.body
+          : 'No se pudo obtener el perfil del usuario.';
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } on TimeoutException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tiempo de espera agotado al consultar el perfil.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error consultando el perfil: $e')),
+        );
+      }
+    }
+    return null;
+  }
+
+  Future<void> _showVerificationPendingDialog(String email) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Verifica tu correo'),
+          content: Text(
+            'Hemos enviado un enlace de verificación a $email. '
+            'Completa la verificación desde tu correo electrónico antes de iniciar sesión.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Entendido'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showEmpresaEstadoDialog(String estado) async {
+    if (!mounted) return;
+    final String upper = estado.toUpperCase();
+    final String message;
+    if (upper == 'PENDIENTE') {
+      message =
+          'Tu empresa aún está en revisión. Te avisaremos por correo cuando el proceso termine.';
+    } else if (upper == 'RECHAZADA') {
+      message =
+          'Tu empresa fue rechazada. Comunícate con soporte para más información.';
+    } else {
+      message =
+          'Tu empresa se encuentra en estado $estado. Comunícate con soporte para continuar.';
+    }
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Cuenta en validación'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -326,10 +723,18 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         color: Colors.white,
                         elevation: 0,
                         shadowColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide.none),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide.none,
+                        ),
                         child: SizedBox.expand(
                           child: Padding(
-                            padding: const EdgeInsets.only(top: 28, left: 16, right: 16, bottom: 16),
+                            padding: const EdgeInsets.only(
+                              top: 28,
+                              left: 16,
+                              right: 16,
+                              bottom: 16,
+                            ),
                             child: Column(
                               mainAxisSize: MainAxisSize.max,
                               children: [
@@ -337,23 +742,44 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 TabBar(
                                   controller: _tabController,
                                   labelColor: darkBlue,
-                                  unselectedLabelColor: darkBlue.withValues(alpha: 0.6),
-                                  labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                                  unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+                                  unselectedLabelColor: darkBlue.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                  labelStyle: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                  ),
+                                  unselectedLabelStyle: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 15,
+                                  ),
                                   // Ensure the TabBar does not draw any underline or indicator
-                                  indicator: const UnderlineTabIndicator(borderSide: BorderSide(color: Colors.transparent, width: 0)),
+                                  indicator: const UnderlineTabIndicator(
+                                    borderSide: BorderSide(
+                                      color: Colors.transparent,
+                                      width: 0,
+                                    ),
+                                  ),
                                   indicatorWeight: 0,
                                   indicatorPadding: EdgeInsets.zero,
                                   indicatorSize: TabBarIndicatorSize.tab,
-                                  overlayColor: WidgetStatePropertyAll<Color>(Colors.transparent),
-                                  tabs: const [Tab(text: 'ÚNETE'), Tab(text: 'INICIA SESIÓN')],
+                                  overlayColor: WidgetStatePropertyAll<Color>(
+                                    Colors.transparent,
+                                  ),
+                                  tabs: const [
+                                    Tab(text: 'ÚNETE'),
+                                    Tab(text: 'INICIA SESIÓN'),
+                                  ],
                                 ),
                                 const SizedBox(height: 8),
                                 // Let the TabBarView expand to fill available space inside the card
                                 Expanded(
                                   child: TabBarView(
                                     controller: _tabController,
-                                    children: [_wrapCenter(_buildUneteSection(darkBlue)), _wrapCenter(_buildLoginSection(darkBlue))],
+                                    children: [
+                                      _wrapCenter(_buildUneteSection(darkBlue)),
+                                      _wrapCenter(_buildLoginSection(darkBlue)),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -401,37 +827,60 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       children: [
         const SizedBox(height: 10),
         const SizedBox(height: 8),
-        TextField(controller: _nameCtrl, decoration: _inputDecoration('Nombre de Empresa')),
+        TextField(
+          controller: _nameCtrl,
+          decoration: _inputDecoration('Nombre de Empresa'),
+        ),
         const SizedBox(height: 8),
         TextField(
           controller: _nitCtrl,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: _inputDecoration('Nit').copyWith(
-              errorText: _nitCtrl.text.isEmpty ? null : (RegExp(r'^\d+$').hasMatch(_nitCtrl.text) ? null : 'El NIT debe contener solo números'),
+          decoration: _inputDecoration('Nit').copyWith(
+            errorText: _nitCtrl.text.isEmpty
+                ? null
+                : (RegExp(r'^\d+$').hasMatch(_nitCtrl.text)
+                      ? null
+                      : 'El NIT debe contener solo números'),
           ),
         ),
         const SizedBox(height: 8),
-        TextField(controller: _repCtrl, decoration: _inputDecoration('Representante legal C.C')),
+        TextField(
+          controller: _repCtrl,
+          decoration: _inputDecoration('Representante legal C.C'),
+        ),
         const SizedBox(height: 8),
         TextField(
           controller: _emailCtrl,
           keyboardType: TextInputType.emailAddress,
           decoration: _inputDecoration('Correo Electrónico').copyWith(
-            errorText: _emailCtrl.text.isEmpty ? null : (_isValidEmail(_emailCtrl.text.trim()) ? null : 'Correo inválido'),
+            errorText: _emailCtrl.text.isEmpty
+                ? null
+                : (_isValidEmail(_emailCtrl.text.trim())
+                      ? null
+                      : 'Correo inválido'),
           ),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _signupPassCtrl,
           obscureText: _signupPassObscure,
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]'))],
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+          ],
           decoration: _inputDecoration('Contraseña').copyWith(
             prefixIcon: IconButton(
-              icon: Icon(_signupPassObscure ? Icons.visibility_off : Icons.visibility),
-              onPressed: () => setState(() => _signupPassObscure = !_signupPassObscure),
+              icon: Icon(
+                _signupPassObscure ? Icons.visibility_off : Icons.visibility,
+              ),
+              onPressed: () =>
+                  setState(() => _signupPassObscure = !_signupPassObscure),
             ),
-            errorText: _signupPassCtrl.text.isEmpty ? null : (_isValidSignupPassword(_signupPassCtrl.text) ? null : 'Debe tener mayúscula, número y sin caracteres especiales'),
+            errorText: _signupPassCtrl.text.isEmpty
+                ? null
+                : (_isValidSignupPassword(_signupPassCtrl.text)
+                      ? null
+                      : 'Debe tener mayúscula, número y sin caracteres especiales'),
           ),
         ),
         const SizedBox(height: 8),
@@ -440,10 +889,48 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           obscureText: _confirmPassObscure,
           decoration: _inputDecoration('Confirmar Contraseña').copyWith(
             prefixIcon: IconButton(
-              icon: Icon(_confirmPassObscure ? Icons.visibility_off : Icons.visibility),
-              onPressed: () => setState(() => _confirmPassObscure = !_confirmPassObscure),
+              icon: Icon(
+                _confirmPassObscure ? Icons.visibility_off : Icons.visibility,
+              ),
+              onPressed: () =>
+                  setState(() => _confirmPassObscure = !_confirmPassObscure),
             ),
-            errorText: _confirmPassCtrl.text.isEmpty ? null : (_confirmPassCtrl.text == _signupPassCtrl.text ? null : 'Las contraseñas no coinciden'),
+            errorText: _confirmPassCtrl.text.isEmpty
+                ? null
+                : (_confirmPassCtrl.text == _signupPassCtrl.text
+                      ? null
+                      : 'Las contraseñas no coinciden'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: (_signUpLoading) ? null : _pickRutPdf,
+                icon: Icon(Icons.picture_as_pdf, color: darkBlue),
+                label: Text(
+                  _rutPdfFile?.name ?? 'Adjuntar RUT (PDF)',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            if (_rutPdfFile != null) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: _signUpLoading ? null : _clearRutPdf,
+                tooltip: 'Quitar archivo',
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Validaremos que el correo exista dentro del RUT adjunto.',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
           ),
         ),
         const SizedBox(height: 16),
@@ -455,7 +942,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               padding: const EdgeInsets.symmetric(vertical: 0),
               backgroundColor: Colors.transparent,
               shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             child: Ink(
               decoration: BoxDecoration(
@@ -473,8 +962,18 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 alignment: Alignment.center,
                 constraints: const BoxConstraints(minHeight: 40),
                 child: _signUpLoading
-                    ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Únete', style: TextStyle(color: Colors.white)),
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Únete',
+                        style: TextStyle(color: Colors.white),
+                      ),
               ),
             ),
           ),
@@ -489,20 +988,52 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       children: [
         const SizedBox(height: 8),
         const SizedBox(height: 12),
-        TextField(controller: _userCtrl, decoration: _inputDecoration('Usuario')),
+        TextField(
+          controller: _userCtrl,
+          decoration: _inputDecoration('Correo electrónico'),
+        ),
         const SizedBox(height: 12),
         TextField(
           controller: _passCtrl,
           obscureText: _loginPassObscure,
           decoration: _inputDecoration('Contraseña').copyWith(
             prefixIcon: IconButton(
-              icon: Icon(_loginPassObscure ? Icons.visibility_off : Icons.visibility),
-              onPressed: () => setState(() => _loginPassObscure = !_loginPassObscure),
+              icon: Icon(
+                _loginPassObscure ? Icons.visibility_off : Icons.visibility,
+              ),
+              onPressed: () =>
+                  setState(() => _loginPassObscure = !_loginPassObscure),
             ),
           ),
         ),
         const SizedBox(height: 8),
-        Align(alignment: Alignment.centerRight, child: TextButton(onPressed: () {}, child: const Text('Olvidaste contraseña?'))),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: () {},
+            child: const Text('Olvidaste contraseña?'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                _baseUrl,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings_ethernet_outlined, size: 20),
+              tooltip: 'Cambiar servidor',
+              onPressed: (_loginLoading || _signUpLoading)
+                  ? null
+                  : _promptBaseUrlChange,
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,
@@ -512,11 +1043,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               padding: const EdgeInsets.symmetric(vertical: 0),
               backgroundColor: Colors.transparent,
               shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-              child: Ink(
+            child: Ink(
               decoration: const BoxDecoration(
-                gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF06135E), Color(0xFF16C79A)]),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF06135E), Color(0xFF16C79A)],
+                ),
                 borderRadius: BorderRadius.all(Radius.circular(12)),
               ),
               // Reducimos la altura mínima para que el botón sea más angosto verticalmente
@@ -524,8 +1061,18 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 alignment: Alignment.center,
                 constraints: const BoxConstraints(minHeight: 40),
                 child: _loginLoading
-                  ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Inicia Sesion', style: TextStyle(color: Colors.white)),
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Inicia Sesion',
+                        style: TextStyle(color: Colors.white),
+                      ),
               ),
             ),
           ),
@@ -536,22 +1083,31 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   // Wrap a section so it centers vertically when there's extra space, and scrolls when content is large
   Widget _wrapCenter(Widget child) {
-    return LayoutBuilder(builder: (context, constraints) {
-      return SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Padding(padding: EdgeInsets.symmetric(horizontal: 0), child: child),
-            ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 0),
+                  child: child,
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
-  double _responsiveClamp({required double value, required double min, required double max}) {
+  double _responsiveClamp({
+    required double value,
+    required double min,
+    required double max,
+  }) {
     return value.clamp(min, max).toDouble();
   }
 
@@ -560,7 +1116,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       labelText: label,
       filled: true,
       fillColor: const Color(0xFFF5F7FA),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
     );
   }
 
@@ -569,7 +1128,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       {'label': 'Conductor', 'role': 'CONDUCTOR', 'icon': Icons.directions_bus},
       {'label': 'Empresa', 'role': 'EMPRESA', 'icon': Icons.apartment},
       {'label': 'Propietario', 'role': 'PROPIETARIO', 'icon': Icons.person_pin},
-      {'label': 'Secretaria', 'role': 'SECRETARIA', 'icon': Icons.support_agent},
+      {
+        'label': 'Secretaria',
+        'role': 'SECRETARIA',
+        'icon': Icons.support_agent,
+      },
       {'label': 'Admin', 'role': 'ADMIN', 'icon': Icons.admin_panel_settings},
     ];
 
@@ -581,7 +1144,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           const SizedBox(height: 4),
           Text(
             'Ingresar directo por rol',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70, fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.white70,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -631,5 +1197,4 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => target));
   }
-
 }

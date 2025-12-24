@@ -4,6 +4,12 @@ import 'dart:convert';
 import 'package:frontendproyecto/widgets/inicio.dart';
 import 'package:frontendproyecto/widgets/documentos.dart';
 import 'package:frontendproyecto/widgets/mensajes.dart';
+import 'package:frontendproyecto/widgets/pagos.dart';
+import 'package:frontendproyecto/widgets/vehiculos.dart';
+import 'package:frontendproyecto/widgets/empresa.dart';
+import 'package:frontendproyecto/widgets/certificaciones.dart';
+import 'package:frontendproyecto/widgets/mantenimientos.dart';
+import 'package:frontendproyecto/widgets/perfil.dart';
 
 class _MenuOption {
   final String label;
@@ -98,7 +104,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
     _MenuOption('Pagos', Icons.payments_rounded, 'Cuotas y obligaciones'),
     _MenuOption('Vehículo', Icons.directions_car_filled_rounded, 'Asignaciones activas'),
     _MenuOption('Empresa', Icons.apartment_rounded, 'Gestión corporativa'),
-    _MenuOption('Calendario', Icons.calendar_month_rounded, 'Programación diaria'),
+    _MenuOption('Mantenimientos', Icons.build_rounded, 'Alertas de taller'),
   ];
 
   final List<_MenuOption> _lowerMenuOptions = const [
@@ -686,20 +692,45 @@ class _ConductorScreenState extends State<ConductorScreen> {
           jsonPath: 'assets/documents_data.json',
         );
       case 'Certificaciones':
-        return _buildPlaceholderSection('Certificaciones');
+        return CertificacionesWidget(
+          role: 'Conductor',
+          userId: widget.userId ?? '1',
+          jsonPath: 'assets/certificaciones_data.json',
+        );
       case 'Perfil':
-        return _buildPlaceholderSection('Perfil del conductor');
+        return PerfilWidget(
+          role: 'Conductor',
+          userId: widget.userId ?? '1',
+          jsonPath: 'assets/user_profile.json',
+        );
       case 'Mensajes':
         return MensajesWidget(
           role: 'Conductor',
           userId: widget.userId,
         );
       case 'Pagos':
-        return _buildPlaceholderSection('Pagos pendientes');
+        return PagosWidget(
+          role: 'Conductor',
+          userId: widget.userId,
+          jsonPath: 'assets/payments_data.json',
+        );
       case 'Vehículo':
-        return _buildPlaceholderSection('Vehículo asignado');
+        return VehiculosWidget(
+          role: 'Conductor',
+          ownerId: widget.userId,
+          jsonPath: 'assets/vehicles_data.json',
+        );
       case 'Empresa':
-        return _buildPlaceholderSection('Gestión de empresa');
+        return EmpresaWidget(
+          userId: widget.userId,
+          jsonPath: 'assets/companies_data.json',
+        );
+      case 'Mantenimientos':
+        return MantenimientosWidget(
+          role: 'Conductor',
+          userId: widget.userId ?? '1',
+          jsonPath: 'assets/mantenimientos_data.json',
+        );
       case 'Calendario':
         return _buildPlaceholderSection('Calendario de actividades');
       default:
