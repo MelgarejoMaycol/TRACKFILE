@@ -4,6 +4,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:frontendproyecto/widgets/inicio.dart';
+import 'package:frontendproyecto/widgets/documentos.dart';
+import 'package:frontendproyecto/widgets/mensajes.dart';
+import 'package:frontendproyecto/widgets/pagos.dart';
+import 'package:frontendproyecto/widgets/vehiculos.dart';
+import 'package:frontendproyecto/widgets/empresa.dart';
+import 'package:frontendproyecto/widgets/certificaciones.dart';
+import 'package:frontendproyecto/widgets/mantenimientos.dart';
+import 'package:frontendproyecto/widgets/perfil.dart';
+import 'package:frontendproyecto/widgets/logout_button.dart';
+
+class _MenuOption {
+  final String label;
+  final IconData icon;
+  final String subtitle;
+
+  const _MenuOption(this.label, this.icon, this.subtitle);
+}
 
 class PropietarioScreen extends StatefulWidget {
   static const route = '/propietario';
@@ -42,7 +59,30 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   List<Map<String, dynamic>> _ownerVehicles = [];
   List<Map<String, dynamic>> _ownerDocuments = [];
   String? _userProfileImage;
+  String? _userEmail;
+  String? _userPhone;
   static const List<String> _monthLabels = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+
+  // --- Menus compatible con ConductorScreen ---
+  int? _selectedUpperIndex;
+  int? _selectedLowerIndex = 0;
+  String _activeSection = 'Inicio';
+
+  // Upper and lower menu options (displayed in top tabs and bottom bar)
+  static const List<_MenuOption> _upperMenuOptions = [
+    _MenuOption('Mensajes', Icons.chat_bubble_rounded, 'Conversaciones y alertas'),
+    _MenuOption('Pagos', Icons.payments_rounded, 'Cuotas y obligaciones'),
+    _MenuOption('Vehículo', Icons.directions_car_filled_rounded, 'Asignaciones activas'),
+    _MenuOption('Empresa', Icons.apartment_rounded, 'Gestión corporativa'),
+    _MenuOption('Mantenimientos', Icons.build_rounded, 'Alertas de taller'),
+  ];
+
+  static const List<_MenuOption> _lowerMenuOptions = [
+    _MenuOption('Inicio', Icons.dashboard_rounded, 'Resumen general'),
+    _MenuOption('Documentos', Icons.folder_special_rounded, 'RUT, contratos y más'),
+    _MenuOption('Certificaciones', Icons.verified_rounded, 'Reporte de cumplimiento'),
+    _MenuOption('Perfil', Icons.person_rounded, 'Datos del propietario'),
+  ];
 
   final List<String> _leftMenuItems = const [
     'Inicio',
@@ -50,6 +90,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     'Documentos',
     'Solicitudes',
     'Calendario',
+    'Perfil',
   ];
 
   @override
@@ -111,6 +152,8 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           _userName = userData?['name']?.toString() ?? _userName;
           _userCompany = userData?['company']?.toString() ?? _userCompany;
           _userProfileImage = resolvedProfileImage;
+          _userEmail = userData?['email']?.toString();
+          _userPhone = userData?['phone']?.toString();
         });
       } else {
         setState(() {
@@ -121,6 +164,8 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
             _userCompany = widget.companyName;
           }
           _userProfileImage = null;
+          _userEmail = null;
+          _userPhone = null;
         });
       }
     } catch (e) {
@@ -134,6 +179,8 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           _userCompany = widget.companyName;
         }
         _userProfileImage = null;
+        _userEmail = null;
+        _userPhone = null;
       });
     }
   }
@@ -165,11 +212,72 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
 
   void _onLeftMenuTap(int idx) {
     setState(() => _selectedIndex = idx);
+    // keep _activeSection in sync with rotated left menu
+    final Map<int, String> mapping = {
+      0: 'Inicio',
+      1: 'Vehículo',
+      2: 'Documentos',
+      3: 'Solicitudes',
+      4: 'Calendario',
+      5: 'Perfil',
+    };
+    _activeSection = mapping[idx] ?? _activeSection;
   }
 
-  void _onBottomTap(int idx) {
-    setState(() => _selectedIndex = idx);
+  void _onUpperMenuTap(int idx) {
+    setState(() {
+      _selectedUpperIndex = idx;
+      _selectedLowerIndex = null;
+      _activeSection = _upperMenuOptions[idx].label;
+    });
   }
+
+  void _onLowerMenuTap(int idx) {
+    setState(() {
+      _selectedLowerIndex = idx;
+      _selectedUpperIndex = null;
+      _activeSection = _lowerMenuOptions[idx].label;
+    });
+  }
+
+  void _onBottomTap(String label) {
+    setState(() {
+      _activeSection = label;
+      final int upperIdx = _upperMenuOptions.indexWhere((o) => o.label == label);
+      _selectedUpperIndex = upperIdx != -1 ? upperIdx : null;
+      final int lowerIdx = _lowerMenuOptions.indexWhere((o) => o.label == label);
+      _selectedLowerIndex = lowerIdx != -1 ? lowerIdx : null;
+    });
+  }
+
+  void _navigateToDocuments() {
+    final int docsIndex = _lowerMenuOptions.indexWhere((option) => option.label == 'Documentos');
+    if (docsIndex != -1) {
+      _onLowerMenuTap(docsIndex);
+    }
+  }
+
+  void _navigateToPayments() {
+    final int paymentsIndex = _upperMenuOptions.indexWhere((option) => option.label == 'Pagos');
+    if (paymentsIndex != -1) {
+      _onUpperMenuTap(paymentsIndex);
+    }
+  }
+
+  void _navigateToProfile() {
+    final int profileIndex = _lowerMenuOptions.indexWhere((option) => option.label == 'Perfil');
+    if (profileIndex != -1) {
+      _onLowerMenuTap(profileIndex);
+    }
+  }
+
+  void _navigateToMessages() {
+    final int messagesIndex = _upperMenuOptions.indexWhere((option) => option.label == 'Mensajes');
+    if (messagesIndex != -1) {
+      _onUpperMenuTap(messagesIndex);
+    }
+  }
+
 
   Widget _buildLeftSidebar() {
     const double gap = 40.0;
@@ -217,25 +325,38 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       color: _primaryColor,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildBottomIcon(Icons.home, 0, 'Inicio', isCompact: isCompact),
-          _buildBottomIcon(Icons.inventory, 1, 'Activos', isCompact: isCompact),
-          _buildBottomIcon(Icons.add_box, 2, 'Nuevo', isCompact: isCompact),
-          _buildBottomIcon(Icons.chat, 3, 'Mensajes', isCompact: isCompact),
-          _buildBottomIcon(Icons.person, 4, 'Perfil', isCompact: isCompact),
-        ],
+        children: _lowerMenuOptions.asMap().entries.map((entry) {
+          final int index = entry.key;
+          final _MenuOption option = entry.value;
+          final bool selected = _selectedLowerIndex == index;
+          return _buildBottomIcon(
+            icon: option.icon,
+            label: option.label,
+            selected: selected,
+            isCompact: isCompact,
+          );
+        }).toList(),
       ),
     );
   }
 
-  Widget _buildBottomIcon(IconData icon, int idx, String label, {required bool isCompact}) {
-    final selected = _selectedIndex == idx;
+  Widget _buildBottomIcon({
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required bool isCompact,
+  }) {
     return InkWell(
-      onTap: () => _onBottomTap(idx),
+      onTap: () {
+        _onBottomTap(label);
+      },
       borderRadius: BorderRadius.circular(16),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: EdgeInsets.symmetric(horizontal: isCompact ? 10 : 12, vertical: isCompact ? 6 : 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: isCompact ? 10 : 12,
+          vertical: isCompact ? 6 : 8,
+        ),
         decoration: BoxDecoration(
           color: selected ? _accentColor.withValues(alpha: 0.28) : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
@@ -246,12 +367,17 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           children: [
             Icon(icon, size: isCompact ? 22 : 24, color: Colors.white),
             const SizedBox(height: 4),
-            Text(label, style: TextStyle(fontSize: isCompact ? 10 : 11, color: Colors.white)),
+            Text(
+              label,
+              style: TextStyle(fontSize: isCompact ? 10 : 11, color: Colors.white),
+            ),
           ],
         ),
       ),
     );
   }
+
+
 
   Widget _buildHeader({required bool isCompact}) {
     ImageProvider? avatarImage;
@@ -358,12 +484,12 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           scrollDirection: Axis.horizontal,
           itemBuilder: (context, index) {
-            final label = _leftMenuItems[index];
-            final selected = _selectedIndex == index;
+            final _MenuOption option = _upperMenuOptions[index];
+            final bool selected = _selectedUpperIndex == index;
             return ChoiceChip(
-              label: Text(label),
+              label: Text(option.label),
               selected: selected,
-              onSelected: (_) => _onLeftMenuTap(index),
+              onSelected: (_) => _onUpperMenuTap(index),
               selectedColor: _accentColor,
               backgroundColor: _accentColor.withValues(alpha: 0.12),
               showCheckmark: false,
@@ -375,34 +501,68 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
             );
           },
           separatorBuilder: (context, index) => const SizedBox(width: 12),
-          itemCount: _leftMenuItems.length,
+          itemCount: _upperMenuOptions.length,
         ),
       ),
     );
   }
 
-  Widget _buildContentForIndex() {
-    switch (_selectedIndex) {
-      case 0:
+  Widget _buildContentView() {
+    switch (_activeSection) {
+      case 'Inicio':
+        return InicioWidget(
+          role: 'Propietario',
+          jsonPath: _ownerDashboardAsset,
+          userProfilePath: _ownerProfileAsset,
+          userId: widget.userId ?? '1',
+          onNavigateToDocuments: _navigateToDocuments,
+          onNavigateToPayments: _navigateToPayments,
+          onNavigateToProfile: _navigateToProfile,
+          onNavigateToMessages: _navigateToMessages,
+        );
+      case 'Documentos':
+        return DocumentosWidget(
+          role: 'Propietario',
+          jsonPath: _ownerDashboardAsset,
+        );
+      case 'Certificaciones':
+        return CertificacionesWidget(
+          role: 'Propietario',
+          userId: widget.userId ?? '1',
+          jsonPath: 'assets/certificaciones_data.json',
+        );
+      case 'Perfil':
+        return PerfilWidget(
+          role: 'Propietario',
+          userId: widget.userId ?? '1',
+          jsonPath: _ownerProfileAsset,
+        );
+      case 'Mensajes':
+        return MensajesWidget(role: 'Propietario', userId: widget.userId);
+      case 'Pagos':
+        return PagosWidget(role: 'Propietario', userId: widget.userId, jsonPath: 'assets/payments_data.json');
+      case 'Vehículo':
+        return VehiculosWidget(role: 'Propietario', ownerId: widget.userId, jsonPath: 'assets/vehicles_data.json');
+      case 'Empresa':
+        return EmpresaWidget(userId: widget.userId, jsonPath: 'assets/companies_data.json');
+      case 'Mantenimientos':
+        return MantenimientosWidget(role: 'Propietario', userId: widget.userId ?? '1', jsonPath: 'assets/mantenimientos_data.json');
+      case 'Calendario':
+        return _buildCalendarContent();
+      case 'Solicitudes':
+        return _buildPlaceholderContent(
+          title: 'Solicitudes',
+          message: 'No hay solicitudes registradas en el JSON de propietario.',
+        );
+      case 'Vehículos':
+        return _buildVehiclesContent();
+      default:
         return InicioWidget(
           role: 'Propietario',
           jsonPath: _ownerDashboardAsset,
           userProfilePath: _ownerProfileAsset,
           userId: widget.userId ?? '1',
         );
-      case 1:
-        return _buildVehiclesContent();
-      case 2:
-        return _buildDocumentsContent();
-      case 3:
-        return _buildPlaceholderContent(
-          title: 'Solicitudes',
-          message: 'No hay solicitudes registradas en el JSON de propietario.',
-        );
-      case 4:
-        return _buildCalendarContent();
-      default:
-        return const SizedBox.shrink();
     }
   }
 
@@ -478,6 +638,154 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           const Text('Calendario de vencimientos', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           ...upcomingDocs.map(_buildCalendarItem),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileSection() {
+    final String displayName = _userName.isNotEmpty
+        ? _userName
+        : (widget.personName.isNotEmpty ? widget.personName : 'Propietario');
+    final String displayCompany = _userCompany.isNotEmpty
+        ? _userCompany
+        : (widget.companyName.isNotEmpty ? widget.companyName : 'Sin compañía');
+    final String email = (_userEmail != null && _userEmail!.trim().isNotEmpty)
+        ? _userEmail!
+        : 'No registrado';
+    final String phone = (_userPhone != null && _userPhone!.trim().isNotEmpty)
+        ? _userPhone!
+        : 'No registrado';
+
+    int documentsUpToDate = 0;
+    int documentsExpiringSoon = 0;
+    final DateTime now = DateTime.now();
+    for (final Map<String, dynamic> doc in _ownerDocuments) {
+      final String? expiryRaw = doc['expiryDate']?.toString();
+      if (expiryRaw == null || expiryRaw.isEmpty) {
+        continue;
+      }
+      final DateTime? expiry = DateTime.tryParse(expiryRaw);
+      if (expiry == null) {
+        continue;
+      }
+      if (!expiry.isBefore(now)) {
+        documentsUpToDate++;
+        final int days = expiry.difference(now).inDays;
+        if (days <= 30) {
+          documentsExpiringSoon++;
+        }
+      }
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Perfil del propietario',
+            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  displayCompany,
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+                const SizedBox(height: 18),
+                _buildProfileDetailRow(Icons.mail_outline_rounded, 'Correo', email),
+                _buildProfileDetailRow(Icons.phone_outlined, 'Teléfono', phone),
+                _buildProfileDetailRow(
+                  Icons.directions_bus_rounded,
+                  'Vehículos registrados',
+                  _ownerVehicles.isEmpty ? 'Sin vehículos' : '${_ownerVehicles.length}',
+                ),
+                _buildProfileDetailRow(
+                  Icons.folder_special_outlined,
+                  'Documentos cargados',
+                  _ownerDocuments.isEmpty ? 'Sin documentos' : '${_ownerDocuments.length}',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _buildProfileChip(Icons.verified_user_outlined, 'Vigentes: $documentsUpToDate'),
+              _buildProfileChip(Icons.timer_outlined, 'Próximos a vencer: $documentsExpiringSoon'),
+            ],
+          ),
+          const SizedBox(height: 26),
+          Align(
+            alignment: Alignment.center,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: const LogoutButton(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileDetailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.white70, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white70, size: 18),
+          const SizedBox(width: 8),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
         ],
       ),
     );
@@ -744,7 +1052,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
                         color: _surfaceColor,
                         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                       ),
-                      child: _buildContentForIndex(),
+                      child: _buildContentView(),
                     ),
                   ),
                   _buildBottomBar(isCompact: true),
@@ -767,7 +1075,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
                             color: _surfaceColor,
                             borderRadius: BorderRadius.only(topLeft: Radius.circular(24)),
                           ),
-                          child: _buildContentForIndex(),
+                          child: _buildContentView(),
                         ),
                       ),
                       _buildBottomBar(isCompact: false),

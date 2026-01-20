@@ -73,6 +73,7 @@ flutter:
     - assets/user_profile.json
     - assets/propietario_profile.json
     - assets/propietario_dashboard.json
+    - assets/empresa_dashboard.json
     - assets/payments_data.json
     - assets/vehicles_data.json
     - assets/companies_data.json

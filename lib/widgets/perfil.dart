@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:frontendproyecto/widgets/logout_button.dart';
+
 class PerfilWidget extends StatefulWidget {
   final String? userId;
   final String? jsonPath;
@@ -349,6 +351,14 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                   _buildCertificaciones(isCompact),
                   const SizedBox(height: 22),
                   _buildVehiculos(isCompact),
+                  const SizedBox(height: 30),
+                  Align(
+                    alignment: Alignment.center,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 320),
+                      child: const LogoutButton(),
+                    ),
+                  ),
                 ],
               ),
             ),

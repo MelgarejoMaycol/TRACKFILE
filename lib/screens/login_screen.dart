@@ -458,29 +458,23 @@ class _LoginScreenState extends State<LoginScreen>
             return;
           }
 
-          final Map<String, dynamic> loginData = Map<String, dynamic>.from(
-            decoded.cast<String, dynamic>(),
-          );
+          final Map<String, dynamic> loginData = _safeJsonMap(decoded);
           final bool emailConfirmado = loginData['emailConfirmado'] == true;
           final String email =
-              loginData['correo']?.toString() ?? _userCtrl.text.trim();
+              _stringValue(loginData['correo']) ?? _userCtrl.text.trim();
+          final String? verificationLink =
+              _resolveVerificationLink(loginData['verificationLink']);
 
           if (!emailConfirmado) {
-            await _showVerificationPendingDialog(email);
+            await _showVerificationPendingDialog(
+              email,
+              verificationLink: verificationLink,
+            );
             return;
           }
 
-          final String role = (loginData['rol']?.toString() ?? '')
-              .toUpperCase();
-          final String? estadoVerificacion = loginData['estadoVerificacion']
-              ?.toString();
-          if (role == 'EMPRESA' && estadoVerificacion != null) {
-            final Set<String> allowedStates = {'APROBADA', 'APROBADO'};
-            if (!allowedStates.contains(estadoVerificacion.toUpperCase())) {
-              await _showEmpresaEstadoDialog(estadoVerificacion);
-              return;
-            }
-          }
+          final String role =
+              _stringValue(loginData['rol'])?.toUpperCase() ?? '';
 
           final int? usuarioId = _toInt(loginData['usuarioId']);
           if (usuarioId == null) {
@@ -502,25 +496,33 @@ class _LoginScreenState extends State<LoginScreen>
             return;
           }
 
-          profile['id'] ??= usuarioId;
-          profile['usuarioId'] ??= usuarioId;
-          profile['rol'] = (profile['rol']?.toString() ?? role).toUpperCase();
-          profile['emailConfirmado'] ??= emailConfirmado;
-          profile['empresaId'] ??= _toInt(loginData['empresaId']);
+          final Map<String, dynamic> sessionData = _composeSessionData(
+            profile,
+            loginData,
+            usuarioId: usuarioId,
+            fallbackRole: role,
+            email: email,
+            emailConfirmado: emailConfirmado,
+          );
 
-          if (estadoVerificacion != null) {
-            final company = profile['empresa'];
-            if (company is Map<String, dynamic>) {
-              company['estadoVerificacion'] ??= estadoVerificacion;
-            } else {
-              profile['estadoVerificacion'] ??= estadoVerificacion;
+          final String sessionRole =
+              _stringValue(sessionData['rol'])?.toUpperCase() ?? '';
+          if (sessionRole == 'EMPRESA') {
+            final String? estadoVerificacion = _stringValue(
+              _extractEmpresa(sessionData)['estadoVerificacion'] ??
+                  sessionData['estadoVerificacion'],
+            );
+            if (estadoVerificacion != null &&
+                !_isEmpresaVerificada(estadoVerificacion)) {
+              await _showEmpresaEstadoDialog(estadoVerificacion);
+              return;
             }
           }
 
-          await persistSession(profile);
+          await persistSession(sessionData);
           if (!mounted) return;
 
-          final target = screenForRole(profile);
+          final target = screenForRole(sessionData);
           if (target == null) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -583,6 +585,114 @@ class _LoginScreenState extends State<LoginScreen>
     return null;
   }
 
+  String? _stringValue(dynamic value) {
+    if (value == null) return null;
+    if (value is String) {
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+    final String str = value.toString().trim();
+    return str.isEmpty ? null : str;
+  }
+
+  Map<String, dynamic> _safeJsonMap(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(value);
+    }
+    if (value is Map) {
+      final result = <String, dynamic>{};
+      value.forEach((key, val) {
+        if (key == null) return;
+        final normalizedKey = key is String ? key : key.toString();
+        if (normalizedKey.isNotEmpty) {
+          result[normalizedKey] = val;
+        }
+      });
+      return result;
+    }
+    return <String, dynamic>{};
+  }
+
+  Map<String, dynamic> _composeSessionData(
+    Map<String, dynamic> profile,
+    Map<String, dynamic> loginData, {
+    required int usuarioId,
+    required String fallbackRole,
+    required String email,
+    required bool emailConfirmado,
+  }) {
+    final session = _safeJsonMap(profile);
+
+    session['id'] ??= usuarioId;
+    session['usuarioId'] ??= usuarioId;
+    session['correo'] ??= email;
+    session['emailConfirmado'] =
+        (session['emailConfirmado'] == true) || emailConfirmado;
+
+    final String role =
+        _stringValue(session['rol'])?.toUpperCase() ?? fallbackRole;
+    session['rol'] = role;
+
+    final int? empresaId =
+        _toInt(session['empresaId']) ?? _toInt(loginData['empresaId']);
+    if (empresaId != null) {
+      session['empresaId'] = empresaId;
+    }
+
+    final Map<String, dynamic> empresa = _extractEmpresa(session);
+    if (empresaId != null) {
+      empresa['id'] ??= empresaId;
+    }
+
+    final String? estadoVerificacion = _stringValue(
+      empresa['estadoVerificacion'] ?? loginData['estadoVerificacion'],
+    );
+    if (estadoVerificacion != null) {
+      empresa['estadoVerificacion'] = estadoVerificacion;
+    }
+
+    final String? nombreEmpresa = _stringValue(
+      empresa['nombreEmpresa'] ?? loginData['nombreEmpresa'],
+    );
+    if (nombreEmpresa != null) {
+      empresa['nombreEmpresa'] = nombreEmpresa;
+    }
+
+    if (empresa.isNotEmpty) {
+      session['empresa'] = empresa;
+    }
+
+    return session;
+  }
+
+  Map<String, dynamic> _extractEmpresa(Map<String, dynamic> session) {
+    final dynamic rawEmpresa = session['empresa'];
+    final Map<String, dynamic> empresa = _safeJsonMap(rawEmpresa);
+    session['empresa'] = empresa;
+    return empresa;
+  }
+
+  bool _isEmpresaVerificada(String state) {
+    final normalized = state.toUpperCase();
+    const approved = {'APROBADA', 'APROBADO'};
+    return approved.contains(normalized);
+  }
+
+  String? _resolveVerificationLink(dynamic rawLink) {
+    final String? link = _stringValue(rawLink);
+    if (link == null) return null;
+    final String? normalized = ApiConfig.normalize(link);
+    if (normalized != null) {
+      return normalized;
+    }
+
+    final String base = _baseUrl.endsWith('/')
+        ? _baseUrl.substring(0, _baseUrl.length - 1)
+        : _baseUrl;
+    final String sanitized = link.startsWith('/') ? link : '/$link';
+    return '$base$sanitized';
+  }
+
   Future<Map<String, dynamic>?> _fetchUserDetails(int userId) async {
     try {
       final response = await http
@@ -630,26 +740,193 @@ class _LoginScreenState extends State<LoginScreen>
     return null;
   }
 
-  Future<void> _showVerificationPendingDialog(String email) async {
+  Future<void> _showVerificationPendingDialog(
+    String email, {
+    String? verificationLink,
+  }) async {
     if (!mounted) return;
     await showDialog<void>(
       context: context,
       barrierDismissible: true,
       builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Verifica tu correo'),
-          content: Text(
-            'Hemos enviado un enlace de verificación a $email. '
-            'Completa la verificación desde tu correo electrónico antes de iniciar sesión.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Entendido'),
+        final theme = Theme.of(ctx);
+        final primary = const Color(0xFF0C1C58);
+        final secondary = const Color(0xFF1D2B7B);
+        final overlay = Colors.white.withOpacity(0.14);
+        final bool isDark = theme.brightness == Brightness.dark;
+        final footerColor = isDark
+            ? Colors.white.withOpacity(0.06)
+            : const Color(0xFFF3F6FF);
+
+        return Dialog(
+          backgroundColor: const Color.fromARGB(0, 255, 255, 255),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.18),
+                  blurRadius: 28,
+                  offset: const Offset(0, 14),
+                ),
+              ],
             ),
-          ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(24, 26, 24, 22),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [primary, secondary],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: overlay,
+                          shape: BoxShape.circle,
+                        ),
+                        padding: const EdgeInsets.all(13),
+                        child: const Icon(Icons.mark_email_unread, color: Colors.white, size: 28),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Text(
+                              'Verifica tu correo',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Tu cuenta está pendiente de validación.',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 22, 24, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Hemos enviado un enlace de verificación a $email. '
+                        'Completa la verificación desde tu correo electrónico antes de iniciar sesión.',
+                        style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+                      ),
+                      if (verificationLink != null) ...[
+                        const SizedBox(height: 18),
+                        Text(
+                          '¿No lo encuentras?',
+                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Puedes abrir manualmente el siguiente enlace de verificación:',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 10),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            child: SelectableText(
+                              verificationLink,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: FilledButton.icon(
+                            onPressed: () => _copyToClipboard(verificationLink),
+                            icon: const Icon(Icons.copy, size: 18),
+                            label: const Text('Copiar enlace'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                              textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                  decoration: BoxDecoration(
+                    color: footerColor,
+                    borderRadius:
+                        const BorderRadius.vertical(bottom: Radius.circular(24)),
+                    border: Border(
+                      top: BorderSide(
+                        color: isDark
+                            ? Colors.white.withOpacity(0.1)
+                            : const Color(0xFFE1E6F5),
+                      ),
+                    ),
+                  ),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      style: TextButton.styleFrom(
+                        foregroundColor: primary,
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      child: const Text('Entendido'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
+    );
+  }
+
+  Future<void> _copyToClipboard(String value) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Enlace copiado al portapapeles')),
     );
   }
 
@@ -1014,25 +1291,25 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                _baseUrl,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.settings_ethernet_outlined, size: 20),
-              tooltip: 'Cambiar servidor',
-              onPressed: (_loginLoading || _signUpLoading)
-                  ? null
-                  : _promptBaseUrlChange,
-            ),
-          ],
-        ),
+        // Row(
+        //   children: [
+        //     Expanded(
+        //       child: Text(
+        //         _baseUrl,
+        //         maxLines: 1,
+        //         overflow: TextOverflow.ellipsis,
+        //         style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+        //       ),
+        //     ),
+        //     IconButton(
+        //       icon: const Icon(Icons.settings_ethernet_outlined, size: 20),
+        //       tooltip: 'Cambiar servidor',
+        //       onPressed: (_loginLoading || _signUpLoading)
+        //           ? null
+        //           : _promptBaseUrlChange,
+        //     ),
+        //   ],
+        // ),
         const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,
@@ -1121,79 +1398,120 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
-
   Widget _buildRoleShortcutButtons() {
-    const roleConfigs = [
-      {'label': 'Conductor', 'role': 'CONDUCTOR', 'icon': Icons.directions_bus},
-      {'label': 'Empresa', 'role': 'EMPRESA', 'icon': Icons.apartment},
-      {'label': 'Propietario', 'role': 'PROPIETARIO', 'icon': Icons.person_pin},
-      {
-        'label': 'Secretaria',
-        'role': 'SECRETARIA',
-        'icon': Icons.support_agent,
-      },
-      {'label': 'Admin', 'role': 'ADMIN', 'icon': Icons.admin_panel_settings},
-    ];
-
-    return SafeArea(
-      top: false,
-      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: Column(
-        children: [
-          const SizedBox(height: 4),
-          Text(
-            'Ingresar directo por rol',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white70,
-              fontWeight: FontWeight.w600,
-            ),
+    return Column(
+      children: [
+        const Text(
+          'Acceso rápido por rol',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.blueGrey,
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
-            children: roleConfigs.map((config) {
-              final String label = config['label']! as String;
-              final String roleKey = config['role']! as String;
-              final IconData icon = config['icon']! as IconData;
-
-              return SizedBox(
-                width: 150,
-                child: ElevatedButton.icon(
-                  icon: Icon(icon, size: 20),
-                  label: Text(label),
-                  onPressed: () => _openRoleShortcut(roleKey),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF06135E),
-                    minimumSize: const Size.fromHeight(44),
-                  ),
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final buttonWidth = (constraints.maxWidth - 48) / 2;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.center,
+              children: [
+                _buildDirectAccessButton(
+                  context: context,
+                  label: 'Empresa',
+                  role: 'ROLE_EMPRESA',
                 ),
-              );
-            }).toList(),
-          ),
-        ],
+                _buildDirectAccessButton(
+                  context: context,
+                  label: 'Propietario',
+                  role: 'ROLE_PROPIETARIO',
+                ),
+                _buildDirectAccessButton(
+                  context: context,
+                  label: 'Conductor',
+                  role: 'ROLE_CONDUCTOR',
+                ),
+              ].map((button) {
+                return SizedBox(
+                  width: buttonWidth,
+                  child: button,
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDirectAccessButton({
+    required BuildContext context,
+    required String label,
+    required String role,
+  }) {
+    return FilledButton.icon(
+      onPressed: (_loginLoading || _signUpLoading)
+          ? null
+          : () => _openRoleShortcut(role),
+      style: FilledButton.styleFrom(
+        backgroundColor: const Color(0xFF06135E),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      icon: const Icon(Icons.arrow_forward_ios, size: 16),
+      label: Text(
+        label,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
 
+  Future<void> _doDirectLogin(String email, String password) async {
+    if (_loginLoading) return;
+    // populate controllers and validate
+    _userCtrl.text = email;
+    _passCtrl.text = password;
+    _validateForms();
+    if (!mounted) return;
+    setState(() => _isLoginValid = true);
+    await _doLogin();
+  }
+
   void _openRoleShortcut(String roleKey) {
-    final Map<String, dynamic> demoUser = {
-      'rol': roleKey,
-      'id': 'demo_$roleKey',
-      'nombre': 'Usuario',
-      'apellido': roleKey.toLowerCase(),
-      'empresa': {
-        'nombreEmpresa': 'Demo Logistics',
-        'representanteLegal': 'Demo Admin',
-        'nit': '900123456',
-      },
-    };
+    // Use real test accounts when available
+    switch (roleKey) {
+      case 'ROLE_EMPRESA':
+        _doDirectLogin('mfmelgarejo04@gmail.com', 'Juan12345678');
+        return;
+      case 'ROLE_PROPIETARIO':
+        _doDirectLogin('propietario@gmail.com', 'Juan12345678');
+        return;
+      case 'ROLE_CONDUCTOR':
+        _doDirectLogin('conductor@gmail.com', 'Juan12345678');
+        return;
+      default:
+        // Fallback demo user for other roles
+        final Map<String, dynamic> demoUser = {
+          'rol': roleKey,
+          'id': 'demo_$roleKey',
+          'nombre': 'Usuario',
+          'apellido': roleKey.toLowerCase(),
+          'empresa': {
+            'nombreEmpresa': 'Demo Logistics',
+            'representanteLegal': 'Demo Admin',
+            'nit': '900123456',
+          },
+        };
 
-    final Widget? target = screenForRole(demoUser);
-    if (target == null) return;
+        final Widget? target = screenForRole(demoUser);
+        if (target == null) return;
 
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => target));
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => target));
+    }
   }
 }

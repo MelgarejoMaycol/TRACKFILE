@@ -35,12 +35,13 @@ class InicioWidget extends StatefulWidget {
 
 class _InicioWidgetState extends State<InicioWidget> {
   late String _role;
-  // documents[name] = expiryDate
   late Map<String, DateTime> _documents;
-  Map<String, DateTime>? _paymentDates; // Fechas de pago
+  Map<String, DateTime>? _paymentDates;
   bool _isLoading = true;
   List<Map<String, dynamic>> _fleetVehicles = [];
   Map<String, String> _documentVehicle = {};
+  Map<String, dynamic> _summaryMetrics = {};
+  List<Map<String, dynamic>> _alerts = [];
   
   // User profile data
   String _userName = 'Usuario';
@@ -50,166 +51,209 @@ class _InicioWidgetState extends State<InicioWidget> {
   @override
   void initState() {
     super.initState();
-    _role = widget.role ?? '';
-    _loadDocuments();
-    _loadUserProfile();
+    _role = (widget.role ?? '').trim();
+    _documents = widget.documents != null
+        ? Map<String, DateTime>.from(widget.documents!)
+        : <String, DateTime>{};
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    setState(() => _isLoading = true);
+    await Future.wait([
+      _loadDocuments(),
+      _loadUserProfile(),
+    ]);
+    if (!mounted) return;
+    setState(() => _isLoading = false);
   }
 
   Future<void> _loadDocuments() async {
-    try {
-      if (widget.jsonPath != null) {
-        // Cargar desde archivo JSON
-        await _loadFromJson(widget.jsonPath!);
-      } else if (widget.documents != null) {
-        // Usar documentos proporcionados
-        _documents = widget.documents!;
-        _paymentDates = null;
-        _documentVehicle = {};
-      } else {
-        // Usar datos de ejemplo
-        _documents = _exampleDocuments();
-        _paymentDates = null;
-        _documentVehicle = {};
+    final Map<String, DateTime> docs = Map<String, DateTime>.from(_documents);
+    final Map<String, DateTime> payments = <String, DateTime>{};
+    final Map<String, String> docDetails = <String, String>{};
+    List<Map<String, dynamic>> fleet = [];
+    Map<String, dynamic> summary = {};
+    List<Map<String, dynamic>> alerts = [];
+
+    if (widget.jsonPath != null && widget.jsonPath!.isNotEmpty) {
+      try {
+        final String raw = await rootBundle.loadString(widget.jsonPath!);
+        final dynamic decoded = json.decode(raw);
+        if (decoded is Map<String, dynamic>) {
+          summary = decoded['summary'] is Map
+              ? Map<String, dynamic>.from(decoded['summary'] as Map)
+              : {};
+
+          final List<dynamic> docList = decoded['documents'] is List
+              ? decoded['documents'] as List
+              : const [];
+          for (final dynamic entry in docList) {
+            if (entry is! Map) continue;
+            final map = entry.map((key, value) => MapEntry(key.toString(), value));
+            final String? name = map['name']?.toString();
+            if (name == null || name.isEmpty) continue;
+            final DateTime? expiry = DateTime.tryParse(map['expiryDate']?.toString() ?? '');
+            if (expiry != null) {
+              docs[name] = expiry;
+            }
+            final DateTime? payment = DateTime.tryParse(map['paymentDate']?.toString() ?? '');
+            if (payment != null) {
+              payments[name] = payment;
+            }
+
+            final String category = map['category']?.toString() ?? '';
+            final String responsible = map['responsible']?.toString() ?? '';
+            final String detail = [category, responsible]
+                .where((part) => part.isNotEmpty)
+                .join(' · ');
+            if (detail.isNotEmpty) {
+              docDetails[name] = detail;
+            }
+          }
+
+          final List<dynamic> vehicleList = decoded['vehicles'] is List
+              ? decoded['vehicles'] as List
+              : const [];
+          fleet = vehicleList
+              .whereType<Map>()
+              .map((vehicle) => vehicle.map((key, value) => MapEntry(key.toString(), value)))
+              .map((map) {
+                final DateTime? nextExpiry = DateTime.tryParse(map['nextExpiry']?.toString() ?? '');
+                final DateTime? lastService = DateTime.tryParse(map['lastService']?.toString() ?? '');
+                return {
+                  ...map,
+                  'nextExpiry': nextExpiry,
+                  'lastService': lastService,
+                };
+              })
+              .toList();
+
+          final List<dynamic> alertList = decoded['alerts'] is List
+              ? decoded['alerts'] as List
+              : const [];
+          alerts = alertList
+              .whereType<Map>()
+              .map((alert) => alert.map((key, value) => MapEntry(key.toString(), value)))
+              .toList();
+        }
+      } catch (e) {
+        debugPrint('Error cargando dashboard desde ${widget.jsonPath}: $e');
       }
-    } catch (e) {
-      debugPrint('Error cargando documentos: $e');
-      _documents = _exampleDocuments();
-      _paymentDates = null;
-      _documentVehicle = {};
     }
 
-    if (_fleetVehicles.isEmpty) {
-      _fleetVehicles = _mockFleetVehicles();
+    if (docs.isEmpty) {
+      docs.addAll(_exampleDocuments());
+    }
+    if (fleet.isEmpty) {
+      fleet = _mockFleetVehicles();
     }
 
+    if (!mounted) return;
     setState(() {
-      _isLoading = false;
+      _documents = docs;
+      _paymentDates = payments.isNotEmpty ? payments : null;
+      _documentVehicle = docDetails;
+      _fleetVehicles = fleet;
+      _summaryMetrics = summary;
+      _alerts = alerts;
     });
-
-  }
-
-  Future<void> _loadFromJson(String path) async {
-    try {
-      final String jsonString = await rootBundle.loadString(path);
-      final Map<String, dynamic> jsonData = json.decode(jsonString);
-      final Map<String, DateTime> docs = {};
-      final Map<String, DateTime> payments = {};
-      final Map<String, String> docVehicles = {};
-
-      final documentsList = jsonData['documents'];
-      if (documentsList is List) {
-        for (final rawDoc in documentsList) {
-          if (rawDoc is Map<String, dynamic>) {
-            final String? name = rawDoc['name']?.toString();
-            final String? expiryStr = rawDoc['expiryDate']?.toString();
-            if (name == null || expiryStr == null) continue;
-
-            final DateTime? expiryDate = DateTime.tryParse(expiryStr);
-            if (expiryDate == null) continue;
-            docs[name] = expiryDate;
-
-            final String? paymentStr = rawDoc['paymentDate']?.toString();
-            final DateTime? paymentDate = paymentStr != null && paymentStr.isNotEmpty ? DateTime.tryParse(paymentStr) : null;
-            if (paymentDate != null) {
-              payments[name] = paymentDate;
-            }
-
-            final String? vehicle = rawDoc['vehicle']?.toString();
-            if (vehicle != null && vehicle.isNotEmpty) {
-              docVehicles[name] = vehicle;
-            }
-          }
-        }
-      }
-
-      final vehiclesList = jsonData['vehicles'];
-      if (vehiclesList is List) {
-        final List<Map<String, dynamic>> parsedVehicles = [];
-        for (final rawVehicle in vehiclesList) {
-          if (rawVehicle is Map<String, dynamic>) {
-            final String? nextExpiryStr = rawVehicle['nextExpiry']?.toString();
-            final DateTime? nextExpiry = nextExpiryStr != null && nextExpiryStr.isNotEmpty ? DateTime.tryParse(nextExpiryStr) : null;
-            parsedVehicles.add({
-              'plate': rawVehicle['plate'] ?? '',
-              'model': rawVehicle['model'] ?? '',
-              'driver': rawVehicle['driver'] ?? '',
-              'status': rawVehicle['status'] ?? '',
-              'nextExpiry': nextExpiry,
-            });
-          }
-        }
-        if (parsedVehicles.isNotEmpty) {
-          _fleetVehicles = parsedVehicles;
-        }
-      }
-
-      if (docs.isNotEmpty) {
-        _documents = docs;
-      } else {
-        _documents = _exampleDocuments();
-      }
-
-      _paymentDates = payments.isEmpty ? null : payments;
-      _documentVehicle = docVehicles;
-    } catch (e) {
-      debugPrint('Error parsing JSON: $e');
-      rethrow;
-    }
   }
 
   Future<void> _loadUserProfile() async {
+    if (widget.userProfilePath == null || widget.userProfilePath!.isEmpty) {
+      return;
+    }
+
     try {
-      if (widget.userProfilePath != null) {
-        final String jsonString = await rootBundle.loadString(widget.userProfilePath!);
-        final Map<String, dynamic> jsonData = json.decode(jsonString);
-        
-        // Buscar el usuario por ID
-        Map<String, dynamic>? userData;
-        List<dynamic>? records;
-        if (jsonData['users'] != null) {
-          records = jsonData['users'];
-        } else if (jsonData['owners'] != null) {
-          records = jsonData['owners'];
-        }
+      final String raw = await rootBundle.loadString(widget.userProfilePath!);
+      final dynamic decoded = json.decode(raw);
+      final List<Map<String, dynamic>> candidates = _extractUserRecords(decoded);
 
-        if (records != null) {
-          if (widget.userId != null) {
-            userData = records.firstWhere(
-              (item) => item['id'].toString() == widget.userId,
-              orElse: () => records!.isNotEmpty ? records[0] : null,
-            );
-          } else {
-            userData = records.isNotEmpty ? records[0] : null;
-          }
+      Map<String, dynamic>? userData;
+      if (candidates.isNotEmpty) {
+        if (widget.userId != null && widget.userId!.isNotEmpty) {
+          userData = candidates.firstWhere(
+            (entry) {
+              final dynamic candidateId = entry['id'] ?? entry['id_usuario'] ?? entry['id_empresa'];
+              return candidateId != null && candidateId.toString() == widget.userId;
+            },
+            orElse: () => candidates.first,
+          );
         } else {
-          // Formato antiguo sin array de usuarios
-          userData = jsonData;
+          userData = candidates.first;
         }
+      } else if (decoded is Map<String, dynamic>) {
+        userData = decoded;
+      }
 
-        if (userData != null) {
-          String? profileImageCandidate;
-          final dynamic rawImage = userData['profileImage'];
-          if (rawImage is String && rawImage.isNotEmpty) {
-            final bool assetExists = await _assetExists(rawImage);
-            if (assetExists) {
-              profileImageCandidate = rawImage;
-            } else {
-              debugPrint('Imagen de perfil no encontrada: $rawImage. Se usará el ícono por defecto.');
-            }
-          }
+      if (userData == null) {
+        return;
+      }
 
-          if (mounted) {
-            setState(() {
-              _userName = userData!['name'] ?? 'Usuario';
-              _userCompany = userData['company'] ?? 'Empresa';
-              _userProfileImage = profileImageCandidate;
-            });
-          }
+      String? profileImageCandidate;
+      final dynamic rawImage = userData['profileImage'] ?? userData['logo'];
+      if (rawImage is String && rawImage.isNotEmpty) {
+        final bool exists = await _assetExists(rawImage);
+        if (exists) {
+          profileImageCandidate = rawImage;
+        } else {
+          debugPrint('Imagen de perfil no encontrada: $rawImage');
         }
       }
+
+      final String resolvedName = userData['name']?.toString()
+          ?? userData['nombre']?.toString()
+          ?? userData['representanteLegal']?.toString()
+          ?? _userName;
+
+      String resolvedCompany = userData['company']?.toString()
+          ?? userData['nombreEmpresa']?.toString()
+          ?? userData['razonSocial']?.toString()
+          ?? userData['descripcion']?.toString()
+          ?? _userCompany;
+
+      if (_role.toLowerCase() == 'empresa') {
+        resolvedCompany = userData['vision']?.toString()
+            ?? userData['descripcion']?.toString()
+            ?? resolvedCompany;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _userName = resolvedName.isNotEmpty ? resolvedName : _userName;
+        _userCompany = resolvedCompany.isNotEmpty ? resolvedCompany : _userCompany;
+        _userProfileImage = profileImageCandidate;
+      });
     } catch (e) {
-      debugPrint('Error cargando perfil de usuario: $e');
+      debugPrint('Error cargando perfil desde ${widget.userProfilePath}: $e');
     }
+  }
+
+  List<Map<String, dynamic>> _extractUserRecords(dynamic source) {
+    List<dynamic>? records;
+    if (source is List) {
+      records = source;
+    } else if (source is Map<String, dynamic>) {
+      const List<String> keys = ['users', 'owners', 'companies', 'data'];
+      for (final key in keys) {
+        final dynamic value = source[key];
+        if (value is List) {
+          records = value;
+          break;
+        }
+      }
+      records ??= [source];
+    }
+
+    if (records == null) {
+      return const [];
+    }
+
+    return records
+        .whereType<Map>()
+        .map((record) => record.map((key, value) => MapEntry(key.toString(), value)))
+        .toList();
   }
 
   Future<bool> _assetExists(String path) async {
@@ -860,17 +904,90 @@ class _InicioWidgetState extends State<InicioWidget> {
   }
 
   Widget _empresaInicio() {
+    final DateTime now = DateTime.now();
+    final int totalDrivers = (_summaryMetrics['activeDrivers'] as num?)?.toInt() ?? 0;
+    final int fleetSize = (_summaryMetrics['fleetSize'] as num?)?.toInt() ?? _fleetVehicles.length;
+    final int documentsExpired = (_summaryMetrics['documentsExpired'] as num?)?.toInt()
+      ?? _documents.entries.where((entry) => entry.value.isBefore(now)).length;
+    final int maintenanceScheduled = (_summaryMetrics['maintenanceScheduled'] as num?)?.toInt() ?? 0;
+    final int certificateRequests = (_summaryMetrics['certificateRequests'] as num?)?.toInt() ?? _alerts.length;
+
+    final List<MapEntry<String, DateTime>> upcomingDocs = _upcomingDocs(limit: 4);
+
+    final VoidCallback documentsTap = widget.onNavigateToDocuments ?? () => _showNavigationFallback('Documentos');
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Panel Empresa', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        const Text('Control y métricas de la flota.', style: TextStyle(color: Colors.white70)),
-        const SizedBox(height: 20),
-        _infoCard(Icons.people, 'Conductores', '34'),
-        const SizedBox(height: 12),
-        _infoCard(Icons.insert_drive_file, 'Documentos por revisar', '5'),
-      ]),
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 820),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    width: double.infinity,
+                    height: 160,
+                    color: Colors.white.withValues(alpha: 0.06),
+                    alignment: Alignment.center,
+                    child: Image.asset(
+                      'assets/vehicles.webp',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Panel Empresa',
+                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Supervisa tus indicadores corporativos, próximos vencimientos y operaciones clave.',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+                const SizedBox(height: 20),
+                Align(
+                  alignment: Alignment.center,
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _buildSummaryChip(Icons.apartment_rounded, '$fleetSize vehículos', 'Flota total'),
+                      _buildSummaryChip(Icons.badge_rounded, '$totalDrivers conductores', 'Activos hoy'),
+                      _buildSummaryChip(Icons.warning_amber_rounded, '$documentsExpired vencidos', 'Documentos vencidos'),
+                      _buildSummaryChip(Icons.build_circle_rounded, '$maintenanceScheduled mantenimientos', 'Programados'),
+                      _buildSummaryChip(Icons.assignment_turned_in_rounded, '$certificateRequests solicitudes', 'Certificados'),
+                    ],
+                  ),
+                ),
+                if (upcomingDocs.isNotEmpty) ...[
+                  const SizedBox(height: 26),
+                  const Text(
+                    'Documentos corporativos próximos a vencer',
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDocumentCountdownGrid(upcomingDocs),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.center,
+                    child: TextButton.icon(
+                      onPressed: documentsTap,
+                      icon: const Icon(Icons.folder_copy_rounded, color: Color(0xFF16C79A)),
+                      label: const Text('Ir al módulo de documentos', style: TextStyle(color: Color(0xFF16C79A))),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -928,7 +1045,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                 if (limitedUpcoming.isNotEmpty) ...[
                   const Text('Documentos próximos a vencer', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 12),
-                  _buildOwnerDocumentCountdowns(limitedUpcoming),
+                  _buildDocumentCountdownGrid(limitedUpcoming),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1079,7 +1196,7 @@ class _InicioWidgetState extends State<InicioWidget> {
     );
   }
 
-  Widget _buildOwnerDocumentCountdowns(List<MapEntry<String, DateTime>> docs) {
+  Widget _buildDocumentCountdownGrid(List<MapEntry<String, DateTime>> docs) {
     const double spacing = 14.0;
 
     return LayoutBuilder(
@@ -1117,7 +1234,7 @@ class _InicioWidgetState extends State<InicioWidget> {
               final int daysRemaining = expiry.difference(DateTime.now()).inDays;
               final int totalDays = daysRemaining <= 90 ? 90 : daysRemaining;
               final DateTime? paymentDate = _paymentDates?[entry.key];
-              final String vehicleName = _documentVehicle[entry.key] ?? 'Vehículo sin asignar';
+              final String detailLabel = _documentVehicle[entry.key] ?? 'Sin detalle';
 
               return SizedBox(
                 width: itemWidth,
@@ -1133,7 +1250,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                     paymentDate: paymentDate,
                     totalDuration: Duration(days: totalDays),
                     title: entry.key,
-                    subtitle: '$vehicleName\n${daysRemaining.clamp(0, 999)} días',
+                    subtitle: '$detailLabel\n${daysRemaining.clamp(0, 999)} días',
                     size: countdownSize,
                   ),
                 ),
@@ -1144,6 +1261,7 @@ class _InicioWidgetState extends State<InicioWidget> {
       },
     );
   }
+
 
   Widget _buildVehicleCard(Map<String, dynamic> vehicle) {
     final DateTime? nextExpiry = vehicle['nextExpiry'] as DateTime?;
