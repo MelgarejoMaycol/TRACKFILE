@@ -1,12 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
+import 'package:frontendproyecto/utils/api_config.dart';
 import 'package:frontendproyecto/widgets/inicio.dart';
 import 'package:frontendproyecto/widgets/documentos.dart';
 import 'package:frontendproyecto/widgets/mensajes.dart';
-import 'package:frontendproyecto/widgets/pagos.dart';
 import 'package:frontendproyecto/widgets/vehiculos.dart';
 import 'package:frontendproyecto/widgets/empresa.dart';
 import 'package:frontendproyecto/widgets/certificaciones.dart';
@@ -17,9 +19,9 @@ import 'package:frontendproyecto/widgets/logout_button.dart';
 class _MenuOption {
   final String label;
   final IconData icon;
-  final String subtitle;
+  final String section;
 
-  const _MenuOption(this.label, this.icon, this.subtitle);
+  const _MenuOption(this.label, this.icon, this.section);
 }
 
 class PropietarioScreen extends StatefulWidget {
@@ -52,6 +54,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
 
   static const String _ownerProfileAsset = 'assets/propietario_profile.json';
   static const String _ownerDashboardAsset = 'assets/propietario_dashboard.json';
+  String _baseUrl = ApiConfig.fallbackBaseUrl();
   int _selectedIndex = 0;
   String _userName = '';
   String _userCompany = '';
@@ -61,6 +64,12 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   String? _userProfileImage;
   String? _userEmail;
   String? _userPhone;
+  String? _userAddress;
+  String? _userDocument;
+  int _notificationsCount = 0;
+  Map<String, dynamic> _summary = {};
+  List<Map<String, dynamic>> _alerts = [];
+  List<Map<String, dynamic>> _drivers = [];
   static const List<String> _monthLabels = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 
   // --- Menus compatible con ConductorScreen ---
@@ -68,35 +77,41 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   int? _selectedLowerIndex = 0;
   String _activeSection = 'Inicio';
 
-  // Upper and lower menu options (displayed in top tabs and bottom bar)
   static const List<_MenuOption> _upperMenuOptions = [
-    _MenuOption('Mensajes', Icons.chat_bubble_rounded, 'Conversaciones y alertas'),
-    _MenuOption('Pagos', Icons.payments_rounded, 'Cuotas y obligaciones'),
-    _MenuOption('Vehículo', Icons.directions_car_filled_rounded, 'Asignaciones activas'),
-    _MenuOption('Empresa', Icons.apartment_rounded, 'Gestión corporativa'),
-    _MenuOption('Mantenimientos', Icons.build_rounded, 'Alertas de taller'),
+    _MenuOption('Mensajes', Icons.chat_bubble_rounded, 'Mensajes'),
+    _MenuOption('Vehículo', Icons.directions_car_filled_rounded, 'Vehículo'),
+    _MenuOption('Empresa', Icons.apartment_rounded, 'Empresa'),
+    _MenuOption('Mantenimientos', Icons.build_rounded, 'Mantenimientos'),
   ];
 
   static const List<_MenuOption> _lowerMenuOptions = [
-    _MenuOption('Inicio', Icons.dashboard_rounded, 'Resumen general'),
-    _MenuOption('Documentos', Icons.folder_special_rounded, 'RUT, contratos y más'),
-    _MenuOption('Certificaciones', Icons.verified_rounded, 'Reporte de cumplimiento'),
-    _MenuOption('Perfil', Icons.person_rounded, 'Datos del propietario'),
+    _MenuOption('Inicio', Icons.dashboard_rounded, 'Inicio'),
+    _MenuOption('Documentos', Icons.folder_special_rounded, 'Documentos'),
+    _MenuOption('Certificaciones', Icons.verified_rounded, 'Certificaciones'),
+    _MenuOption('Perfil', Icons.person_rounded, 'Perfil'),
   ];
 
-  final List<String> _leftMenuItems = const [
-    'Inicio',
-    'Vehículos',
-    'Documentos',
-    'Solicitudes',
-    'Calendario',
-    'Perfil',
+  static const List<_MenuOption> _topMenuOptions = [
+    _MenuOption('Mensajes', Icons.chat_rounded, 'Mensajes'),
+    _MenuOption('Vehículos', Icons.directions_car_filled_rounded, 'Vehículos'),
+    _MenuOption('Empresa', Icons.apartment_rounded, 'Empresa'),
+    _MenuOption('Mantenimientos', Icons.build_rounded, 'Mantenimientos'),
   ];
+
+  int? _selectedTopIndex;
+
 
   @override
   void initState() {
     super.initState();
+    _initBaseUrl();
     _loadInitialData();
+  }
+
+  Future<void> _initBaseUrl() async {
+    final resolved = await ApiConfig.loadBaseUrl();
+    if (!mounted) return;
+    setState(() => _baseUrl = resolved);
   }
 
   Future<void> _loadInitialData() async {
@@ -112,6 +127,95 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   }
 
   Future<void> _loadOwnerProfile() async {
+    try {
+      // Intentar obtener datos del backend si hay userId
+      if (widget.userId != null && widget.userId!.isNotEmpty) {
+        await _loadOwnerProfileFromBackend(widget.userId!);
+      } else {
+        // Fallback a JSON local si no hay userId
+        await _loadOwnerProfileFromJson();
+      }
+    } catch (e) {
+      debugPrint('Error cargando datos de propietario: $e');
+      // Fallback a JSON si falla el backend
+      try {
+        await _loadOwnerProfileFromJson();
+      } catch (fallbackError) {
+        debugPrint('Error en fallback JSON: $fallbackError');
+        if (!mounted) return;
+        setState(() {
+          if (_userName.isEmpty && widget.personName.isNotEmpty) {
+            _userName = widget.personName;
+          }
+          if (_userCompany.isEmpty && widget.companyName.isNotEmpty) {
+            _userCompany = widget.companyName;
+          }
+          _userProfileImage = null;
+          _userEmail = null;
+          _userPhone = null;
+          _userAddress = null;
+          _userDocument = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadOwnerProfileFromBackend(String userId) async {
+    try {
+      final uri = ApiConfig.resolve(_baseUrl, '/api/usuarios/$userId');
+      final response = await http
+          .get(uri)
+          .timeout(const Duration(seconds: 10));
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> userData = json.decode(response.body) as Map<String, dynamic>;
+        
+        setState(() {
+          // Nombre del usuario
+          final String nombre = userData['nombre']?.toString() ?? '';
+          final String apellido = userData['apellido']?.toString() ?? '';
+          _userName = [nombre, apellido]
+              .where((part) => part.isNotEmpty)
+              .join(' ')
+              .trim();
+          if (_userName.isEmpty) {
+            _userName = widget.personName;
+          }
+
+          // Empresa del usuario
+          final dynamic rawEmpresa = userData['empresa'];
+          if (rawEmpresa is Map<String, dynamic>) {
+            _userCompany = rawEmpresa['nombreEmpresa']?.toString() ?? widget.companyName;
+          } else if (rawEmpresa is Map) {
+            _userCompany = rawEmpresa['nombreEmpresa']?.toString() ?? widget.companyName;
+          } else {
+            _userCompany = widget.companyName;
+          }
+
+          // Otros datos del usuario
+          _userEmail = userData['correo']?.toString();
+          _userPhone = userData['telefono']?.toString();
+          _userAddress = userData['direccion']?.toString();
+          _userDocument = userData['numeroDocumento']?.toString();
+          _userProfileImage = null; // El backend no proporciona imagen actualmente
+        });
+      } else {
+        debugPrint('Error al obtener perfil del backend: ${response.statusCode}');
+        // Fallback a valores por defecto
+        await _loadOwnerProfileFromJson();
+      }
+    } on TimeoutException {
+      debugPrint('Timeout al obtener perfil del backend');
+      await _loadOwnerProfileFromJson();
+    } catch (e) {
+      debugPrint('Excepción al obtener perfil del backend: $e');
+      await _loadOwnerProfileFromJson();
+    }
+  }
+
+  Future<void> _loadOwnerProfileFromJson() async {
     try {
       final String jsonString = await rootBundle.loadString(_ownerProfileAsset);
       final Map<String, dynamic> jsonData = json.decode(jsonString);
@@ -131,7 +235,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           (owner) => owner['id']?.toString() == targetId,
           orElse: () => owners.first,
         );
-            } else if (jsonData.isNotEmpty) {
+      } else if (jsonData.isNotEmpty) {
         userData = jsonData;
       }
 
@@ -154,6 +258,8 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           _userProfileImage = resolvedProfileImage;
           _userEmail = userData?['email']?.toString();
           _userPhone = userData?['phone']?.toString();
+          _userAddress = userData?['address']?.toString();
+          _userDocument = userData?['document']?.toString() ?? userData?['documento']?.toString();
         });
       } else {
         setState(() {
@@ -166,22 +272,13 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           _userProfileImage = null;
           _userEmail = null;
           _userPhone = null;
+          _userAddress = null;
+          _userDocument = null;
         });
       }
     } catch (e) {
-      debugPrint('Error cargando datos de propietario: $e');
-      if (!mounted) return;
-      setState(() {
-        if (_userName.isEmpty && widget.personName.isNotEmpty) {
-          _userName = widget.personName;
-        }
-        if (_userCompany.isEmpty && widget.companyName.isNotEmpty) {
-          _userCompany = widget.companyName;
-        }
-        _userProfileImage = null;
-        _userEmail = null;
-        _userPhone = null;
-      });
+      debugPrint('Error cargando JSON de propietario: $e');
+      rethrow;
     }
   }
 
@@ -190,15 +287,85 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       final String jsonString = await rootBundle.loadString(_ownerDashboardAsset);
       final Map<String, dynamic> jsonData = json.decode(jsonString);
 
+      final Map<String, dynamic> summary =
+          jsonData['summary'] is Map<String, dynamic>
+              ? Map<String, dynamic>.from(jsonData['summary'] as Map)
+              : <String, dynamic>{
+                  'totalVehicles': jsonData['vehicles'] != null ? (jsonData['vehicles'] as List).length : 0,
+                  'totalDocuments': jsonData['documents'] != null ? (jsonData['documents'] as List).length : 0,
+                  'documentsExpiring': 0,
+                  'alertsHigh': 0,
+                };
+
       final List<Map<String, dynamic>> documents =
-          (jsonData['documents'] as List<dynamic>? ?? []).whereType<Map<String, dynamic>>().map((doc) => Map<String, dynamic>.from(doc)).toList();
+          (jsonData['documents'] as List<dynamic>? ?? []).whereType<Map<String, dynamic>>().map((doc) {
+        final DateTime? expiry = DateTime.tryParse(doc['expiryDate']?.toString() ?? '');
+        final DateTime? payment = DateTime.tryParse(doc['paymentDate']?.toString() ?? '');
+        return {
+          'name': doc['name']?.toString() ?? 'Documento',
+          'vehicle': doc['vehicle']?.toString() ?? '',
+          'expiryDate': expiry,
+          'paymentDate': payment,
+        };
+      }).toList();
+
       final List<Map<String, dynamic>> vehicles =
-          (jsonData['vehicles'] as List<dynamic>? ?? []).whereType<Map<String, dynamic>>().map((vehicle) => Map<String, dynamic>.from(vehicle)).toList();
+          (jsonData['vehicles'] as List<dynamic>? ?? []).whereType<Map<String, dynamic>>().map((vehicle) {
+        final DateTime? nextExpiry = DateTime.tryParse(vehicle['nextExpiry']?.toString() ?? '');
+        return {
+          'plate': vehicle['plate']?.toString() ?? '',
+          'model': vehicle['model']?.toString() ?? '',
+          'driver': vehicle['driver']?.toString() ?? '',
+          'status': vehicle['status']?.toString() ?? '',
+          'nextExpiry': nextExpiry,
+        };
+      }).toList();
+
+      // Extraer información de conductores de los vehículos
+      final List<Map<String, dynamic>> drivers = <Map<String, dynamic>>[];
+      final Set<String> uniqueDrivers = {};
+      for (final vehicle in vehicles) {
+        final String driverName = vehicle['driver']?.toString() ?? '';
+        if (driverName.isNotEmpty && driverName != 'Disponible' && !uniqueDrivers.contains(driverName)) {
+          uniqueDrivers.add(driverName);
+          drivers.add({
+            'name': driverName,
+            'assignedVehicle': vehicle['plate']?.toString() ?? 'Sin vehículo',
+            'status': 'Activo',
+          });
+        }
+      }
+
+      // Crear alertas basadas en estados de documentos
+      final List<Map<String, dynamic>> alerts = <Map<String, dynamic>>[];
+      for (final doc in documents) {
+        if (doc['expiryDate'] != null) {
+          final DateTime expiry = doc['expiryDate'] as DateTime;
+          final Duration difference = expiry.difference(DateTime.now());
+          if (difference.inDays <= 30) {
+            alerts.add({
+              'title': '${doc['name']} próximo a vencer',
+              'message': 'El documento ${doc['name']} vence el ${expiry.day}/${expiry.month}/${expiry.year}',
+              'severity': difference.inDays <= 7 ? 'high' : 'medium',
+              'tag': 'Documentos',
+            });
+          }
+        }
+      }
+
+      final int notificationsCount = alerts.where((alert) {
+        final String severity = alert['severity']?.toString().toLowerCase() ?? '';
+        return severity == 'high' || severity == 'alta';
+      }).length;
 
       if (!mounted) return;
       setState(() {
         _ownerDocuments = documents;
         _ownerVehicles = vehicles;
+        _summary = summary;
+        _drivers = drivers;
+        _alerts = alerts;
+        _notificationsCount = notificationsCount;
       });
     } catch (e) {
       debugPrint('Error cargando dashboard de propietario: $e');
@@ -206,22 +373,12 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       setState(() {
         _ownerDocuments = [];
         _ownerVehicles = [];
+        _summary = {};
+        _drivers = [];
+        _alerts = [];
+        _notificationsCount = 0;
       });
     }
-  }
-
-  void _onLeftMenuTap(int idx) {
-    setState(() => _selectedIndex = idx);
-    // keep _activeSection in sync with rotated left menu
-    final Map<int, String> mapping = {
-      0: 'Inicio',
-      1: 'Vehículo',
-      2: 'Documentos',
-      3: 'Solicitudes',
-      4: 'Calendario',
-      5: 'Perfil',
-    };
-    _activeSection = mapping[idx] ?? _activeSection;
   }
 
   void _onUpperMenuTap(int idx) {
@@ -257,13 +414,6 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     }
   }
 
-  void _navigateToPayments() {
-    final int paymentsIndex = _upperMenuOptions.indexWhere((option) => option.label == 'Pagos');
-    if (paymentsIndex != -1) {
-      _onUpperMenuTap(paymentsIndex);
-    }
-  }
-
   void _navigateToProfile() {
     final int profileIndex = _lowerMenuOptions.indexWhere((option) => option.label == 'Perfil');
     if (profileIndex != -1) {
@@ -278,43 +428,260 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     }
   }
 
+  void _onTopMenuTap(int index) {
+    setState(() {
+      _selectedTopIndex = index;
+      _activeSection = _topMenuOptions[index].section;
+    });
+  }
 
-  Widget _buildLeftSidebar() {
-    const double gap = 40.0;
-    final int lastIndex = _leftMenuItems.length - 1;
-    return Container(
-      width: 72,
-      color: Colors.transparent,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          const SizedBox(height: 220),
-          ..._leftMenuItems.asMap().entries.map((e) {
-            final i = e.key;
-            final label = e.value;
-            final selected = _selectedIndex == i;
-            return Padding(
-              padding: EdgeInsets.only(bottom: i == lastIndex ? 20.0 : gap),
-              child: GestureDetector(
-                onTap: () => _onLeftMenuTap(i),
-                child: Container(
-                  height: 120,
-                  alignment: Alignment.center,
-                  child: RotatedBox(
-                    quarterTurns: -1,
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        color: selected ? Colors.white : Colors.white70,
-                        fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+  void _activateSection(String section) {
+    setState(() {
+      _activeSection = section;
+      final int topIdx = _topMenuOptions.indexWhere((option) => option.section == section);
+      _selectedTopIndex = topIdx != -1 ? topIdx : null;
+      final int lowerIdx = _lowerMenuOptions.indexWhere((option) => option.section == section);
+      _selectedLowerIndex = lowerIdx != -1 ? lowerIdx : null;
+    });
+  }
+
+  Widget _buildDesktopTopBar() {
+    final double avatarSize = 52;
+
+    Widget avatarContent;
+    if (_userProfileImage != null && _userProfileImage!.isNotEmpty) {
+      avatarContent = ClipOval(
+        child: Image.asset(
+          _userProfileImage!,
+          width: avatarSize,
+          height: avatarSize,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => CircleAvatar(
+            radius: avatarSize / 2,
+            backgroundColor: _accentColor,
+            child: Text(
+              _userName.isNotEmpty ? _userName[0].toUpperCase() : 'P',
+              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+      );
+    } else {
+      avatarContent = CircleAvatar(
+        radius: avatarSize / 2,
+        backgroundColor: _accentColor,
+        child: Text(
+          _userName.isNotEmpty ? _userName[0].toUpperCase() : 'P',
+          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+      );
+    }
+
+    final List<Widget> chips = _topMenuOptions.asMap().entries.map((entry) {
+      final int index = entry.key;
+      final _MenuOption option = entry.value;
+      final bool selected = _selectedTopIndex == index;
+      return ChoiceChip(
+        avatar: Icon(
+          option.icon,
+          size: 13,
+          color: selected ? Colors.white : Colors.white70,
+        ),
+        label: Text(option.label, style: const TextStyle(fontSize: 11)),
+        selected: selected,
+        onSelected: (_) => _onTopMenuTap(index),
+        selectedColor: _accentColor,
+        backgroundColor: _accentColor.withValues(alpha: 0.12),
+        showCheckmark: false,
+        side: BorderSide(
+          color: selected ? _chipBorderColor : Colors.white24,
+        ),
+        labelStyle: TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+      );
+    }).toList();
+
+    return Column(
+      children: [
+        Container(
+          color: _primaryColor,
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1400),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Left: Logo + User Info
+                  CircleAvatar(
+                    radius: avatarSize / 2,
+                    backgroundColor: Colors.white24,
+                    child: avatarContent,
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _userName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        _userCompany,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white70, fontSize: 10),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(width: 20),
+
+                  // Center: Search bar
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: TextField(
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white.withValues(alpha: 0.14),
+                          hintText: 'Buscar vehículos, documentos o propiedades',
+                          hintStyle: const TextStyle(color: Colors.white70, fontSize: 12),
+                          prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70, size: 18),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
                       ),
                     ),
                   ),
+
+                  const SizedBox(width: 16),
+
+                  // Right: Bell icon
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      onTap: () => _activateSection('Mensajes'),
+                      child: const Icon(
+                        Icons.notifications_none_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Bottom row: Menu buttons
+        Container(
+          color: _primaryColor,
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1400),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: chips.asMap().entries.map((e) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: e.value,
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLeftSidebar() {
+    return Container(
+      width: 200,
+      color: _primaryColor,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Menú',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const Divider(color: Colors.white24),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: _lowerMenuOptions.asMap().entries.map((entry) {
+                final int index = entry.key;
+                final _MenuOption option = entry.value;
+                final bool selected = _selectedLowerIndex == index;
+                return _buildLeftNavItem(option, index, selected);
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeftNavItem(
+    _MenuOption option,
+    int index,
+    bool selected,
+  ) {
+    return InkWell(
+      onTap: () => _onLowerMenuTap(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? _accentColor.withValues(alpha: 0.22) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: selected ? Border.all(color: _accentColor.withValues(alpha: 0.5)) : null,
+        ),
+        child: Row(
+          children: [
+            Icon(option.icon, size: 20, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                option.label,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
-            );
-          }),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -421,14 +788,17 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           ),
           Stack(
             children: [
-              Icon(Icons.notifications_none, color: Colors.white, size: isCompact ? 24 : 28),
-              if (widget.notificationsCount > 0)
+              GestureDetector(
+                onTap: _navigateToMessages,
+                child: Icon(Icons.notifications_none, color: Colors.white, size: isCompact ? 24 : 28),
+              ),
+              if (_notificationsCount > 0)
                 Positioned(
                   right: 0,
                   child: Container(
                     padding: EdgeInsets.all(isCompact ? 5 : 6),
                     decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                    child: Text('${widget.notificationsCount}', style: TextStyle(color: Colors.white, fontSize: isCompact ? 9 : 10)),
+                    child: Text('$_notificationsCount', style: TextStyle(color: Colors.white, fontSize: isCompact ? 9 : 10)),
                   ),
                 ),
             ],
@@ -516,7 +886,6 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           userProfilePath: _ownerProfileAsset,
           userId: widget.userId ?? '1',
           onNavigateToDocuments: _navigateToDocuments,
-          onNavigateToPayments: _navigateToPayments,
           onNavigateToProfile: _navigateToProfile,
           onNavigateToMessages: _navigateToMessages,
         );
@@ -524,6 +893,9 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         return DocumentosWidget(
           role: 'Propietario',
           jsonPath: _ownerDashboardAsset,
+          userId: widget.userId,
+          token: null,
+          canUpload: false,
         );
       case 'Certificaciones':
         return CertificacionesWidget(
@@ -536,11 +908,15 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           role: 'Propietario',
           userId: widget.userId ?? '1',
           jsonPath: _ownerProfileAsset,
+          userName: _userName,
+          userCompany: _userCompany,
+          userEmail: _userEmail,
+          userPhone: _userPhone,
+          userAddress: _userAddress,
+          userDocument: _userDocument,
         );
       case 'Mensajes':
-        return MensajesWidget(role: 'Propietario', userId: widget.userId);
-      case 'Pagos':
-        return PagosWidget(role: 'Propietario', userId: widget.userId, jsonPath: 'assets/payments_data.json');
+        return _buildMessagesContent();
       case 'Vehículo':
         return VehiculosWidget(role: 'Propietario', ownerId: widget.userId, jsonPath: 'assets/vehicles_data.json');
       case 'Empresa':
@@ -581,6 +957,87 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         children: [
           const Text('Vehículos', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
+          // Próximos 3 documentos a vencer (visibles en la pestaña Vehículos)
+          Builder(builder: (context) {
+            final DateTime now = DateTime.now();
+            final List<Map<String, dynamic>> upcoming = _ownerDocuments.where((doc) {
+              final String? expiryRaw = doc['expiryDate']?.toString();
+              if (expiryRaw == null || expiryRaw.isEmpty) return false;
+              final DateTime? parsed = DateTime.tryParse(expiryRaw);
+              if (parsed == null) return false;
+              return !parsed.isBefore(now);
+            }).toList();
+            upcoming.sort((a, b) {
+              final DateTime aDate = DateTime.tryParse(a['expiryDate']?.toString() ?? '') ?? DateTime(2100);
+              final DateTime bDate = DateTime.tryParse(b['expiryDate']?.toString() ?? '') ?? DateTime(2100);
+              return aDate.compareTo(bDate);
+            });
+            final List<Map<String, dynamic>> top3 = upcoming.take(3).toList();
+            if (top3.isEmpty) return const SizedBox.shrink();
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text('Próximos documentos a vencer', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600))),
+                      Text('${top3.length}', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  height: 140,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: top3.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      final doc = top3[index];
+                      final String name = doc['name']?.toString() ?? 'Documento';
+                      final String vehicle = doc['vehicle']?.toString() ?? doc['vehiclePlate']?.toString() ?? 'Sin placa';
+                      final String expiryRaw = doc['expiryDate']?.toString() ?? '';
+                      final DateTime? expiry = DateTime.tryParse(expiryRaw);
+                      final int days = expiry != null ? expiry.difference(now).inDays : 0;
+
+                      final bool isExpired = expiry != null && expiry.isBefore(now);
+
+                      return Container(
+                        width: 220,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: LinearGradient(
+                            colors: isExpired ? [const Color(0xFFFF6B6B), const Color(0xFFFF8E53)] : [const Color(0xFF3A3BF0), const Color(0xFF6C63FF)],
+                          ),
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 10, offset: const Offset(0, 8))],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(children: [const Icon(Icons.description, color: Colors.white), const SizedBox(width: 8), Expanded(child: Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))]),
+                            Text('Vehículo: $vehicle', style: const TextStyle(color: Colors.white70)),
+                            Text(isExpired ? 'Vencido' : 'Faltan $days días', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 18),
+              ],
+            );
+          }),
+
           ..._ownerVehicles.map(_buildVehicleCardFromDashboard),
         ],
       ),
@@ -811,6 +1268,150 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     );
   }
 
+  Widget _buildMessagesContent() {
+    if (_alerts.isEmpty) {
+      return _buildEmptyState(
+        'Mensajes corporativos',
+        'No hay mensajes recientes para la empresa.',
+      );
+    }
+
+    final List<Map<String, dynamic>> ordered =
+        List<Map<String, dynamic>>.from(_alerts)
+          ..sort((a, b) {
+            final String severityA = a['severity']?.toString().toLowerCase() ?? '';
+            final String severityB = b['severity']?.toString().toLowerCase() ?? '';
+            return _severityRank(severityB).compareTo(_severityRank(severityA));
+          });
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Mensajes corporativos',
+            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          ...ordered.map(_buildMessageCard),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String title, String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageCard(Map<String, dynamic> alert) {
+    final String title = alert['title']?.toString() ?? 'Mensaje';
+    final String message = alert['message']?.toString() ?? '';
+    final String severity = alert['severity']?.toString().toLowerCase() ?? 'medium';
+    final String tag = alert['tag']?.toString() ?? 'General';
+    final Color borderColor = _alertSeverityColor(severity);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.mark_email_unread_rounded, color: borderColor, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                tag,
+                style: TextStyle(color: borderColor, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: borderColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  severity.toUpperCase(),
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+          if (message.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Color _alertSeverityColor(String severity) {
+    switch (severity.toLowerCase()) {
+      case 'high':
+      case 'alta':
+        return const Color(0xFFE66B6B);
+      case 'medium':
+      case 'media':
+        return const Color(0xFFEFB549);
+      case 'low':
+      case 'baja':
+        return const Color(0xFF16C79A);
+      default:
+        return Colors.white70;
+    }
+  }
+
+  int _severityRank(String severity) {
+    switch (severity) {
+      case 'high':
+      case 'alta':
+        return 3;
+      case 'medium':
+      case 'media':
+        return 2;
+      case 'low':
+      case 'baja':
+        return 1;
+      default:
+        return 0;
+    }
+  }
+
   Widget _buildVehicleCardFromDashboard(Map<String, dynamic> vehicle) {
     final String plate = vehicle['plate']?.toString() ?? 'Sin placa';
     final String model = vehicle['model']?.toString() ?? 'Modelo no disponible';
@@ -819,53 +1420,79 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     final String? nextExpiryRaw = vehicle['nextExpiry']?.toString();
     final String nextExpiry = _formatDate(nextExpiryRaw);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  plate,
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+    return InkWell(
+      onTap: () => _openVehicleDocuments(plate),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white24),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    plate,
+                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                 ),
-              ),
-              Chip(
-                label: Text(status, style: const TextStyle(color: Colors.white, fontSize: 12)),
-                backgroundColor: _vehicleStatusColor(status).withValues(alpha: 0.25),
-                side: BorderSide(color: _vehicleStatusColor(status).withValues(alpha: 0.5)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(model, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(Icons.person, color: Colors.white54, size: 18),
-              const SizedBox(width: 6),
-              Expanded(child: Text('Conductor: $driver', style: const TextStyle(color: Colors.white70, fontSize: 13))),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Icon(Icons.event, color: Colors.white54, size: 18),
-              const SizedBox(width: 6),
-              Text('Próximo vencimiento: $nextExpiry', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-            ],
-          ),
-        ],
+                Chip(
+                  label: Text(status, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  backgroundColor: _vehicleStatusColor(status).withValues(alpha: 0.25),
+                  side: BorderSide(color: _vehicleStatusColor(status).withValues(alpha: 0.5)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(model, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.person, color: Colors.white54, size: 18),
+                const SizedBox(width: 6),
+                Expanded(child: Text('Conductor: $driver', style: const TextStyle(color: Colors.white70, fontSize: 13))),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.event, color: Colors.white54, size: 18),
+                const SizedBox(width: 6),
+                Text('Próximo vencimiento: $nextExpiry', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              ],
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  void _openVehicleDocuments(String plate) {
+    final List<Map<String, dynamic>> docs = _ownerDocuments.where((d) => (d['vehicle']?.toString() ?? '') == plate).toList();
+    Navigator.of(context).push(MaterialPageRoute(builder: (ctx) {
+      return Scaffold(
+        appBar: AppBar(
+          backgroundColor: _primaryColor,
+          title: Text('Documentos - $plate'),
+        ),
+        backgroundColor: _surfaceColor,
+        body: docs.isEmpty
+            ? _buildPlaceholderContent(title: 'Documentos', message: 'No hay documentos para $plate.')
+            : SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: docs.map((d) => _buildDocumentCard(d)).toList(),
+                ),
+              ),
+      );
+    }));
   }
 
   Widget _buildDocumentCard(Map<String, dynamic> document) {
@@ -1037,7 +1664,8 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final bool isCompact = constraints.maxWidth < 700;
+            final bool isCompact = constraints.maxWidth < 860;
+            final double radius = isCompact ? 24 : 28;
 
             if (isCompact) {
               return Column(
@@ -1048,9 +1676,9 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
                   Expanded(
                     child: Container(
                       width: double.infinity,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: _surfaceColor,
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
                       ),
                       child: _buildContentView(),
                     ),
@@ -1060,25 +1688,24 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
               );
             }
 
-            return Row(
+            return Column(
               children: [
-                _buildLeftSidebar(),
+                _buildDesktopTopBar(),
                 Expanded(
-                  child: Column(
+                  child: Row(
                     children: [
-                      _buildHeader(isCompact: false),
-                      _buildSearchAndWelcome(isCompact: false),
+                      _buildLeftSidebar(),
                       Expanded(
                         child: Container(
-                          width: double.infinity,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: _surfaceColor,
-                            borderRadius: BorderRadius.only(topLeft: Radius.circular(24)),
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(radius),
+                            ),
                           ),
                           child: _buildContentView(),
                         ),
                       ),
-                      _buildBottomBar(isCompact: false),
                     ],
                   ),
                 ),

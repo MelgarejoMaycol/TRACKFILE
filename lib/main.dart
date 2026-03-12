@@ -2,11 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:frontendproyecto/utils/role_router.dart';
+import 'package:frontendproyecto/services/document_service.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/login_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Obtener URL del API desde variables de entorno
+  const String apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8080');
+  debugPrint('🌐 API Base URL configurada: $apiBaseUrl');
+  
+  // Inicializar DocumentService con la URL correcta
+  DocumentService.setBaseUrl(apiBaseUrl);
+  
   runApp(const TrackFileApp());
 }
 

@@ -2,9 +2,13 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
 
 import 'package:frontendproyecto/widgets/inicio.dart';
 import 'package:frontendproyecto/widgets/documentos.dart';
+import 'package:frontendproyecto/widgets/vehiculos.dart';
+import 'package:frontendproyecto/widgets/certificaciones.dart';
+import 'package:frontendproyecto/widgets/mantenimientos.dart';
 import 'package:frontendproyecto/widgets/logout_button.dart';
 
 class _MenuOption {
@@ -45,7 +49,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
 
   static const List<_MenuOption> _topMenuOptions = [
     _MenuOption('Mensajes', Icons.chat_rounded, 'Mensajes'),
-    _MenuOption('Pagos', Icons.payments_rounded, 'Pagos'),
+    _MenuOption('Certificaciones', Icons.verified_rounded, 'Certificaciones'),
     _MenuOption('Vehículos', Icons.directions_bus_filled_rounded, 'Vehículos'),
     _MenuOption('Mantenimientos', Icons.build_rounded, 'Mantenimientos'),
   ];
@@ -61,6 +65,8 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   List<Map<String, dynamic>> _fleetVehicles = [];
   List<Map<String, dynamic>> _operations = [];
   List<Map<String, dynamic>> _alerts = [];
+  List<Map<String, dynamic>> _certificaciones = [];
+  String _certificacionesSearchQuery = '';
 
   String _companyName = 'Mi empresa';
   String _representative = '';
@@ -235,6 +241,35 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           badgeFromAlerts > badgeFromSummary ? badgeFromAlerts : badgeFromSummary;
 
       if (!mounted) return;
+      
+      // Cargar certificaciones
+      List<Map<String, dynamic>> certificaciones = [];
+      try {
+        final String certRaw = await rootBundle.loadString('assets/certificaciones_data.json');
+        final Map<String, dynamic> certData = json.decode(certRaw) as Map<String, dynamic>;
+        
+        final List<Map<String, dynamic>> solicitudes = (certData['solicitudes'] as List<dynamic>? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .map((entry) {
+          final DateTime? fecha = DateTime.tryParse(entry['fecha_envio']?.toString() ?? '');
+          return {
+            'id': int.tryParse(entry['id_solicitud']?.toString() ?? '') ?? 0,
+            'id_usuario': entry['id_usuario']?.toString() ?? '',
+            'id_tipo': int.tryParse(entry['id_tipo_solicitud']?.toString() ?? '') ?? 0,
+            'descripcion': entry['descripcion']?.toString() ?? 'Sin descripcion',
+            'estado': entry['estado']?.toString() ?? 'EN_REVISION',
+            'fecha_envio': fecha,
+            'id_documento': entry['id_documento'],
+            'id_vehiculo': entry['id_vehiculo'],
+          };
+        }).toList();
+        
+        certificaciones = solicitudes;
+      } catch (e) {
+        debugPrint('Error cargando certificaciones: $e');
+        certificaciones = [];
+      }
+      
       setState(() {
         _summary = summary;
         _documents = documents;
@@ -242,6 +277,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
         _drivers = drivers;
         _operations = operations;
         _alerts = alerts;
+        _certificaciones = certificaciones;
         _notifications = notifications;
         _isLoading = false;
       });
@@ -255,6 +291,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
         _drivers = [];
         _operations = [];
         _alerts = [];
+        _certificaciones = [];
         _notifications = 0;
         _isLoading = false;
       });
@@ -302,7 +339,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           userProfilePath: _companyProfileAsset,
           userId: _companyId ?? widget.usuario?['id']?.toString(),
           onNavigateToDocuments: () => _activateSection('Documentos'),
-          onNavigateToPayments: () => _activateSection('Pagos'),
           onNavigateToMessages: () => _activateSection('Mensajes'),
           onNavigateToProfile: () => _activateSection('Perfil'),
         );
@@ -316,8 +352,8 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
         return _buildProfileContent();
       case 'Mensajes':
         return _buildMessagesContent();
-      case 'Pagos':
-        return _buildPaymentsContent();
+      case 'Certificaciones':
+        return _buildCertificacionesContent();
       case 'Vehículos':
         return _buildFleetContent();
       case 'Mantenimientos':
@@ -516,6 +552,9 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     return DocumentosWidget(
       role: 'Empresa',
       jsonPath: _dashboardAsset,
+      userId: widget.usuario?['id']?.toString(),
+      token: null,
+      canUpload: true,
     );
   }
 
@@ -778,6 +817,623 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     );
   }
 
+  Widget _buildCertificacionesContent() {
+    final List<Map<String, dynamic>> enRevision = _certificaciones
+        .where((cert) => cert['estado'].toString().toUpperCase().contains('REVISION') || 
+                         cert['estado'].toString().toUpperCase() == 'ENVIADA')
+        .toList();
+    
+    final List<Map<String, dynamic>> respondidas = _certificaciones
+        .where((cert) => !cert['estado'].toString().toUpperCase().contains('REVISION') && 
+                         cert['estado'].toString().toUpperCase() != 'ENVIADA')
+        .toList();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < 900;
+
+        if (isCompact) {
+          // Layout vertical para móvil
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Certificaciones',
+                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+                
+                // Buscador
+                TextField(
+                  onChanged: (value) {
+                    setState(() => _certificacionesSearchQuery = value.toLowerCase());
+                  },
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar certificaciones...',
+                    hintStyle: const TextStyle(color: Colors.white54),
+                    prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF4F4CE8)),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.05),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                
+                // En revisión
+                if (enRevision.isNotEmpty) ...[
+                  const Text(
+                    'En revisión',
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 12),
+                  ...enRevision
+                      .where((cert) => _certificacionesSearchQuery.isEmpty || 
+                          cert['descripcion'].toString().toLowerCase().contains(_certificacionesSearchQuery) ||
+                          cert['id_usuario'].toString().contains(_certificacionesSearchQuery))
+                      .map((cert) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildCertificacionCard(cert, isRespondida: false),
+                  )),
+                  const SizedBox(height: 24),
+                ],
+                
+                // Respondidas
+                if (respondidas.isNotEmpty) ...[
+                  const Text(
+                    'Historial respondidas',
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 12),
+                  ...respondidas
+                      .where((cert) => _certificacionesSearchQuery.isEmpty || 
+                          cert['descripcion'].toString().toLowerCase().contains(_certificacionesSearchQuery) ||
+                          cert['id_usuario'].toString().contains(_certificacionesSearchQuery))
+                      .map((cert) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildCertificacionCard(cert, isRespondida: true),
+                      )),
+                ] else if (enRevision.isEmpty) ...[
+                  _buildEmptyState(
+                    'Certificaciones',
+                    'No hay solicitudes de certificaciones registradas.',
+                  ),
+                ],
+              ],
+            ),
+          );
+        } else {
+          // Layout dos columnas para PC
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Certificaciones',
+                      style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    // Buscador
+                    TextField(
+                      onChanged: (value) {
+                        setState(() => _certificacionesSearchQuery = value.toLowerCase());
+                      },
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Buscar certificaciones...',
+                        hintStyle: const TextStyle(color: Colors.white54),
+                        prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF4F4CE8)),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.05),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Columnas con scroll independiente
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Columna izquierda: En revisión
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'En revisión',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            if (enRevision.isNotEmpty)
+                              Column(
+                                children: enRevision
+                                    .where((cert) => _certificacionesSearchQuery.isEmpty || 
+                                        cert['descripcion'].toString().toLowerCase().contains(_certificacionesSearchQuery) ||
+                                        cert['id_usuario'].toString().contains(_certificacionesSearchQuery))
+                                    .toList()
+                                    .asMap()
+                                    .entries
+                                    .map((entry) {
+                                      final int index = entry.key;
+                                      final filteredList = enRevision
+                                          .where((cert) => _certificacionesSearchQuery.isEmpty || 
+                                              cert['descripcion'].toString().toLowerCase().contains(_certificacionesSearchQuery) ||
+                                              cert['id_usuario'].toString().contains(_certificacionesSearchQuery))
+                                          .toList();
+                                      return Padding(
+                                        padding: EdgeInsets.only(
+                                          bottom: index != filteredList.length - 1 ? 12 : 0,
+                                        ),
+                                        child: _buildCertificacionCard(entry.value, isRespondida: false),
+                                      );
+                                    }).toList(),
+                              )
+                            else
+                              Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 40),
+                                  child: Text(
+                                    'No hay solicitudes en revisión',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.6),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    // Divisor
+                    Container(
+                      width: 1,
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                    
+                    // Columna derecha: Respondidas
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Historial respondidas',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            if (respondidas.isNotEmpty)
+                              Column(
+                                children: respondidas
+                                    .where((cert) => _certificacionesSearchQuery.isEmpty || 
+                                        cert['descripcion'].toString().toLowerCase().contains(_certificacionesSearchQuery) ||
+                                        cert['id_usuario'].toString().contains(_certificacionesSearchQuery))
+                                    .toList()
+                                    .asMap()
+                                    .entries
+                                    .map((entry) {
+                                      final int index = entry.key;
+                                      final filteredList = respondidas
+                                          .where((cert) => _certificacionesSearchQuery.isEmpty || 
+                                              cert['descripcion'].toString().toLowerCase().contains(_certificacionesSearchQuery) ||
+                                              cert['id_usuario'].toString().contains(_certificacionesSearchQuery))
+                                          .toList();
+                                      return Padding(
+                                        padding: EdgeInsets.only(
+                                          bottom: index != filteredList.length - 1 ? 12 : 0,
+                                        ),
+                                        child: _buildCertificacionCard(entry.value, isRespondida: true),
+                                      );
+                                    }).toList(),
+                              )
+                            else
+                              Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 40),
+                                  child: Text(
+                                    'No hay solicitudes respondidas',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.6),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildCertificacionCard(Map<String, dynamic> cert, {required bool isRespondida}) {
+    final String estado = cert['estado']?.toString().toUpperCase() ?? 'SIN_ESTADO';
+    final Color estadoColor = _getCertificationStatusColor(estado);
+    final DateTime? fecha = cert['fecha_envio'] as DateTime?;
+    final bool canRespond = estado == 'EN_REVISION' && !isRespondida;
+
+    return InkWell(
+      onTap: canRespond ? () => _showResponseModal(cert) : null,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: estadoColor.withValues(alpha: 0.3)),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Solicitud #${cert['id']}',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        cert['descripcion']?.toString() ?? 'Sin descripción',
+                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: estadoColor.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: estadoColor.withValues(alpha: 0.5)),
+                  ),
+                  child: Text(
+                    _formatCertificationStatus(estado),
+                    style: TextStyle(
+                      color: estadoColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (fecha != null)
+              Row(
+                children: [
+                  const Icon(Icons.calendar_month, size: 14, color: Colors.white54),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Enviado: ${fecha.day}/${fecha.month}/${fecha.year}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
+            if (cert['id_vehiculo'] != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.directions_car, size: 14, color: Colors.white54),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Vehículo: ${cert['id_vehiculo']}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
+            if (canRespond) ...[
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    'Toca para responder',
+                    style: TextStyle(color: Colors.white70, fontSize: 12, fontStyle: FontStyle.italic),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.arrow_forward, size: 14, color: Colors.white70),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getCertificationStatusColor(String estado) {
+    switch (estado) {
+      case 'EN_REVISION':
+      case 'ENVIADA':
+        return const Color(0xFFEFB549); // Amarillo
+      case 'APROBADA':
+      case 'APROBADO':
+        return const Color(0xFF16C79A); // Verde
+      case 'RECHAZADA':
+      case 'RECHAZADO':
+        return const Color(0xFFE66B6B); // Rojo
+      default:
+        return const Color(0xFF3DA9F5); // Azul
+    }
+  }
+
+  String _formatCertificationStatus(String estado) {
+    switch (estado) {
+      case 'EN_REVISION':
+        return 'En revisión';
+      case 'APROBADA':
+      case 'APROBADO':
+        return 'Aprobada';
+      case 'RECHAZADA':
+      case 'RECHAZADO':
+        return 'Rechazada';
+      case 'ENVIADA':
+        return 'Enviada';
+      default:
+        return estado;
+    }
+  }
+
+  Future<void> _showResponseModal(Map<String, dynamic> solicitud) async {
+    final TextEditingController commentController = TextEditingController();
+    String? selectedFilePath;
+    String? selectedFileName;
+    String? errorText;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF121738),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 44,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Responder solicitud #${solicitud['id']}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Adjunta un documento y deja un comentario',
+                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                    const SizedBox(height: 20),
+                    // File picker section
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.attach_file, color: Colors.white70, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  selectedFileName ?? 'Selecciona un documento',
+                                  style: TextStyle(
+                                    color: selectedFileName != null ? Colors.white : Colors.white70,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: () async {
+                                try {
+                                  final result = await FilePicker.platform.pickFiles(
+                                    type: FileType.custom,
+                                    allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'png', 'jpeg'],
+                                  );
+                                  if (result != null && result.files.isNotEmpty) {
+                                    setModalState(() {
+                                      selectedFilePath = result.files.first.path;
+                                      selectedFileName = result.files.first.name;
+                                    });
+                                  }
+                                } catch (e) {
+                                  debugPrint('Error picking file: $e');
+                                }
+                              },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(color: Colors.white24),
+                              ),
+                              child: const Text('Seleccionar archivo'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Comment field
+                    TextField(
+                      controller: commentController,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        labelText: 'Comentario',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        hintText: 'Escribe tu respuesta...',
+                        hintStyle: const TextStyle(color: Colors.white54),
+                        errorText: errorText,
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.white24),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.white54),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.redAccent),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.redAccent),
+                        ),
+                        contentPadding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.03),
+                      ),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white70,
+                              side: const BorderSide(color: Colors.white24),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: const Text('Cancelar'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              final String comment = commentController.text.trim();
+
+                              setModalState(() {
+                                errorText = comment.isEmpty ? 'Escribe un comentario' : null;
+                              });
+
+                              if (comment.isEmpty) {
+                                return;
+                              }
+
+                              // Here you would send the response to your backend
+                              debugPrint('Response: File: $selectedFileName, Comment: $comment');
+
+                              Navigator.of(ctx).pop();
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('✅ Respuesta enviada correctamente'),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF4F4CE8),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: const Text('Enviar respuesta'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    commentController.dispose();
+  }
+
   Widget _buildPaymentsContent() {
     if (_documents.isEmpty) {
       return _buildEmptyState(
@@ -831,34 +1487,9 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   }
 
   Widget _buildFleetContent() {
-    if (_fleetVehicles.isEmpty) {
-      return _buildEmptyState(
-        'Flota',
-        'No hay vehículos registrados en el archivo de empresa.',
-      );
-    }
-
-    final List<Map<String, dynamic>> ordered =
-        List<Map<String, dynamic>>.from(_fleetVehicles)
-          ..sort((a, b) {
-            final DateTime aDate = a['nextExpiry'] as DateTime? ?? DateTime(2100);
-            final DateTime bDate = b['nextExpiry'] as DateTime? ?? DateTime(2100);
-            return aDate.compareTo(bDate);
-          });
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Flota corporativa',
-            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          ...ordered.map(_buildVehicleTile),
-        ],
-      ),
+    return const VehiculosWidget(
+      role: 'Empresa',
+      jsonPath: 'assets/vehicles_data.json',
     );
   }
 
@@ -1046,71 +1677,10 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   }
 
   Widget _buildMaintenanceContent() {
-    final List<Map<String, dynamic>> inMaintenance = _fleetVehicles
-        .where((vehicle) {
-          final String status = vehicle['status']?.toString().toLowerCase() ?? '';
-          return status.contains('mantenimiento');
-        })
-        .toList();
-    final List<Map<String, dynamic>> pendingDocuments = _fleetVehicles
-        .where((vehicle) {
-          final String status = vehicle['status']?.toString().toLowerCase() ?? '';
-          return status.contains('documentos');
-        })
-        .toList();
-    final List<Map<String, dynamic>> maintenanceAgenda = _operations
-        .where((operation) {
-          final String owner = operation['owner']?.toString().toLowerCase() ?? '';
-          final String title = operation['title']?.toString().toLowerCase() ?? '';
-          return owner.contains('manten') || title.contains('manten');
-        })
-        .toList();
-
-    if (inMaintenance.isEmpty && pendingDocuments.isEmpty && maintenanceAgenda.isEmpty) {
-      return _buildEmptyState(
-        'Mantenimientos',
-        'No hay mantenimientos programados en el panel.',
-      );
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Gestión de mantenimientos',
-            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          if (inMaintenance.isNotEmpty) ...[
-            const SizedBox(height: 18),
-            const Text(
-              'En servicio',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 12),
-            ...inMaintenance.map(_buildVehicleTile),
-          ],
-          if (pendingDocuments.isNotEmpty) ...[
-            const SizedBox(height: 22),
-            const Text(
-              'Documentos por actualizar',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 12),
-            ...pendingDocuments.map(_buildVehicleTile),
-          ],
-          if (maintenanceAgenda.isNotEmpty) ...[
-            const SizedBox(height: 22),
-            const Text(
-              'Agenda relacionada',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 12),
-            ...maintenanceAgenda.map(_buildOperationTile),
-          ],
-        ],
-      ),
+    return MantenimientosWidget(
+      role: 'Empresa',
+      userId: widget.usuario?['id']?.toString(),
+      jsonPath: null,
     );
   }
 
@@ -1138,8 +1708,185 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     );
   }
 
+  Widget _buildDesktopTopBar() {
+    final double avatarSize = 52;
+    final DateTime now = DateTime.now();
+    final int fleetTotal = (_summary['fleetSize'] as num?)?.toInt() ?? _fleetVehicles.length;
+
+    Widget avatarContent;
+    if (_companyLogo != null && _companyLogo!.isNotEmpty) {
+      avatarContent = ClipOval(
+        child: Image.asset(
+          _companyLogo!,
+          width: avatarSize,
+          height: avatarSize,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildLogoFallback(false),
+        ),
+      );
+    } else {
+      avatarContent = _buildLogoFallback(false);
+    }
+
+    final String representativeLabel = _representative.isNotEmpty ? _representative : 'Sin asignar';
+    
+    final List<Widget> chips = _topMenuOptions.asMap().entries.map((entry) {
+      final int index = entry.key;
+      final _MenuOption option = entry.value;
+      final bool selected = _selectedTopIndex == index;
+      return ChoiceChip(
+        avatar: Icon(
+          option.icon,
+          size: 13,
+          color: selected ? Colors.white : Colors.white70,
+        ),
+        label: Text(option.label, style: const TextStyle(fontSize: 11)),
+        selected: selected,
+        onSelected: (_) => _onTopMenuTap(index),
+        selectedColor: _accentColor,
+        backgroundColor: _accentColor.withValues(alpha: 0.12),
+        showCheckmark: false,
+        side: BorderSide(
+          color: selected ? _chipBorderColor : Colors.white24,
+        ),
+        labelStyle: TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+      );
+    }).toList();
+
+    return Column(
+      children: [
+        Container(
+          color: _primaryColor,
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1400),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Left: Logo + Company Info
+                  CircleAvatar(
+                    radius: avatarSize / 2,
+                    backgroundColor: Colors.white24,
+                    child: avatarContent,
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _companyName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        'Rep: $representativeLabel | NIT: $_nit',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white70, fontSize: 10),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(width: 20),
+
+                  // Center: Search bar
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: TextField(
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white.withValues(alpha: 0.14),
+                          hintText: 'Buscar por documento, propietario o placa',
+                          hintStyle: const TextStyle(color: Colors.white70, fontSize: 12),
+                          prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70, size: 18),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 16),
+
+                  // Right: Bell icon with notification
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Stack(
+                      children: [
+                        GestureDetector(
+                          onTap: () => _activateSection('Mensajes'),
+                          child: Icon(
+                            Icons.notifications_none_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                        if (_notifications > 0)
+                          Positioned(
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                              child: Text(
+                                '$_notifications',
+                                style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Bottom row: Menu buttons
+        Container(
+          color: _primaryColor,
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1400),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: chips.asMap().entries.map((e) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: e.value,
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildHeader({required bool isCompact}) {
-    final double avatarSize = isCompact ? 62 : 72;
+    final double avatarSize = isCompact ? 48 : 56;
     Widget avatarContent;
     if (_companyLogo != null && _companyLogo!.isNotEmpty) {
       avatarContent = ClipOval(
@@ -1161,8 +1908,8 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     return Container(
       color: _primaryColor,
       padding: EdgeInsets.symmetric(
-        vertical: isCompact ? 20 : 28,
-        horizontal: isCompact ? 16 : 24,
+        vertical: isCompact ? 8 : 10,
+        horizontal: isCompact ? 12 : 20,
       ),
       child: Row(
         children: [
@@ -1171,52 +1918,63 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
             backgroundColor: Colors.white24,
             child: avatarContent,
           ),
-          SizedBox(width: isCompact ? 12 : 16),
+          SizedBox(width: isCompact ? 8 : 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   _companyName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: isCompact ? 18 : 20,
+                    fontSize: isCompact ? 14 : 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 1),
                 Text(
                   'Representante: $representativeLabel',
-                  style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.white70, fontSize: isCompact ? 10 : 11),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   'NIT: $_nit',
-                  style: TextStyle(color: Colors.white54, fontSize: isCompact ? 11 : 12),
+                  style: TextStyle(color: Colors.white54, fontSize: isCompact ? 9 : 10),
                 ),
               ],
             ),
           ),
-          Stack(
-            children: [
-              Icon(
-                Icons.notifications_none_rounded,
-                color: Colors.white,
-                size: isCompact ? 24 : 28,
-              ),
-              if (_notifications > 0)
-                Positioned(
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                    child: Text(
-                      '$_notifications',
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                    ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Stack(
+              children: [
+                GestureDetector(
+                  onTap: () => _activateSection('Mensajes'),
+                  child: Icon(
+                    Icons.notifications_none_rounded,
+                    color: Colors.white,
+                    size: isCompact ? 20 : 24,
                   ),
                 ),
-            ],
+                if (_notifications > 0)
+                  Positioned(
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                      child: Text(
+                        '$_notifications',
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1239,18 +1997,18 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
 
   Widget _buildQuickBadge(IconData icon, String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.white24),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: Colors.white70),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+          Icon(icon, size: 14, color: Colors.white70),
+          const SizedBox(width: 5),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
         ],
       ),
     );
@@ -1269,45 +2027,142 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
             (_summary['documentsPending'] as num?)?.toInt() ??
             0;
 
+    final bool isDesktop = !isCompact;
+
+    if (isDesktop) {
+      // Desktop layout: two-column, larger search input and nicer spacing
+      return Container(
+        color: _primaryColor,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1300),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Left column: title and quick badges
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Panel corporativo',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            _buildQuickBadge(Icons.directions_bus_rounded, '$fleetTotal vehículos'),
+                            _buildQuickBadge(Icons.insert_drive_file_rounded, '$docsExpired vencidos'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(width: 16),
+
+                  // Right column: big search box
+                  Expanded(
+                    flex: 4,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              TextField(
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: Colors.white.withValues(alpha: 0.14),
+                                  hintText: 'Buscar por documento, propietario o placa',
+                                  hintStyle: const TextStyle(color: Colors.white70, fontSize: 13),
+                                  prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70, size: 18),
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                children: [
+                                  _buildQuickBadge(Icons.directions_bus_rounded, '$fleetTotal vehículos'),
+                                  _buildQuickBadge(Icons.insert_drive_file_rounded, '$docsExpired vencidos'),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Mobile / compact layout: responsive stacked layout
     return Container(
       color: _primaryColor,
-      padding: EdgeInsets.symmetric(vertical: isCompact ? 12 : 16),
+      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       child: Center(
         child: FractionallySizedBox(
-          widthFactor: isCompact ? 0.92 : 0.82,
+          widthFactor: 0.95,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Panel corporativo',
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
-                  fontSize: isCompact ? 18 : 20,
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               TextField(
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.14),
                   hintText: 'Buscar por documento, propietario o placa',
-                  hintStyle: const TextStyle(color: Colors.white70),
-                  prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                  hintStyle: const TextStyle(color: Colors.white70, fontSize: 12),
+                  prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70, size: 18),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide.none,
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 6),
               Wrap(
-                spacing: 12,
-                runSpacing: 8,
+                spacing: 8,
+                runSpacing: 6,
                 children: [
                   _buildQuickBadge(Icons.directions_bus_rounded, '$fleetTotal vehículos'),
-                  _buildQuickBadge(Icons.insert_drive_file_rounded, '$docsExpired documentos vencidos'),
+                  _buildQuickBadge(Icons.insert_drive_file_rounded, '$docsExpired vencidos'),
                 ],
               ),
             ],
@@ -1322,6 +2177,10 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       return const SizedBox.shrink();
     }
 
+    final double iconSize = isCompact ? 14 : 16;
+    final double fontSize = isCompact ? 12 : 13;
+    final double spacing = isCompact ? 8 : 10;
+
     final List<Widget> chips = _topMenuOptions.asMap().entries.map((entry) {
       final int index = entry.key;
       final _MenuOption option = entry.value;
@@ -1329,10 +2188,10 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       return ChoiceChip(
         avatar: Icon(
           option.icon,
-          size: 16,
+          size: iconSize,
           color: selected ? Colors.white : Colors.white70,
         ),
-        label: Text(option.label),
+        label: Text(option.label, style: TextStyle(fontSize: fontSize)),
         selected: selected,
         onSelected: (_) => _onTopMenuTap(index),
         selectedColor: _accentColor,
@@ -1343,32 +2202,113 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
         ),
         labelStyle: TextStyle(
           color: Colors.white,
+          fontSize: fontSize,
           fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
         ),
+        padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 10, vertical: isCompact ? 6 : 8),
       );
     }).toList();
 
     return Container(
       color: _primaryColor,
-      padding: EdgeInsets.symmetric(vertical: isCompact ? 10 : 14),
+      padding: EdgeInsets.symmetric(vertical: isCompact ? 6 : 8),
       child: Center(
         child: FractionallySizedBox(
-          widthFactor: isCompact ? 0.94 : 0.82,
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 10,
-            children: chips,
+          widthFactor: 0.96,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                ...chips.asMap().entries.map((e) {
+                  return Padding(
+                    padding: EdgeInsets.only(right: spacing),
+                    child: e.value,
+                  );
+                }),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildBottomBar({required bool isCompact}) {
+  Widget _buildLeftSidebar() {
     return Container(
-      height: isCompact ? 62 : 70,
+      width: 200,
       color: _primaryColor,
-      padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 24),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Menú',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const Divider(color: Colors.white24),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: _bottomMenuOptions.asMap().entries.map((entry) {
+                final int index = entry.key;
+                final _MenuOption option = entry.value;
+                final bool selected = _selectedBottomIndex == index;
+                return _buildLeftNavItem(option, index, selected);
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeftNavItem(
+    _MenuOption option,
+    int index,
+    bool selected,
+  ) {
+    return InkWell(
+      onTap: () => _onBottomMenuTap(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? _accentColor.withValues(alpha: 0.22) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: selected ? Border.all(color: _accentColor.withValues(alpha: 0.5)) : null,
+        ),
+        child: Row(
+          children: [
+            Icon(option.icon, size: 20, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                option.label,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar({required bool isCompact}) {
+    final double height = isCompact ? 58 : 64;
+    return Container(
+      height: height,
+      color: _primaryColor,
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 16),
       child: Center(
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -1391,27 +2331,31 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   ) {
     return InkWell(
       onTap: () => _onBottomMenuTap(index),
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: EdgeInsets.symmetric(
-          horizontal: isCompact ? 10 : 14,
-          vertical: 8,
+          horizontal: isCompact ? 8 : 12,
+          vertical: 6,
         ),
         decoration: BoxDecoration(
           color: selected ? _accentColor.withValues(alpha: 0.22) : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(option.icon, size: isCompact ? 22 : 24, color: Colors.white),
-            const SizedBox(height: 4),
+            Icon(option.icon, size: isCompact ? 20 : 22, color: Colors.white),
+            const SizedBox(height: 3),
             Text(
               option.label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: Colors.white,
-                fontSize: isCompact ? 10 : 11,
+                fontSize: isCompact ? 9 : 10,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -1744,32 +2688,66 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
             final bool isCompact = constraints.maxWidth < 860;
             final double radius = isCompact ? 24 : 28;
 
-            return Column(
-              children: [
-                _buildHeader(isCompact: isCompact),
-                _buildSearchAndWelcome(isCompact: isCompact),
-                _buildTopMenuBar(isCompact: isCompact),
-                Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: _surfaceColor,
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(radius),
+            if (isCompact) {
+              // Layout móvil: menú superior + contenido + menú inferior
+              return Column(
+                children: [
+                  _buildHeader(isCompact: isCompact),
+                  _buildSearchAndWelcome(isCompact: isCompact),
+                  _buildTopMenuBar(isCompact: isCompact),
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: _surfaceColor,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(radius),
+                        ),
                       ),
-                    ),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: KeyedSubtree(
-                        key: ValueKey<String>(_activeSection),
-                        child: _buildContentView(),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: KeyedSubtree(
+                          key: ValueKey<String>(_activeSection),
+                          child: _buildContentView(),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                _buildBottomBar(isCompact: isCompact),
-              ],
-            );
+                  _buildBottomBar(isCompact: isCompact),
+                ],
+              );
+            } else {
+              // Layout desktop: menú izquierdo + topbar + contenido
+              return Column(
+                children: [
+                  _buildDesktopTopBar(),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        _buildLeftSidebar(),
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: _surfaceColor,
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(radius),
+                              ),
+                            ),
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              child: KeyedSubtree(
+                                key: ValueKey<String>(_activeSection),
+                                child: _buildContentView(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
           },
         ),
       ),

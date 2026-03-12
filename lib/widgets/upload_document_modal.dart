@@ -1,0 +1,1157 @@
+import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:intl/intl.dart';
+import '../services/document_service.dart';
+
+class UploadDocumentModal {
+  static void show({
+    required BuildContext context,
+    required String userId,
+    required String userRole,
+    String? token,
+    VoidCallback? onSuccess,
+  }) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return _UploadDocumentDialog(
+          userId: userId,
+          userRole: userRole,
+          token: token,
+          onSuccess: onSuccess,
+        );
+      },
+    );
+  }
+}
+
+class _UploadDocumentDialog extends StatefulWidget {
+  final String userId;
+  final String userRole;
+  final String? token;
+  final VoidCallback? onSuccess;
+
+  const _UploadDocumentDialog({
+    required this.userId,
+    required this.userRole,
+    required this.token,
+    required this.onSuccess,
+  });
+
+  @override
+  State<_UploadDocumentDialog> createState() => _UploadDocumentDialogState();
+}
+
+class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
+  String? selectedFilePath;
+  String? selectedFileName;
+  
+  // Nuevos campos dinámicos
+  int? selectedPersonaId;
+  String? selectedPersonaTipo; // 'conductor' o 'propietario'
+  String? selectedVehicleValue; // Usar String para evitar autocompletado: "vehicle_ID"
+  int? selectedVehicleId;
+  String? selectedVehiclePlaca;
+  
+  int? selectedDocumentTypeId;
+  String? selectedArea;
+  DateTime? selectedExpiryDate;
+  bool isUploading = false;
+  bool isLoadingPersonas = false;
+  bool isLoadingVehiculos = false;
+
+  List<Map<String, dynamic>> conductores = [];
+  List<Map<String, dynamic>> propietarios = [];
+  List<Map<String, dynamic>> vehiculos = [];
+  List<Map<String, dynamic>> documentTypes = [];
+  bool isLoadingDocumentTypes = false;
+
+  final TextEditingController observationController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPersonas();
+    _loadDocumentTypes();
+    selectedVehicleValue = null; // Explícitamente null al inicio
+  }
+
+  @override
+  void dispose() {
+    observationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPersonas() async {
+    setState(() {
+      isLoadingPersonas = true;
+    });
+
+    try {
+      debugPrint('📋 [Modal] Cargando conductores y propietarios...');
+      debugPrint('📋 [Modal] Token pasado a modal: ${widget.token?.isNotEmpty == true ? "presente (${widget.token!.length} chars)" : "NULO"}');
+      
+      final conds = await DocumentService.getConductores(token: widget.token);
+      debugPrint('📋 [Modal] Conductores recibidos: ${conds.length}');
+      for (int i = 0; i < conds.length && i < 2; i++) {
+        debugPrint('   ===== CONDUCTOR $i =====');
+        conds[i].forEach((key, value) {
+          debugPrint('     $key: $value');
+        });
+      }
+      
+      final props = await DocumentService.getPropietarios(token: widget.token);
+      debugPrint('📋 [Modal] Propietarios recibidos: ${props.length}');
+      for (int i = 0; i < props.length && i < 2; i++) {
+        debugPrint('   ===== PROPIETARIO $i =====');
+        props[i].forEach((key, value) {
+          debugPrint('     $key: $value');
+        });
+      }
+
+      if (mounted) {
+        setState(() {
+          conductores = conds;
+          propietarios = props;
+          isLoadingPersonas = false;
+        });
+        
+        if (conds.isEmpty && props.isEmpty) {
+          debugPrint('⚠️ [Modal] ¡SIN CONDUCTORES NI PROPIETARIOS!');
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ [Modal] Error cargando personas: $e');
+      if (mounted) {
+        _showErrorSnackBar('Error cargando datos: $e');
+        setState(() {
+          isLoadingPersonas = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadDocumentTypes() async {
+    setState(() {
+      isLoadingDocumentTypes = true;
+    });
+
+    try {
+      debugPrint('📋 [Modal] Cargando tipos de documento...');
+      final types = await DocumentService.getDocumentTypes(token: widget.token);
+      debugPrint('📋 [Modal] Tipos de documento recibidos: ${types.length}');
+      for (int i = 0; i < types.length; i++) {
+        debugPrint('   Tipo $i: ${types[i]}');
+      }
+
+      if (mounted) {
+        setState(() {
+          documentTypes = types;
+          isLoadingDocumentTypes = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ [Modal] Error cargando tipos de documento: $e');
+      if (mounted) {
+        setState(() {
+          isLoadingDocumentTypes = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadVehiculos(int personaId, String personaTipo) async {
+    // Reset: no seleccionar automáticamente ningún vehículo
+    setState(() {
+      isLoadingVehiculos = true;
+      vehiculos = [];
+      selectedVehicleValue = null;  // Mantener null - el usuario debe seleccionar explícitamente
+      selectedVehicleId = null;
+      selectedVehiclePlaca = null;
+    });
+
+    try {
+      List<Map<String, dynamic>> veh;
+      if (personaTipo == 'conductor') {
+        veh = await DocumentService.getVehiculosPorConductor(
+          conductorId: personaId,
+          token: widget.token,
+        );
+      } else {
+        veh = await DocumentService.getVehiculosPorPropietario(
+          propietarioId: personaId,
+          token: widget.token,
+        );
+      }
+
+      if (mounted) {
+        setState(() {
+          vehiculos = veh;
+          isLoadingVehiculos = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnackBar('Error cargando vehículos: $e');
+        setState(() {
+          isLoadingVehiculos = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 600),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF11698E), Color(0xFF19456B)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Subir Documento',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: isUploading ? null : () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              
+              // Sección: Seleccionar Conductor/Propietario
+              _buildPersonaSection(),
+              const SizedBox(height: 12),
+              
+              // Sección: Seleccionar Vehículo (dinámico)
+              if (selectedPersonaId != null && vehiculos.isNotEmpty)
+                _buildVehicleSection(),
+              if (selectedPersonaId != null && vehiculos.isEmpty && !isLoadingVehiculos)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Esta persona no tiene vehículos asignados',
+                            style: TextStyle(color: Colors.orange),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              
+              // Sección: Seleccionar archivo
+              _buildFilePickerSection(),
+              const SizedBox(height: 12),
+              
+              // Tipo de documento
+              _buildDocumentTypeSection(),
+              const SizedBox(height: 12),
+              
+              // Área
+              _buildAreaSection(),
+              const SizedBox(height: 12),
+              
+              // Fecha de vencimiento
+              _buildExpiryDateSection(),
+              const SizedBox(height: 12),
+              
+              // Observaciones
+              _buildObservationsSection(),
+              const SizedBox(height: 16),
+              
+              // Botones
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: isUploading ? null : () => Navigator.of(context).pop(),
+                    child: const Text(
+                      'Cancelar',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: isUploading
+                        ? null
+                        : (selectedFilePath == null ||
+                                selectedDocumentTypeId == null ||
+                                selectedExpiryDate == null ||
+                                selectedPersonaId == null)
+                            ? null
+                            : _uploadDocument,
+                    icon: isUploading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          )
+                        : const Icon(Icons.upload, color: Colors.white),
+                    label: Text(
+                      isUploading ? 'Subiendo...' : 'Subir',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF16C79A),
+                      disabledBackgroundColor: Colors.grey,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPersonaSection() {
+    if (isLoadingPersonas) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Conductor o Propietario',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white12,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: const SizedBox(
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(Colors.white),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Obtener nombre de la persona seleccionada
+    String? selectedPersonaName;
+    if (selectedPersonaId != null) {
+      if (selectedPersonaTipo == 'conductor') {
+        selectedPersonaName = conductores
+            .firstWhere((c) => c['id'] == selectedPersonaId, orElse: () => {})['nombreCompleto'];
+      } else {
+        selectedPersonaName = propietarios
+            .firstWhere((p) => p['id'] == selectedPersonaId, orElse: () => {})['nombreCompleto'];
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Conductor o Propietario',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white12,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selectedPersonaId != null ? Colors.blue : Colors.white24,
+              width: selectedPersonaId != null ? 2 : 1,
+            ),
+          ),
+          child: DropdownButton<String>(
+            value: selectedPersonaId != null
+                ? '${selectedPersonaTipo}_${selectedPersonaId}'
+                : null,
+            isDense: true,
+            underline: Container(),
+            dropdownColor: const Color(0xFF19456B),
+            isExpanded: true,
+            hint: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Row(
+                children: [
+                  const Icon(Icons.person_search, color: Colors.white70, size: 16),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Seleccione el Conductor o Propietario',
+                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            items: [
+              // Conductores
+              if (conductores.isNotEmpty)
+                const DropdownMenuItem<String>(
+                  enabled: false,
+                  value: 'header_conductores',
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    child: Text(
+                      '👤 CONDUCTORES',
+                      style: TextStyle(color: Colors.cyan, fontWeight: FontWeight.bold, fontSize: 11),
+                    ),
+                  ),
+                ),
+              ...conductores.map((c) {
+                final value = 'conductor_${c['id']}';
+                final nombre = c['nombreCompleto'] ?? 'Sin nombre';
+                final documento = c['numeroDocumento'] ?? c['documento'] ?? 'Sin documento';
+                final id = c['id'];
+                final label = '$nombre - $documento (ID: $id)';
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    child: Text(
+                      label,
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                );
+              }).toList(),
+              
+              // Propietarios
+              if (propietarios.isNotEmpty) ...[
+                const DropdownMenuItem<String>(
+                  enabled: false,
+                  value: 'header_propietarios',
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    child: Text(
+                      '🏠 PROPIETARIOS',
+                      style: TextStyle(color: Colors.lightGreenAccent, fontWeight: FontWeight.bold, fontSize: 11),
+                    ),
+                  ),
+                ),
+                ...propietarios.map((p) {
+                  final value = 'propietario_${p['id']}';
+                  final nombre = p['nombreCompleto'] ?? 'Sin nombre';
+                  final documento = p['numeroDocumento'] ?? p['documento'] ?? 'Sin documento';
+                  final id = p['id'];
+                  final label = '$nombre - $documento (ID: $id)';
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      child: Text(
+                        label,
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ],
+            ],
+            onChanged: (value) {
+              if (value != null && value.contains('_')) {
+                final parts = value.split('_');
+                final tipo = parts[0];
+                final id = int.tryParse(parts[1]) ?? 0;
+
+                setState(() {
+                  selectedPersonaTipo = tipo;
+                  selectedPersonaId = id;
+                });
+
+                _loadVehiculos(id, tipo);
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVehicleSection() {
+    if (isLoadingVehiculos) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Vehículo Asignado (Opcional)',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white12,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: const SizedBox(
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(Colors.white),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Obtener placa del vehículo seleccionado
+    String? selectedVehicleInfo;
+    if (selectedVehicleId != null) {
+      final vehicle = vehiculos.firstWhere(
+        (v) => v['id'] == selectedVehicleId,
+        orElse: () => {},
+      );
+      final placa = vehicle['placa'] ?? 'Sin placa';
+      final marca = vehicle['marca'] ?? '';
+      final modelo = vehicle['modelo'] ?? '';
+      selectedVehicleInfo = '$placa - $marca $modelo'.trim();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Vehículo Asignado',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white12,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selectedVehicleValue != null ? Colors.green : Colors.white24,
+              width: selectedVehicleValue != null ? 2 : 1,
+            ),
+          ),
+          child: DropdownButton<String?>(
+            value: selectedVehicleValue,  // null = sin seleccionar
+            isDense: true,
+            underline: Container(),
+            dropdownColor: const Color(0xFF19456B),
+            isExpanded: true,
+            hint: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Row(
+                children: [
+                  const Icon(Icons.directions_car, color: Colors.white70, size: 16),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Seleccione el Vehículo (Opcional)',
+                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            items: vehiculos.isEmpty
+                ? [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        child: Text(
+                          'No hay vehículos disponibles',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ]
+                : [
+                    // Primer item: "Sin seleccionar"
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        child: Text(
+                          '-- Sin seleccionar --',
+                          style: TextStyle(color: Colors.white70, fontSize: 12, fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                    ),
+                    // Items de vehículos
+                    ...vehiculos.map((v) {
+                      final id = v['id'] is String ? int.parse(v['id'].toString()) : v['id'];
+                      final value = 'vehicle_$id';
+                      final placa = v['placa'] ?? 'Sin placa';
+                      final marca = v['marca'] ?? '';
+                      final modelo = v['modelo'] ?? '';
+                      final label = '$placa - $marca $modelo'.trim();
+
+                      return DropdownMenuItem<String?>(
+                        value: value,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          child: Text(
+                            label,
+                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ],
+            onChanged: (value) {
+              setState(() {
+                selectedVehicleValue = value;
+                if (value != null && value.startsWith('vehicle_')) {
+                  // Extraer el ID del valor
+                  final idStr = value.replaceFirst('vehicle_', '');
+                  selectedVehicleId = int.tryParse(idStr);
+                  if (selectedVehicleId != null) {
+                    selectedVehiclePlaca = vehiculos
+                        .firstWhere((v) {
+                          final id = v['id'] is String ? int.parse(v['id'].toString()) : v['id'];
+                          return id == selectedVehicleId;
+                        }, orElse: () => {})['placa'];
+                  }
+                } else {
+                  selectedVehicleId = null;
+                  selectedVehiclePlaca = null;
+                }
+              });
+            },
+          ),
+        ),
+
+      ],
+    );
+  }
+
+  Widget _buildFilePickerSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Archivo',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: isUploading ? null : _pickFile,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white12,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white24),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.insert_drive_file, color: Colors.white70),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    selectedFileName ?? 'Seleccionar archivo',
+                    style: TextStyle(
+                      color: selectedFileName != null
+                          ? Colors.white
+                          : Colors.white70,
+                      fontSize: 14,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDocumentTypeSection() {
+    // Obtener nombre del tipo seleccionado desde la lista dinámica
+    String? selectedDocumentTypeName;
+    if (selectedDocumentTypeId != null && documentTypes.isNotEmpty) {
+      final selected = documentTypes.firstWhere(
+        (t) => t['id'] == selectedDocumentTypeId,
+        orElse: () => {},
+      );
+      selectedDocumentTypeName = selected['nombre'] ?? selected['nombre_tipo'] ?? '';
+    }
+
+    if (isLoadingDocumentTypes) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Tipo de Documento',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white12,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: const SizedBox(
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(Colors.white),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (documentTypes.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Tipo de Documento',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.error, color: Colors.red, size: 18),
+                SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'No se cargaron tipos de documentos. Revise la conexión.',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Tipo de Documento',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white12,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selectedDocumentTypeId != null ? Colors.purple : Colors.white24,
+              width: selectedDocumentTypeId != null ? 2 : 1,
+            ),
+          ),
+          child: DropdownButton<int>(
+            value: selectedDocumentTypeId,
+            isDense: true,
+            underline: Container(),
+            dropdownColor: const Color(0xFF19456B),
+            isExpanded: true,
+            hint: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Row(
+                children: [
+                  const Icon(Icons.description, color: Colors.white70, size: 16),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Seleccione el Tipo de Documento',
+                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            items: documentTypes.map((type) {
+              final id = type['id'];
+              final nombre = type['nombre'] ?? type['nombre_tipo'] ?? 'Sin nombre';
+              return DropdownMenuItem<int>(
+                value: id,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  child: Text(
+                    nombre,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                selectedDocumentTypeId = value;
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAreaSection() {
+    // Obtener nombre del área seleccionada
+    String? selectedAreaName;
+    if (selectedArea != null && selectedArea!.isNotEmpty) {
+      switch (selectedArea) {
+        case 'TECNICO':
+          selectedAreaName = 'Técnico';
+          break;
+        case 'LEGAL':
+          selectedAreaName = 'Legal';
+          break;
+        case 'ADMINISTRATIVO':
+          selectedAreaName = 'Administrativo';
+          break;
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Área',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white12,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selectedArea != null && selectedArea!.isNotEmpty ? Colors.orange : Colors.white24,
+              width: selectedArea != null && selectedArea!.isNotEmpty ? 2 : 1,
+            ),
+          ),
+          child: DropdownButton<String>(
+            value: selectedArea,
+            isDense: true,
+            underline: Container(),
+            dropdownColor: const Color(0xFF19456B),
+            isExpanded: true,
+            hint: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Row(
+                children: [
+                  const Icon(Icons.category, color: Colors.white70, size: 16),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Seleccione el tipo de Área',
+                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            items: const [
+              DropdownMenuItem(
+                value: 'TECNICO',
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  child: Text(
+                    'Técnico',
+                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ),
+              DropdownMenuItem(
+                value: 'LEGAL',
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  child: Text(
+                    'Legal',
+                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ),
+              DropdownMenuItem(
+                value: 'ADMINISTRATIVO',
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  child: Text(
+                    'Administrativo',
+                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ),
+            ],
+            onChanged: (value) {
+              setState(() {
+                selectedArea = value;
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpiryDateSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Fecha de Vencimiento',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: isUploading ? null : _pickExpiryDate,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white12,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white24),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  selectedExpiryDate != null
+                      ? DateFormat('dd/MM/yyyy').format(selectedExpiryDate!)
+                      : 'Seleccionar fecha',
+                  style: TextStyle(
+                    color: selectedExpiryDate != null
+                        ? Colors.white
+                        : Colors.white70,
+                  ),
+                ),
+                const Icon(Icons.calendar_today, color: Colors.white70),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildObservationsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Observaciones (opcional)',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: observationController,
+          maxLines: 3,
+          enabled: !isUploading,
+          decoration: InputDecoration(
+            hintText: 'Agrega notas sobre el documento...',
+            hintStyle: const TextStyle(color: Colors.white54),
+            filled: true,
+            fillColor: Colors.white12,
+            contentPadding: const EdgeInsets.all(12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.white24),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.white24),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.white),
+            ),
+          ),
+          style: const TextStyle(color: Colors.white),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        setState(() {
+          selectedFilePath = file.path ?? '';
+          selectedFileName = file.name;
+        });
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error seleccionando archivo: $e');
+    }
+  }
+
+  Future<void> _pickExpiryDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(days: 365)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 3650)),
+    );
+
+    if (date != null) {
+      setState(() {
+        selectedExpiryDate = date;
+      });
+    }
+  }
+
+  Future<void> _uploadDocument() async {
+    // Validar solo los campos obligatorios (vehículo es opcional)
+    if (selectedFilePath == null ||
+        selectedDocumentTypeId == null ||
+        selectedExpiryDate == null ||
+        selectedPersonaId == null ||
+        selectedArea == null) {
+      _showErrorSnackBar('⚠️ Completa: Persona, Tipo, Archivo, Área y Fecha');
+      return;
+    }
+
+    // Obtener el ID numérico del usuario seleccionado
+    // selectedPersonaId ya es un int, no necesita split
+    int? selectedPersonaIdInt = selectedPersonaId;
+
+    setState(() {
+      isUploading = true;
+    });
+
+    try {
+      debugPrint('📤 Iniciando upload...');
+      debugPrint('   - Persona seleccionada: $selectedPersonaIdInt ($selectedPersonaTipo)');
+      debugPrint('   - Vehículo: $selectedVehicleId');
+      debugPrint('   - Tipo: $selectedDocumentTypeId');
+      debugPrint('   - Archivo: $selectedFileName');
+      debugPrint('   - Token: ${widget.token?.isNotEmpty == true ? "presente (${widget.token!.length} chars)" : "NULO"}');
+
+      final result = await DocumentService.uploadDocument(
+        filePath: selectedFilePath!,
+        fileName: selectedFileName ?? 'document',
+        vehicleId: selectedVehicleId,
+        documentTypeId: selectedDocumentTypeId!,
+        area: selectedArea!,
+        expiryDate: selectedExpiryDate!,
+        observations: observationController.text.isEmpty
+            ? null
+            : observationController.text,
+        responsibleUserId: int.tryParse(widget.userId) ?? 0,
+        personaId: selectedPersonaIdInt,
+        token: widget.token,
+      );
+
+      if (mounted) {
+        setState(() {
+          isUploading = false;
+        });
+
+        if (result != null) {
+          debugPrint('✅ Respuesta del servidor: $result');
+          _showSuccessSnackBar('✅ Documento subido exitosamente');
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted) {
+              Navigator.of(context).pop();
+              widget.onSuccess?.call();
+            }
+          });
+        } else {
+          debugPrint('❌ Resultado NULL del upload');
+          _showErrorSnackBar('❌ Error - Revisa los logs');
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Excepción en upload: $e');
+      if (mounted) {
+        setState(() {
+          isUploading = false;
+        });
+        _showErrorSnackBar('❌ $e');
+      }
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+}

@@ -8,12 +8,24 @@ class PerfilWidget extends StatefulWidget {
   final String? userId;
   final String? jsonPath;
   final String role;
+  final String? userName;
+  final String? userCompany;
+  final String? userEmail;
+  final String? userPhone;
+  final String? userAddress;
+  final String? userDocument;
 
   const PerfilWidget({
     super.key,
     required this.role,
     this.userId,
     this.jsonPath,
+    this.userName,
+    this.userCompany,
+    this.userEmail,
+    this.userPhone,
+    this.userAddress,
+    this.userDocument,
   });
 
   @override
@@ -198,6 +210,13 @@ class _PerfilWidgetState extends State<PerfilWidget> {
   }
 
   Future<void> _cargarPerfil() async {
+    // Si hay datos del backend, usarlos directamente
+    if (widget.userName != null && widget.userName!.isNotEmpty) {
+      _usarDatosBackend();
+      return;
+    }
+
+    // Si no, cargar del JSON
     final String path = (widget.jsonPath != null && widget.jsonPath!.isNotEmpty)
         ? widget.jsonPath!
         : 'assets/user_profile.json';
@@ -220,6 +239,66 @@ class _PerfilWidgetState extends State<PerfilWidget> {
           _hasError = true;
         });
       }
+    }
+  }
+
+  void _usarDatosBackend() {
+    try {
+      final String fullName = widget.userName ?? 'Usuario';
+      final String empresa = widget.userCompany ?? 'Sin empresa';
+      final String email = widget.userEmail ?? 'sin-correo@empresa.com';
+      final String telefono = widget.userPhone ?? 'Sin teléfono';
+     final String documento = widget.userDocument ?? 'No registrado';
+      final String direccion = widget.userAddress ?? 'Sin dirección';
+
+      final _PerfilUsuario perfil = _PerfilUsuario(
+        id: widget.userId ?? '0',
+        nombre: fullName,
+        empresa: empresa,
+        email: email,
+        telefono: telefono,
+        imagen: '',
+        estadisticas: const [
+          _PerfilStat(value: '-', label: 'Información\ndel backend'),
+          _PerfilStat(value: '-', label: 'Información\ndel backend'),
+          _PerfilStat(value: '-', label: 'Información\ndel backend'),
+        ],
+        datos: [
+          _PerfilDato(label: 'Documento', value: documento),
+          _PerfilDato(label: 'Rol', value: widget.role),
+          _PerfilDato(label: 'Dirección', value: direccion),
+          _PerfilDato(label: 'Email', value: email),
+          _PerfilDato(label: 'Teléfono', value: telefono),
+        ],
+        certificaciones: const [],
+        vehiculos: const [],
+      );
+
+      final _PerfilConfiguracion configuracion = _generarConfiguracion(perfil);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _perfil = perfil;
+        _toggleValues = {
+          for (final _ConfiguracionToggle toggle in configuracion.toggles)
+            toggle.id: toggle.id != 'modo_descanso',
+        };
+        _selectValues = {
+          for (final _ConfiguracionOpcion select in configuracion.selects)
+            select.titulo: select.opciones.first,
+        };
+        _isLoading = false;
+        _hasError = false;
+        _fallback = false;
+      });
+    } catch (e) {
+      debugPrint('Error preparando datos del backend: $e');
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
     }
   }
 
@@ -779,15 +858,18 @@ class _PerfilWidgetState extends State<PerfilWidget> {
               ],
             ),
           ),
-          Switch(
-            value: value,
-            onChanged: (newValue) {
-              setState(() {
-                _toggleValues[toggle.id] = newValue;
-              });
-            },
-            activeThumbColor: Colors.white,
-            activeTrackColor: _accentColor,
+          Transform.scale(
+            scale: 0.8,
+            child: Switch(
+              value: value,
+              onChanged: (newValue) {
+                setState(() {
+                  _toggleValues[toggle.id] = newValue;
+                });
+              },
+              activeThumbColor: Colors.white,
+              activeTrackColor: _accentColor,
+            ),
           ),
         ],
       ),

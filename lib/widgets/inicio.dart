@@ -385,17 +385,21 @@ class _InicioWidgetState extends State<InicioWidget> {
   }
 
   Widget _conductorInicio() {
+    final int totalVehicles = _fleetVehicles.length;
+    final int docsExpiringSoon = _documents.entries
+        .where((entry) => entry.value.isBefore(DateTime.now().add(const Duration(days: 30))))
+        .length;
+    final List<Map<String, dynamic>> vehiclesToShow = _fleetVehicles.take(3).toList();
+    final List<MapEntry<String, DateTime>> upcoming = _upcomingDocs(limit: 3);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool isCompact = constraints.maxWidth < 480;
         final double imageHeight = isCompact ? 160 : 200;
-        final double countdownSize = isCompact ? 80 : 90;
-        final double countdownWidth = isCompact ? 108 : 120;
         final EdgeInsets outerPadding = EdgeInsets.symmetric(
           horizontal: isCompact ? 16 : 20,
           vertical: 20,
         );
-        final List<MapEntry<String, DateTime>> upcoming = _upcomingDocs(limit: 3);
 
         return SingleChildScrollView(
           padding: outerPadding,
@@ -418,51 +422,80 @@ class _InicioWidgetState extends State<InicioWidget> {
                     ),
                   ),
                   SizedBox(height: isCompact ? 12 : 16),
-                  if (upcoming.isNotEmpty)
+                  const Text(
+                    'Panel Conductor',
+                    style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Resumen de asignaciones, documentos y próximos vencimientos.',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                  const SizedBox(height: 20),
+                  Align(
+                    alignment: Alignment.center,
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        _buildSummaryChip(Icons.directions_car, '$totalVehicles vehículos', 'Asignados'),
+                        _buildSummaryChip(Icons.warning_amber_rounded, '$docsExpiringSoon vencimientos', 'Próximos 30 días'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  if (upcoming.isNotEmpty) ...[
+                    const Text(
+                      'Documentos próximos a vencer',
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDocumentCountdownGrid(upcoming),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        TextButton.icon(
+                          onPressed: widget.onNavigateToDocuments,
+                          icon: const Icon(Icons.folder_copy, color: Color(0xFF16C79A)),
+                          label: const Text('Ver todos los documentos', style: TextStyle(color: Color(0xFF16C79A))),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  const Text(
+                    'Vehículos asignados',
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 12),
+                  if (vehiclesToShow.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: const Text('No hay vehículos asignados actualmente.', style: TextStyle(color: Colors.white70)),
+                    )
+                  else
                     Align(
                       alignment: Alignment.center,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (var i = 0; i < upcoming.length; i++)
-                              Padding(
-                                padding: EdgeInsets.only(right: i == upcoming.length - 1 ? 0 : 12),
-                                child: SizedBox(
-                                  width: countdownWidth,
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      final entry = upcoming[i];
-                                      final paymentDate = _paymentDates?[entry.key];
-                                      DocumentModal.show(
-                                        context: context,
-                                        documentName: entry.key,
-                                        paymentDate: paymentDate,
-                                        expiryDate: entry.value,
-                                      );
-                                    },
-                                    child: DocumentCountdown(
-                                      expiry: upcoming[i].value,
-                                      paymentDate: _paymentDates?[upcoming[i].key],
-                                      totalDuration: Duration(
-                                        days: upcoming[i].value.difference(DateTime.now()).inDays <= 90
-                                            ? 90
-                                            : upcoming[i].value.difference(DateTime.now()).inDays,
-                                      ),
-                                      title: upcoming[i].key,
-                                      subtitle:
-                                          '${upcoming[i].value.difference(DateTime.now()).inDays.clamp(0, 999)} días',
-                                      size: countdownSize,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 460),
+                        child: ListView.separated(
+                          itemCount: vehiclesToShow.length,
+                          physics: const NeverScrollableScrollPhysics(),
+                          shrinkWrap: true,
+                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) => _buildVehicleCard(vehiclesToShow[index]),
                         ),
                       ),
                     ),
-                  SizedBox(height: isCompact ? 18 : 24),
+                  const SizedBox(height: 20),
                   Align(
                     alignment: Alignment.center,
                     child: ConstrainedBox(

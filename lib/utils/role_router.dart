@@ -54,10 +54,14 @@ Future<void> persistSession(Map<String, dynamic> userData) async {
   final prefs = await SharedPreferences.getInstance();
   final rawUser = jsonEncode(userData);
   await prefs.setString('auth_user', rawUser);
-  final tokenValue = userData['id']?.toString();
+  
+  // Obtener el JWT token (que viene en el campo 'token' de la respuesta del backend)
+  final tokenValue = userData['token'];
   if (tokenValue != null && tokenValue.isNotEmpty) {
     await prefs.setString('auth_token', tokenValue);
+    debugPrint('🔐 Token JWT guardado: ${tokenValue.substring(0, 20)}...');
   } else {
+    debugPrint('⚠️ No se encontró token en userData');
     await prefs.setString('auth_token', 'session_active');
   }
 }

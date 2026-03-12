@@ -248,23 +248,19 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final double width = constraints.maxWidth;
-        final bool isCompact = width < 640;
-        final bool isTableCompact = width < 960;
+        final bool isCompact = width < 600;
+        final bool isTableCompact = width < 1200;
         return _buildRoleContent(isCompact, isTableCompact);
       },
     );
   }
 
   Widget _buildRoleContent(bool isCompact, bool isTableCompact) {
+    debugPrint('=== BUILD ROLE CONTENT === Role: $_roleNormalized | isCompact: $isCompact');
     switch (_roleNormalized) {
       case 'propietario':
-        return _buildCommonLayout(
-          isCompact: isCompact,
-          title: 'Historial de certificaciones',
-          subtitle: 'Controla el estado de las solicitudes vinculadas a tus vehiculos.',
-          tableDetalles: _detalles,
-          tableCompact: isTableCompact,
-        );
+      case 'conductor':
+        return _buildOwnerConductorLayout(isCompact, isTableCompact);
       case 'empresa':
       case 'admin':
       case 'secretaria':
@@ -311,10 +307,8 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: isCompact
-                ? 760
-                : tableCompact
-                    ? 900
-                    : 1100,
+                ? 700
+                : 1600,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,22 +363,552 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
             const SizedBox(height: 20),
           ],
           if (tableDetalles != null) ...[
-            if (tableTitle != null) ...[
-              Text(
-                tableTitle,
-                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
+            // En PC: mostrar en dos columnas para todos los roles
+            if (!isCompact)
+              _buildEmpresaTwoColumnLayout(tableDetalles, tableCompact)
+            else ...[
+              if (tableTitle != null) ...[
+                Text(
+                  tableTitle,
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (tableDetalles.isNotEmpty)
+                _buildSolicitudesView(tableDetalles, tableCompact)
+              else
+                _buildEmptyTable(tableEmptyMessage ?? 'No hay solicitudes registradas.'),
             ],
-                if (tableDetalles.isNotEmpty)
-                  _buildSolicitudesView(tableDetalles, tableCompact)
-                else
-              _buildEmptyTable(tableEmptyMessage ?? 'No hay solicitudes registradas.'),
           ],
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildOwnerConductorLayout(bool isCompact, bool isTableCompact) {
+    debugPrint('=== OWNER/CONDUCTOR LAYOUT === isCompact: $isCompact | Role: $_roleNormalized');
+    final List<_SolicitudDetalle> enRevision = _detalles
+        .where((detalle) => 
+            _normalizeStatus(detalle.estadoActual).contains('REVISION'))
+        .toList();
+
+    final List<_SolicitudDetalle> historialFinal = _detalles
+        .where((detalle) => 
+            !_normalizeStatus(detalle.estadoActual).contains('REVISION'))
+        .toList();
+    
+    // Ordenar historial por fecha descendente
+    historialFinal.sort((a, b) {
+      final DateTime? aFecha = a.solicitud.fechaEnvio;
+      final DateTime? bFecha = b.solicitud.fechaEnvio;
+      if (aFecha == null || bFecha == null) return 0;
+      return bFecha.compareTo(aFecha);
+    });
+
+    debugPrint('📊 En revisión: ${enRevision.length} | Historial: ${historialFinal.length}');
+    
+    if (isCompact) {
+      debugPrint('📱 MODO MOBILE - Layout vertical');
+    } else {
+      debugPrint('💻 MODO DESKTOP - Layout dos columnas');
+    }
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        isCompact ? 16 : 24,
+        24,
+        isCompact ? 16 : 24,
+        isCompact ? 120 : 64,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: isCompact ? 700 : 1800,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              if (isCompact) ...[
+                Text(
+                  _roleNormalized == 'propietario' 
+                    ? 'Historial de certificaciones'
+                    : 'Mis certificaciones',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _roleNormalized == 'propietario'
+                    ? 'Controla el estado de las solicitudes vinculadas a tus vehiculos.'
+                    : 'Solicita y controla el estado de tus certificados laborales.',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                const SizedBox(height: 20),
+              ] else ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _roleNormalized == 'propietario' 
+                              ? 'Historial de certificaciones'
+                              : 'Mis certificaciones',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _roleNormalized == 'propietario'
+                              ? 'Controla el estado de las solicitudes vinculadas a tus vehiculos.'
+                              : 'Solicita y controla el estado de tus certificados laborales.',
+                            style: const TextStyle(color: Colors.white70, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
+              
+              // Botón solicitar certificado
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _showSolicitudCertificadoModal,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _accentColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  icon: const Icon(Icons.add_circle_rounded, size: 22),
+                  label: Text(
+                    _roleNormalized == 'propietario'
+                      ? 'Solicitar certificado'
+                      : 'Solicitar certificado laboral',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Resumen de estados
+              _buildSummaryChips(isCompact),
+              const SizedBox(height: 24),
+
+              // Layout dividido en dos mitades para PC
+              if (isCompact) ...[
+                // En revisión - Layout vertical para mobile
+                if (enRevision.isNotEmpty) ...[
+                  Text(
+                    'En revisión',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: enRevision.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (_, index) => _buildSolicitudCard(enRevision[index]),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // Historial - Layout vertical para mobile
+                if (historialFinal.isNotEmpty) ...[
+                  Text(
+                    'Historial',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: historialFinal.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (_, index) => _buildSolicitudCard(historialFinal[index]),
+                  ),
+                ] else if (enRevision.isEmpty) ...[
+                  _buildEmptyState(),
+                ],
+              ] else ...[
+                // Layout de dos columnas para PC
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Primera mitad: En revisión (50%)
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'En revisión (${enRevision.length})',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (enRevision.isNotEmpty)
+                            ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: enRevision.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 12),
+                              itemBuilder: (_, index) => _buildSolicitudCard(enRevision[index]),
+                            )
+                          else
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 40),
+                                child: Text(
+                                  'No hay solicitudes en revisión',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.6),
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    // Segunda mitad: Historial (50%)
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Historial (${historialFinal.length})',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (historialFinal.isNotEmpty)
+                            ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: historialFinal.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 12),
+                              itemBuilder: (_, index) => _buildSolicitudCard(historialFinal[index]),
+                            )
+                          else
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 40),
+                                child: Text(
+                                  'No hay historial de solicitudes',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.6),
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnRevisionSection(List<_SolicitudDetalle> enRevision, bool isCompact) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _warningColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: _warningColor.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.schedule_rounded, 
+                color: _warningColor, 
+                size: 24
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'En revisión',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10, 
+                  vertical: 6
+                ),
+                decoration: BoxDecoration(
+                  color: _warningColor.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  enRevision.length.toString(),
+                  style: TextStyle(
+                    color: _warningColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (enRevision.isNotEmpty)
+            Column(
+              children: enRevision.asMap().entries.map((entry) {
+                final int index = entry.key;
+                final _SolicitudDetalle detalle = entry.value;
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index != enRevision.length - 1 ? 12 : 0,
+                  ),
+                  child: _buildEnRevisionCard(detalle, isCompact),
+                );
+              }).toList(),
+            )
+          else
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Text(
+                  'No tienes solicitudes en revisión',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistorialSection(List<_SolicitudDetalle> historialFinal, bool isCompact) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Historial',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (historialFinal.isNotEmpty)
+            Column(
+              children: historialFinal.asMap().entries.map((entry) {
+                final int index = entry.key;
+                final _SolicitudDetalle detalle = entry.value;
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index != historialFinal.length - 1 ? 12 : 0,
+                  ),
+                  child: _buildHistorialCard(detalle, isCompact),
+                );
+              }).toList(),
+            )
+          else
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Text(
+                  'No tienes historial de solicitudes',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmpresaTwoColumnLayout(List<_SolicitudDetalle> detalles, bool tableCompact) {
+    final List<_SolicitudDetalle> enRevision = detalles
+        .where((detalle) => _normalizeStatus(detalle.estadoActual).contains('REVISION'))
+        .toList();
+    
+    final List<_SolicitudDetalle> historialFinal = detalles
+        .where((detalle) => !_normalizeStatus(detalle.estadoActual).contains('REVISION'))
+        .toList();
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Columna izquierda: En revisión
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: _warningColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: _warningColor.withValues(alpha: 0.35),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.schedule_rounded, 
+                      color: _warningColor, 
+                      size: 24
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'En revisión',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10, 
+                        vertical: 6
+                      ),
+                      decoration: BoxDecoration(
+                        color: _warningColor.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        enRevision.length.toString(),
+                        style: TextStyle(
+                          color: _warningColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (enRevision.isNotEmpty)
+                  Column(
+                    children: enRevision.asMap().entries.map((entry) {
+                      final int index = entry.key;
+                      final _SolicitudDetalle detalle = entry.value;
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index != enRevision.length - 1 ? 12 : 0,
+                        ),
+                        child: _buildSolicitudCard(detalle),
+                      );
+                    }).toList(),
+                  )
+                else
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Text(
+                        'No hay solicitudes en revisión',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 20),
+        // Columna derecha: Historial
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Historial',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (historialFinal.isNotEmpty)
+                Column(
+                  children: historialFinal.asMap().entries.map((entry) {
+                    final int index = entry.key;
+                    final _SolicitudDetalle detalle = entry.value;
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: index != historialFinal.length - 1 ? 12 : 0,
+                      ),
+                      child: _buildSolicitudCard(detalle),
+                    );
+                  }).toList(),
+                )
+              else
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40),
+                    child: Text(
+                      'No hay solicitudes en historial',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -561,6 +1085,435 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
         ],
       ),
     );
+  }
+
+  Widget _buildEnRevisionCard(_SolicitudDetalle detalle, bool isCompact) {
+    final _Solicitud solicitud = detalle.solicitud;
+    final _TipoSolicitud? tipo = detalle.tipo;
+    final _Historial? ultimo = detalle.ultimoMovimiento;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _warningColor.withValues(alpha: 0.25)),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '#${solicitud.id} - ${solicitud.descripcion}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      tipo?.nombre ?? 'Sin tipo',
+                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              _buildEstadoTag(detalle.estadoActual),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(Icons.calendar_month, size: 16, color: Colors.white54),
+              const SizedBox(width: 8),
+              Text(
+                'Enviado: ${_formatDate(solicitud.fechaEnvio)}',
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
+          ),
+          if (ultimo != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.info_outline, size: 16, color: Colors.white54),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Última actualización: ${_formatDate(ultimo.fecha)}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => _showHistorialDetalle(detalle),
+              style: TextButton.styleFrom(foregroundColor: Colors.white),
+              child: const Text('Ver detalles'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistorialCard(_SolicitudDetalle detalle, bool isCompact) {
+    final _Solicitud solicitud = detalle.solicitud;
+    final _TipoSolicitud? tipo = detalle.tipo;
+    final bool isAprobado = _normalizeStatus(detalle.estadoActual).startsWith('APROB');
+    final Color statusColor = _statusColor(detalle.estadoActual);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: statusColor.withValues(alpha: 0.25)),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '#${solicitud.id} - ${solicitud.descripcion}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      tipo?.nombre ?? 'Sin tipo',
+                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              _buildEstadoTag(detalle.estadoActual),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(Icons.calendar_month, size: 16, color: Colors.white54),
+              const SizedBox(width: 8),
+              Text(
+                _formatDate(solicitud.fechaEnvio),
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton(
+                  onPressed: () => _showHistorialDetalle(detalle),
+                  style: TextButton.styleFrom(foregroundColor: Colors.white),
+                  child: const Text('Ver historial'),
+                ),
+                if (isAprobado && solicitud.urlDocumento != null)
+                  TextButton(
+                    onPressed: () => _handleDownload(solicitud.urlDocumento!),
+                    style: TextButton.styleFrom(foregroundColor: _successColor),
+                    child: const Text('Descargar'),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showSolicitudCertificadoModal() async {
+    final TextEditingController descriptionController = TextEditingController();
+    String selectedTipoId = '';
+    String? selectedVehiculoId;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: _surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(24, 24, 24, 
+                MediaQuery.of(context).viewInsets.bottom + 32),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 44,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Solicitar certificado',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Completa el formulario para solicitar un nuevo certificado laboral.',
+                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // Tipo de certificado
+                    Text(
+                      'Tipo de certificado',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      ),
+                      child: DropdownButtonFormField<String>(
+                        value: selectedTipoId.isEmpty ? null : selectedTipoId,
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          border: InputBorder.none,
+                          hintText: 'Selecciona un tipo',
+                          hintStyle: const TextStyle(color: Colors.white54),
+                        ),
+                        dropdownColor: _cardColor,
+                        style: const TextStyle(color: Colors.white),
+                        icon: const Icon(Icons.expand_more, color: Colors.white70),
+                        items: _buildTiposCertificadoItems(),
+                        onChanged: (value) {
+                          setState(() => selectedTipoId = value ?? '');
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Descripción
+                    Text(
+                      'Descripción',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      ),
+                      child: TextField(
+                        controller: descriptionController,
+                        maxLines: 3,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.all(16),
+                          border: InputBorder.none,
+                          hintText: 'Describe brevemente tu solicitud...',
+                          hintStyle: const TextStyle(color: Colors.white54),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Vehículo (solo para propietario)
+                    if (_roleNormalized == 'propietario') ...[
+                      Text(
+                        'Vehículo asociado (opcional)',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                        ),
+                        child: DropdownButtonFormField<String>(
+                          value: selectedVehiculoId,
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            border: InputBorder.none,
+                            hintText: 'Selecciona un vehículo',
+                            hintStyle: const TextStyle(color: Colors.white54),
+                          ),
+                          dropdownColor: _cardColor,
+                          style: const TextStyle(color: Colors.white),
+                          icon: const Icon(Icons.expand_more, color: Colors.white70),
+                          items: _buildVehiculosItems(),
+                          onChanged: (value) {
+                            setState(() => selectedVehiculoId = value);
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // Botones
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              'Cancelar',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: selectedTipoId.isEmpty
+                                ? null
+                                : () => _submitSolicitudCertificado(
+                                      selectedTipoId,
+                                      descriptionController.text,
+                                      selectedVehiculoId,
+                                      ctx,
+                                    ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _accentColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              disabledBackgroundColor: _accentColor.withValues(alpha: 0.5),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              'Solicitar',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  List<DropdownMenuItem<String>> _buildTiposCertificadoItems() {
+    final List<_TipoSolicitud> tipos = _todosDetalles
+        .map((d) => d.tipo)
+        .whereType<_TipoSolicitud>()
+        .toList();
+    final Map<int, _TipoSolicitud> uniqueTipos = {};
+    for (final tipo in tipos) {
+      uniqueTipos[tipo.id] = tipo;
+    }
+    
+    return uniqueTipos.values
+        .map((tipo) => DropdownMenuItem<String>(
+              value: tipo.id.toString(),
+              child: Text(tipo.nombre),
+            ))
+        .toList();
+  }
+
+  List<DropdownMenuItem<String>> _buildVehiculosItems() {
+    return [
+      const DropdownMenuItem<String>(
+        value: null,
+        child: Text('Sin vehículo'),
+      ),
+      const DropdownMenuItem<String>(
+        value: '1',
+        child: Text('Vehículo 1'),
+      ),
+      const DropdownMenuItem<String>(
+        value: '2',
+        child: Text('Vehículo 2'),
+      ),
+    ];
+  }
+
+  Future<void> _submitSolicitudCertificado(
+    String tipoId,
+    String descripcion,
+    String? vehiculoId,
+    BuildContext ctx,
+  ) async {
+    Navigator.pop(ctx);
+    
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Solicitud enviada correctamente'),
+        backgroundColor: _successColor,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+    
+    // Aquí iría la llamada a la API para crear la solicitud
+    debugPrint('Solicitud - Tipo: $tipoId, Descripción: $descripcion, Vehículo: $vehiculoId');
   }
 
   DataRow _buildDataRow(_SolicitudDetalle detalle) {

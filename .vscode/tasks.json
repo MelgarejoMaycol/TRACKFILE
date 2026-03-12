@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Frontend Flutter",
+			"type": "shell",
+			"command": "flutter",
+			"args": [
+				"run",
+				"-d",
+				"android"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

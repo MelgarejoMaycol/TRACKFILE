@@ -488,8 +488,11 @@ class _LoginScreenState extends State<LoginScreen>
             return;
           }
 
+          final String? token = _stringValue(loginData['token']);
+          debugPrint('🔐 Token recibido: $token');
           final Map<String, dynamic>? profile = await _fetchUserDetails(
             usuarioId,
+            token: token,
           );
           if (!mounted) return;
           if (profile == null) {
@@ -507,17 +510,7 @@ class _LoginScreenState extends State<LoginScreen>
 
           final String sessionRole =
               _stringValue(sessionData['rol'])?.toUpperCase() ?? '';
-          if (sessionRole == 'EMPRESA') {
-            final String? estadoVerificacion = _stringValue(
-              _extractEmpresa(sessionData)['estadoVerificacion'] ??
-                  sessionData['estadoVerificacion'],
-            );
-            if (estadoVerificacion != null &&
-                !_isEmpresaVerificada(estadoVerificacion)) {
-              await _showEmpresaEstadoDialog(estadoVerificacion);
-              return;
-            }
-          }
+          // Validación de estado de empresa removida - no es requerida por el backend
 
           await persistSession(sessionData);
           if (!mounted) return;
@@ -633,6 +626,15 @@ class _LoginScreenState extends State<LoginScreen>
         _stringValue(session['rol'])?.toUpperCase() ?? fallbackRole;
     session['rol'] = role;
 
+    // Copiar el token JWT desde loginData (obtenido en /api/auth/login)
+    final String? token = _stringValue(loginData['token']);
+    if (token != null && token.isNotEmpty) {
+      session['token'] = token;
+      debugPrint('✅ Token JWT copiado a sesión (${token.length} chars)');
+    } else {
+      debugPrint('⚠️ Advertencia: No se encontró token en loginData');
+    }
+
     final int? empresaId =
         _toInt(session['empresaId']) ?? _toInt(loginData['empresaId']);
     if (empresaId != null) {
@@ -693,10 +695,15 @@ class _LoginScreenState extends State<LoginScreen>
     return '$base$sanitized';
   }
 
-  Future<Map<String, dynamic>?> _fetchUserDetails(int userId) async {
+  Future<Map<String, dynamic>?> _fetchUserDetails(int userId, {String? token}) async {
     try {
+      final Map<String, String> headers = {'Content-Type': 'application/json'};
+      if (token != null && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+      
       final response = await http
-          .get(_endpoint('/api/usuarios/$userId'))
+          .get(_endpoint('/api/usuarios/$userId'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -967,16 +974,25 @@ class _LoginScreenState extends State<LoginScreen>
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final bool isCompactWidth = size.width <= 360;
-    final double cardWidthFactor = isCompactWidth
+    final bool isDesktop = size.width >= 900;
+    // Desktop: use a narrower factor (33%) and cap the width so the
+    // card doesn't become too wide on very large screens.
+    final double cardWidthFactor = isDesktop
+      ? 0.33
+      : (isCompactWidth
         ? 0.92
-        : (size.width <= 420 ? 0.86 : 0.80);
+        : (size.width <= 420 ? 0.86 : 0.80));
     final double cardWidth = size.width * cardWidthFactor;
-    final double cardHeight = size.height * (size.height < 720 ? 0.82 : 0.75);
+    final double cardWidthLimited = isDesktop ? (cardWidth > 720 ? 720 : cardWidth) : cardWidth;
+    // Increased height for better visibility of all inputs and buttons
+    final double cardHeight = size.height * (size.height < 720 ? 0.92 : 0.88);
 
+    // More responsive and smaller logo with better scaling for web
+    final double logoFactor = isDesktop ? 0.18 : 0.25;
     final double logoDiameter = _responsiveClamp(
-      value: size.width * 0.34,
-      min: 110,
-      max: 180,
+      value: size.width * logoFactor,
+      min: 80,
+      max: 140,
     );
     final double logoRadius = logoDiameter / 2;
     const darkBlue = Color(0xFF06135E);
@@ -992,7 +1008,7 @@ class _LoginScreenState extends State<LoginScreen>
                   alignment: Alignment.topCenter,
                   children: [
                     Container(
-                      width: cardWidth,
+                      width: cardWidthLimited,
                       height: cardHeight,
                       margin: EdgeInsets.only(top: logoRadius * 1.2),
                       child: Card(
@@ -1006,7 +1022,7 @@ class _LoginScreenState extends State<LoginScreen>
                         child: SizedBox.expand(
                           child: Padding(
                             padding: const EdgeInsets.only(
-                              top: 28,
+                              top: 16,
                               left: 16,
                               right: 16,
                               bottom: 16,
@@ -1215,7 +1231,8 @@ class _LoginScreenState extends State<LoginScreen>
           child: ElevatedButton(
             onPressed: (_isUneteValid && !_signUpLoading) ? _doSignUp : null,
             style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 0),
+              minimumSize: const Size.fromHeight(48),
+              padding: EdgeInsets.zero,
               backgroundColor: Colors.transparent,
               shadowColor: Colors.transparent,
               shape: RoundedRectangleBorder(
@@ -1489,10 +1506,10 @@ class _LoginScreenState extends State<LoginScreen>
         _doDirectLogin('mfmelgarejo04@gmail.com', 'Juan12345678');
         return;
       case 'ROLE_PROPIETARIO':
-        _doDirectLogin('propietario@gmail.com', 'Juan12345678');
+        _doDirectLogin('propietario@test.com', 'Juan12345678');
         return;
       case 'ROLE_CONDUCTOR':
-        _doDirectLogin('conductor@gmail.com', 'Juan12345678');
+        _doDirectLogin('conductor@test.com', 'Juan12345678');
         return;
       default:
         // Fallback demo user for other roles

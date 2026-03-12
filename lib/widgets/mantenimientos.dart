@@ -166,6 +166,10 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
 
   bool get _isConductor => widget.role.toLowerCase() == 'conductor';
 
+  bool get _isEmpresa => widget.role.toLowerCase() == 'empresa';
+
+  bool get _shouldSplitLayout => widget.role.toLowerCase() == 'conductor' || widget.role.toLowerCase() == 'propietario';
+
   @override
   void initState() {
     super.initState();
@@ -316,7 +320,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       return _buildEmptyState();
     }
 
-    return LayoutBuilder(
+    final Widget content = LayoutBuilder(
       builder: (context, constraints) {
         final double width = constraints.maxWidth;
         final bool isCompact = width < 720;
@@ -324,6 +328,26 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
         return _buildContent(isCompact, isTableCompact);
       },
     );
+
+    // Si es empresa, agregar FAB para crear mantenimiento
+    if (_isEmpresa) {
+      return Stack(
+        children: [
+          content,
+          Positioned(
+            bottom: 24,
+            right: 24,
+            child: FloatingActionButton(
+              onPressed: _showNewMaintenanceModal,
+              backgroundColor: const Color(0xFF4F4CE8),
+              child: const Icon(Icons.build_rounded, color: Colors.white),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return content;
   }
 
   Widget _buildContent(bool isCompact, bool isTableCompact) {
@@ -343,38 +367,86 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                     ? 900
                     : 1120,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _isConductor ? 'Mantenimientos asignados' : 'Gestión de mantenimientos',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: isCompact ? 18 : 22,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _isConductor
-                    ? 'Consulta el plan de mantenimiento que la empresa programó para tus vehículos.'
-                    : 'Monitorea el estado de los mantenimientos y coordina acciones con los conductores.',
-                style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13),
-              ),
-              if (_isFallbackData) ...[
-                const SizedBox(height: 14),
-                _buildFallbackNotice(),
-              ],
-              const SizedBox(height: 20),
-              _buildSummaryChips(isCompact),
-              const SizedBox(height: 20),
-              _buildProgramadosSection(isTableCompact: isTableCompact, isCompact: isCompact),
-              const SizedBox(height: 24),
-              _buildHistorialReciente(isCompact),
-            ],
-          ),
+          child: _shouldSplitLayout && !isCompact
+              ? _buildSplitLayout(isCompact, isTableCompact)
+              : _buildVerticalLayout(isCompact, isTableCompact),
         ),
       ),
+    );
+  }
+
+  Widget _buildVerticalLayout(bool isCompact, bool isTableCompact) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _isConductor ? 'Mantenimientos asignados' : 'Gestión de mantenimientos',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: isCompact ? 18 : 22,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _isConductor
+              ? 'Consulta el plan de mantenimiento que la empresa programó para tus vehículos.'
+              : 'Monitorea el estado de los mantenimientos y coordina acciones con los conductores.',
+          style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13),
+        ),
+        if (_isFallbackData) ...[
+          const SizedBox(height: 14),
+          _buildFallbackNotice(),
+        ],
+        const SizedBox(height: 20),
+        _buildSummaryChips(isCompact),
+        const SizedBox(height: 20),
+        _buildProgramadosSection(isTableCompact: isTableCompact, isCompact: isCompact),
+        const SizedBox(height: 24),
+        _buildHistorialSection(isCompact),
+      ],
+    );
+  }
+
+  Widget _buildSplitLayout(bool isCompact, bool isTableCompact) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _isConductor ? 'Mantenimientos asignados' : 'Gestión de mantenimientos',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: isCompact ? 18 : 22,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _isConductor
+              ? 'Consulta el plan de mantenimiento que la empresa programó para tus vehículos.'
+              : 'Monitorea el estado de los mantenimientos y coordina acciones con los conductores.',
+          style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13),
+        ),
+        if (_isFallbackData) ...[
+          const SizedBox(height: 14),
+          _buildFallbackNotice(),
+        ],
+        const SizedBox(height: 20),
+        _buildSummaryChips(isCompact),
+        const SizedBox(height: 20),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _buildProgramadosSection(isTableCompact: isTableCompact, isCompact: isCompact),
+            ),
+            const SizedBox(width: 24),
+            Expanded(
+              child: _buildHistorialSection(isCompact),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -417,6 +489,24 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
         ),
         const SizedBox(height: 12),
         _buildMantenimientosView(_programados, isTableCompact),
+      ],
+    );
+  }
+
+  Widget _buildHistorialSection(bool isCompact) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Historial reciente',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: isCompact ? 16 : 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildHistorialReciente(isCompact),
       ],
     );
   }
@@ -740,7 +830,8 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       );
     }
 
-    final List<_HistorialMantenimiento> recientes = registros.take(6).toList();
+    final int maxItems = _shouldSplitLayout ? 4 : 6;
+    final List<_HistorialMantenimiento> recientes = registros.take(maxItems).toList();
 
     return Container(
       width: double.infinity,
@@ -753,17 +844,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.history_rounded, color: Colors.white, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                'Historial reciente',
-                style: TextStyle(color: Colors.white, fontSize: isCompact ? 15 : 16, fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
           for (int i = 0; i < recientes.length; i++) ...[
             _buildHistorialItem(recientes[i]),
             if (i != recientes.length - 1) const Divider(color: Colors.white24),
@@ -1084,6 +1164,239 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
         );
       },
     );
+  }
+
+  Future<void> _showNewMaintenanceModal() async {
+    final TextEditingController tallerController = TextEditingController();
+    final TextEditingController observacionesController = TextEditingController();
+    final TextEditingController costoController = TextEditingController();
+    
+    DateTime? fechaSugerida;
+    DateTime? fechaProgramada;
+    String? selectedVehiculo;
+    String? selectedTipo;
+    String? errorText;
+
+    final List<String> vehiculos = ['Veh 501', 'Veh 502', 'Veh 503'];
+    final List<String> tipos = ['Cambio de aceite', 'Alineacion y balanceo', 'Revision de frenos'];
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 44,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Crear mantenimiento',
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Programa un nuevo mantenimiento para los vehículos',
+                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                    const SizedBox(height: 20),
+                    // Vehículo selector
+                    DropdownButtonFormField<String>(
+                      value: selectedVehiculo,
+                      items: vehiculos.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                      onChanged: (value) {
+                        setModalState(() => selectedVehiculo = value);
+                      },
+                      dropdownColor: _surfaceColor,
+                      iconEnabledColor: Colors.white,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Vehículo',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.white24),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.white54),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    // Tipo selector
+                    DropdownButtonFormField<String>(
+                      value: selectedTipo,
+                      items: tipos.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                      onChanged: (value) {
+                        setModalState(() => selectedTipo = value);
+                      },
+                      dropdownColor: _surfaceColor,
+                      iconEnabledColor: Colors.white,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Tipo de mantenimiento',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.white24),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.white54),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    // Taller
+                    TextField(
+                      controller: tallerController,
+                      decoration: InputDecoration(
+                        labelText: 'Taller',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.white24),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.white54),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    const SizedBox(height: 14),
+                    // Costo
+                    TextField(
+                      controller: costoController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Costo estimado',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        prefixText: '\$ ',
+                        prefixStyle: const TextStyle(color: Colors.white70),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.white24),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.white54),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    const SizedBox(height: 14),
+                    // Observaciones
+                    TextField(
+                      controller: observacionesController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: 'Observaciones',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        errorText: errorText,
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.white24),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: Colors.white54),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white70,
+                              side: const BorderSide(color: Colors.white24),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            child: const Text('Cancelar'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              setModalState(() {
+                                errorText = null;
+                                if (selectedVehiculo == null || selectedVehiculo!.isEmpty) {
+                                  errorText = 'Selecciona un vehículo';
+                                } else if (selectedTipo == null || selectedTipo!.isEmpty) {
+                                  errorText = 'Selecciona tipo de mantenimiento';
+                                } else if (tallerController.text.isEmpty) {
+                                  errorText = 'Especifica el taller';
+                                }
+                              });
+
+                              if (errorText != null) return;
+
+                              debugPrint('Nuevo mantenimiento: Veh=$selectedVehiculo, Tipo=$selectedTipo, Taller=${tallerController.text}');
+
+                              Navigator.of(ctx).pop();
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('✅ Mantenimiento creado correctamente')),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _accentColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            child: const Text('Crear mantenimiento'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    tallerController.dispose();
+    observacionesController.dispose();
+    costoController.dispose();
   }
 
   Widget _buildErrorState() {

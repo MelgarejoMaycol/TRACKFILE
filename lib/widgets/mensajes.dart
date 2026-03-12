@@ -381,12 +381,17 @@ class _MensajesWidgetState extends State<MensajesWidget> {
               if (filtered.isEmpty)
                 _buildEmptyState()
               else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (_, index) => _buildMessageCard(filtered[index]),
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 750),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => SizedBox(height: isCompact ? 8 : 1),
+                      itemBuilder: (_, index) => _buildMessageCard(filtered[index], isCompact: isCompact),
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -505,7 +510,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: _alerts.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          separatorBuilder: (_, __) => const SizedBox(height: 4),
           itemBuilder: (_, index) => _buildAlertCard(_alerts[index]),
         ),
       ],
@@ -562,7 +567,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         boxShadow: [
           BoxShadow(
@@ -572,7 +577,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
           ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -580,42 +585,42 @@ class _MensajesWidgetState extends State<MensajesWidget> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 20,
+                height: 20,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.18),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: Colors.white, size: 24),
+                child: Icon(icon, color: Colors.white, size: 12),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 6),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       alert.title,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 9.5),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 1),
                     Text(
                       _formatTimestamp(alert.createdAt),
-                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      style: const TextStyle(color: Colors.white70, fontSize: 8.5),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 2),
           Text(
             alert.message,
-            style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.35),
+            style: const TextStyle(color: Colors.white, fontSize: 8.5, height: 1.1),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 2),
           Wrap(
-            spacing: 10,
-            runSpacing: 6,
+            spacing: 3,
+            runSpacing: 1,
             children: [
               _buildAlertChip(_AlertTypeX.label(alert.type)),
               _buildAlertChip('Urgencia ${_AlertUrgencyX.label(alert.urgency)}', color: urgencyColor),
@@ -634,15 +639,15 @@ class _MensajesWidgetState extends State<MensajesWidget> {
   Widget _buildAlertChip(String text, {Color? color}) {
     final Color resolved = color ?? Colors.white.withValues(alpha: 0.22);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
         color: resolved,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
       child: Text(
         text,
-        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
+        style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -744,13 +749,15 @@ class _MensajesWidgetState extends State<MensajesWidget> {
     );
   }
 
-  Widget _buildMessageCard(_CompanyMessage message) {
+  Widget _buildMessageCard(_CompanyMessage message, {bool isCompact = false}) {
     final bool hasUnread = message.unread > 0;
+    final double verticalPadding = isCompact ? 10 : 0;
+    final double horizontalPadding = isCompact ? 12 : 1;
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(8),
         onTap: () {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -762,16 +769,16 @@ class _MensajesWidgetState extends State<MensajesWidget> {
         child: Container(
           decoration: BoxDecoration(
             color: _surfaceColor.withValues(alpha: 0.82),
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: isCompact ? 36 : 10,
+                height: isCompact ? 36 : 10,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white.withValues(alpha: 0.08),
@@ -779,10 +786,10 @@ class _MensajesWidgetState extends State<MensajesWidget> {
                 alignment: Alignment.center,
                 child: Text(
                   message.title.isNotEmpty ? message.title.characters.first.toUpperCase() : 'C',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: isCompact ? 14 : 3),
                 ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: isCompact ? 10 : 1),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -792,30 +799,30 @@ class _MensajesWidgetState extends State<MensajesWidget> {
                         Expanded(
                           child: Text(
                             message.title,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w600,
-                              fontSize: 15,
+                              fontSize: isCompact ? 13 : 6,
                             ),
                           ),
                         ),
                         Text(
                           _formatTimestamp(message.timestamp),
-                          style: const TextStyle(color: Colors.white60, fontSize: 11),
+                          style: TextStyle(color: Colors.white60, fontSize: isCompact ? 10 : 5),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: isCompact ? 3 : 0),
                     Text(
                       message.preview,
-                      style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.3),
-                      maxLines: 2,
+                      style: TextStyle(color: Colors.white70, fontSize: isCompact ? 11 : 5.5, height: 1),
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: isCompact ? 6 : 0),
                     Wrap(
-                      spacing: 10,
-                      runSpacing: 6,
+                      spacing: isCompact ? 6 : 1,
+                      runSpacing: isCompact ? 4 : 0,
                       children: [
                         _buildTag(message.category),
                         if (message.status != null && message.status!.isNotEmpty)
@@ -827,16 +834,16 @@ class _MensajesWidgetState extends State<MensajesWidget> {
               ),
               if (hasUnread)
                 Padding(
-                  padding: const EdgeInsets.only(left: 12),
+                  padding: EdgeInsets.only(left: isCompact ? 8 : 1),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: EdgeInsets.symmetric(horizontal: isCompact ? 7 : 1, vertical: isCompact ? 4 : 0),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFF6B6B),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       '${message.unread}',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isCompact ? 10 : 4.5),
                     ),
                   ),
                 ),
@@ -862,15 +869,15 @@ class _MensajesWidgetState extends State<MensajesWidget> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: border),
       ),
       child: Text(
         text,
-        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
+        style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -895,36 +902,81 @@ class _MensajesWidgetState extends State<MensajesWidget> {
   }
 
   Widget _empresaMensajes() {
-    return _buildComingSoon('empresa');
+    return _buildMensajesGeneral('Empresa');
   }
 
   Widget _propietarioMensajes() {
-    return _buildComingSoon('propietario');
+    return _buildMensajesGeneral('Empresa');
   }
 
   Widget _secretariaMensajes() {
-    return _buildComingSoon('secretaria');
+    return _buildMensajesGeneral('Secretaria');
   }
 
   Widget _adminMensajes() {
-    return _buildComingSoon('administrador');
+    return _buildMensajesGeneral('Administrador');
   }
 
-  Widget _buildComingSoon(String roleLabel) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white24),
-        ),
-        child: Text(
-          'Panel de mensajes para $roleLabel en desarrollo',
-          style: const TextStyle(color: Colors.white70, fontSize: 14),
-          textAlign: TextAlign.center,
-        ),
-      ),
+  Widget _buildMensajesGeneral(String roleLabel) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < 600;
+        final List<_CompanyMessage> filtered = _applyFilter(_messages);
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 24, vertical: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Centro de notificaciones',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: isCompact ? 18 : 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Consulta las alertas automáticas y los mensajes emitidos por tu empresa.',
+                style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13),
+              ),
+              const SizedBox(height: 20),
+              _buildSummaryRow(isCompact: isCompact),
+              const SizedBox(height: 24),
+              _buildAlertsSection(isCompact: isCompact),
+              const SizedBox(height: 28),
+              Text(
+                'Mensajes de la empresa',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: isCompact ? 16 : 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Recordatorios, coordinaciones y novedades internas.',
+                style: TextStyle(color: Colors.white60, fontSize: isCompact ? 11 : 12),
+              ),
+              const SizedBox(height: 18),
+              _buildFilterRow(isCompact: isCompact),
+              const SizedBox(height: 18),
+              if (filtered.isEmpty)
+                _buildEmptyState()
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) => SizedBox(height: isCompact ? 8 : 0),
+                  itemBuilder: (_, index) => _buildMessageCard(filtered[index], isCompact: isCompact),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 

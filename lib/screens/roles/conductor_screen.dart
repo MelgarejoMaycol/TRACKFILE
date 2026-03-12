@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
+import 'dart:async';
+import 'package:http/http.dart' as http;
+import 'package:frontendproyecto/utils/api_config.dart';
 import 'package:frontendproyecto/widgets/inicio.dart';
 import 'package:frontendproyecto/widgets/documentos.dart';
 import 'package:frontendproyecto/widgets/mensajes.dart';
-import 'package:frontendproyecto/widgets/pagos.dart';
 import 'package:frontendproyecto/widgets/vehiculos.dart';
 import 'package:frontendproyecto/widgets/empresa.dart';
 import 'package:frontendproyecto/widgets/certificaciones.dart';
@@ -14,9 +16,9 @@ import 'package:frontendproyecto/widgets/perfil.dart';
 class _MenuOption {
   final String label;
   final IconData icon;
-  final String subtitle;
+  final String section;
 
-  const _MenuOption(this.label, this.icon, this.subtitle);
+  const _MenuOption(this.label, this.icon, this.section);
 }
 
 class ConductorScreen extends StatefulWidget {
@@ -47,18 +49,116 @@ class _ConductorScreenState extends State<ConductorScreen> {
 
   int? _selectedUpperIndex;
   int? _selectedLowerIndex = 0;
+  int? _selectedTopIndex;
   String _activeSection = 'Inicio';
   String _userName = 'Nombre Persona';
   String _userCompany = 'Empresa Demo';
+  String? _userEmail;
+  String? _userPhone;
+  String? _userAddress;
+  String? _userDocument;
   bool _isLoading = true;
+  String _baseUrl = ApiConfig.fallbackBaseUrl();
+  List<Map<String, dynamic>> _alerts = [];
 
   @override
   void initState() {
     super.initState();
+    _initBaseUrl();
     _loadUserData();
   }
 
+  Future<void> _initBaseUrl() async {
+    final resolved = await ApiConfig.loadBaseUrl();
+    if (!mounted) return;
+    setState(() => _baseUrl = resolved);
+  }
+
   Future<void> _loadUserData() async {
+    try {
+      // Intentar obtener datos del backend si hay userId
+      if (widget.userId != null && widget.userId!.isNotEmpty) {
+        await _loadUserDataFromBackend(widget.userId!);
+      } else {
+        // Fallback a JSON local si no hay userId
+        await _loadUserDataFromJson();
+      }
+    } catch (e) {
+      debugPrint('Error cargando datos de conductor: $e');
+      // Fallback a JSON si falla el backend
+      try {
+        await _loadUserDataFromJson();
+      } catch (fallbackError) {
+        debugPrint('Error en fallback JSON: $fallbackError');
+        setState(() {
+          _userName = widget.personName;
+          _userCompany = widget.companyName;
+          _userEmail = null;
+          _userPhone = null;
+          _userAddress = null;
+          _userDocument = null;
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadUserDataFromBackend(String userId) async {
+    try {
+      final uri = ApiConfig.resolve(_baseUrl, '/api/usuarios/$userId');
+      final response = await http
+          .get(uri)
+          .timeout(const Duration(seconds: 10));
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> userData = json.decode(response.body) as Map<String, dynamic>;
+        
+        setState(() {
+          // Nombre del usuario
+          final String nombre = userData['nombre']?.toString() ?? '';
+          final String apellido = userData['apellido']?.toString() ?? '';
+          _userName = [nombre, apellido]
+              .where((part) => part.isNotEmpty)
+              .join(' ')
+              .trim();
+          if (_userName.isEmpty) {
+            _userName = widget.personName;
+          }
+
+          // Empresa del usuario
+          final dynamic rawEmpresa = userData['empresa'];
+          if (rawEmpresa is Map<String, dynamic>) {
+            _userCompany = rawEmpresa['nombreEmpresa']?.toString() ?? widget.companyName;
+          } else if (rawEmpresa is Map) {
+            _userCompany = rawEmpresa['nombreEmpresa']?.toString() ?? widget.companyName;
+          } else {
+            _userCompany = widget.companyName;
+          }
+
+          // Otros datos del usuario
+          _userEmail = userData['correo']?.toString();
+          _userPhone = userData['telefono']?.toString();
+          _userAddress = userData['direccion']?.toString();
+          _userDocument = userData['numeroDocumento']?.toString();
+          _isLoading = false;
+        });
+      } else {
+        debugPrint('Error al obtener perfil del backend: ${response.statusCode}');
+        // Fallback a valores por defecto
+        await _loadUserDataFromJson();
+      }
+    } on TimeoutException {
+      debugPrint('Timeout al obtener perfil del backend');
+      await _loadUserDataFromJson();
+    } catch (e) {
+      debugPrint('Excepción al obtener perfil del backend: $e');
+      await _loadUserDataFromJson();
+    }
+  }
+
+  Future<void> _loadUserDataFromJson() async {
     try {
       final String jsonString = await rootBundle.loadString('assets/user_profile.json');
       final Map<String, dynamic> jsonData = json.decode(jsonString);
@@ -76,42 +176,88 @@ class _ConductorScreenState extends State<ConductorScreen> {
         }
       }
 
+      // Load alerts from documents
+      await _loadAlerts();
+
       if (userData != null) {
         setState(() {
           _userName = userData!['name'] ?? widget.personName;
           _userCompany = userData['company'] ?? widget.companyName;
+          _userEmail = userData['email']?.toString();
+          _userPhone = userData['phone']?.toString();
+          _userAddress = userData['address']?.toString();
+          _userDocument = userData['document']?.toString() ?? userData['documento']?.toString();
           _isLoading = false;
         });
       } else {
         setState(() {
           _userName = widget.personName;
           _userCompany = widget.companyName;
+          _userEmail = null;
+          _userPhone = null;
+          _userAddress = null;
+          _userDocument = null;
           _isLoading = false;
         });
       }
     } catch (e) {
-      debugPrint('Error cargando datos de usuario: $e');
+      debugPrint('Error cargando JSON de usuario: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _loadAlerts() async {
+    try {
+      final String jsonString = await rootBundle.loadString('assets/documents_data.json');
+      final Map<String, dynamic> jsonData = json.decode(jsonString);
+      final List<dynamic> documents = jsonData['documents'] ?? [];
+
+      final List<Map<String, dynamic>> alerts = [];
+      for (final doc in documents) {
+        final String? expiryDateStr = doc['expiryDate']?.toString();
+        if (expiryDateStr != null) {
+          try {
+            final DateTime expiry = DateTime.parse(expiryDateStr);
+            final Duration difference = expiry.difference(DateTime.now());
+            if (difference.inDays <= 30) {
+              alerts.add({
+                'title': '${doc['name']} próximo a vencer',
+                'message': 'El documento ${doc['name']} vence el ${expiry.day}/${expiry.month}/${expiry.year}',
+                'severity': difference.inDays <= 7 ? 'high' : 'medium',
+                'tag': 'Documentos',
+              });
+            }
+          } catch (e) {
+            debugPrint('Error parsing date for ${doc['name']}: $e');
+          }
+        }
+      }
+
+      if (!mounted) return;
       setState(() {
-        _userName = widget.personName;
-        _userCompany = widget.companyName;
-        _isLoading = false;
+        _alerts = alerts;
+      });
+    } catch (e) {
+      debugPrint('Error cargando alertas: $e');
+      if (!mounted) return;
+      setState(() {
+        _alerts = [];
       });
     }
   }
 
   final List<_MenuOption> _upperMenuOptions = const [
-    _MenuOption('Mensajes', Icons.chat_bubble_rounded, 'Conversaciones y alertas'),
-    _MenuOption('Pagos', Icons.payments_rounded, 'Cuotas y obligaciones'),
-    _MenuOption('Vehículo', Icons.directions_car_filled_rounded, 'Asignaciones activas'),
-    _MenuOption('Empresa', Icons.apartment_rounded, 'Gestión corporativa'),
-    _MenuOption('Mantenimientos', Icons.build_rounded, 'Alertas de taller'),
+    _MenuOption('Mensajes', Icons.chat_bubble_rounded, 'Mensajes'),
+    _MenuOption('Vehículo', Icons.directions_car_filled_rounded, 'Vehículo'),
+    _MenuOption('Empresa', Icons.apartment_rounded, 'Empresa'),
+    _MenuOption('Mantenimientos', Icons.build_rounded, 'Mantenimientos'),
   ];
 
   final List<_MenuOption> _lowerMenuOptions = const [
-    _MenuOption('Inicio', Icons.dashboard_rounded, 'Resumen general'),
-    _MenuOption('Documentos', Icons.folder_special_rounded, 'RUT, contratos y más'),
-    _MenuOption('Certificaciones', Icons.verified_rounded, 'Reporte de cumplimiento'),
-    _MenuOption('Perfil', Icons.person_rounded, 'Datos del conductor'),
+    _MenuOption('Inicio', Icons.dashboard_rounded, 'Inicio'),
+    _MenuOption('Documentos', Icons.folder_special_rounded, 'Documentos'),
+    _MenuOption('Certificaciones', Icons.verified_rounded, 'Certificaciones'),
+    _MenuOption('Perfil', Icons.person_rounded, 'Perfil'),
   ];
 
   void _onUpperMenuTap(int idx) {
@@ -147,13 +293,6 @@ class _ConductorScreenState extends State<ConductorScreen> {
     }
   }
 
-  void _navigateToPayments() {
-    final int paymentsIndex = _upperMenuOptions.indexWhere((option) => option.label == 'Pagos');
-    if (paymentsIndex != -1) {
-      _onUpperMenuTap(paymentsIndex);
-    }
-  }
-
   void _navigateToProfile() {
     final int profileIndex = _lowerMenuOptions.indexWhere((option) => option.label == 'Perfil');
     if (profileIndex != -1) {
@@ -168,78 +307,215 @@ class _ConductorScreenState extends State<ConductorScreen> {
     }
   }
 
+  void _onTopMenuTap(int index) {
+    setState(() {
+      _selectedTopIndex = index;
+      _activeSection = _upperMenuOptions[index].label;
+    });
+  }
+
+  void _activateSection(String section) {
+    setState(() {
+      _activeSection = section;
+      final int topIdx = _upperMenuOptions.indexWhere((option) => option.label == section);
+      _selectedTopIndex = topIdx != -1 ? topIdx : null;
+      final int lowerIdx = _lowerMenuOptions.indexWhere((option) => option.label == section);
+      _selectedLowerIndex = lowerIdx != -1 ? lowerIdx : null;
+    });
+  }
+
+  Widget _buildDesktopTopBar() {
+    final double avatarSize = 52;
+
+    Widget avatarContent;
+    if (widget.profileImagePath.isNotEmpty) {
+      avatarContent = ClipOval(
+        child: Image.asset(
+          widget.profileImagePath,
+          width: avatarSize,
+          height: avatarSize,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => CircleAvatar(
+            radius: avatarSize / 2,
+            backgroundColor: _accentColor,
+            child: Text(
+              _userName.isNotEmpty ? _userName[0].toUpperCase() : 'C',
+              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+      );
+    } else {
+      avatarContent = CircleAvatar(
+        radius: avatarSize / 2,
+        backgroundColor: _accentColor,
+        child: Text(
+          _userName.isNotEmpty ? _userName[0].toUpperCase() : 'C',
+          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+      );
+    }
+
+    final List<Widget> chips = _upperMenuOptions.asMap().entries.map((entry) {
+      final int index = entry.key;
+      final _MenuOption option = entry.value;
+      final bool selected = _selectedTopIndex == index;
+      return ChoiceChip(
+        avatar: Icon(
+          option.icon,
+          size: 13,
+          color: selected ? Colors.white : Colors.white70,
+        ),
+        label: Text(option.label, style: const TextStyle(fontSize: 11)),
+        selected: selected,
+        onSelected: (_) => _onTopMenuTap(index),
+        selectedColor: _accentColor,
+        backgroundColor: _accentColor.withValues(alpha: 0.12),
+        showCheckmark: false,
+        side: BorderSide(
+          color: selected ? _chipBorderColor : Colors.white24,
+        ),
+        labelStyle: TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+      );
+    }).toList();
+
+    return Column(
+      children: [
+        Container(
+          color: _primaryColor,
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1400),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Left: Logo + User Info
+                  CircleAvatar(
+                    radius: avatarSize / 2,
+                    backgroundColor: Colors.white24,
+                    child: avatarContent,
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _userName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        _userCompany,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white70, fontSize: 10),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(width: 20),
+
+                  // Center: Search bar
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: TextField(
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white.withValues(alpha: 0.14),
+                          hintText: 'Buscar viajes, documentos o información',
+                          hintStyle: const TextStyle(color: Colors.white70, fontSize: 12),
+                          prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70, size: 18),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 16),
+
+                  // Right: Bell icon
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      onTap: () => _activateSection('Mensajes'),
+                      child: const Icon(
+                        Icons.notifications_none_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Bottom row: Menu buttons
+        Container(
+          color: _primaryColor,
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1400),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: chips.asMap().entries.map((e) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: e.value,
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildLeftSidebar() {
     return Container(
-      width: 216,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            _surfaceColor.withValues(alpha: 0.92),
-            _primaryColor.withValues(alpha: 0.88),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-        border: Border(
-          right: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
-            blurRadius: 24,
-            offset: const Offset(8, 0),
-          ),
-        ],
-      ),
+      width: 200,
+      color: _primaryColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildQuickAccessButton(),
           Padding(
-            padding: const EdgeInsets.fromLTRB(26, 42, 26, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Panel de control',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  width: 44,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ],
+            padding: const EdgeInsets.fromLTRB(24, 32, 24, 20),
+            child: Text(
+              'Menú',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: _upperMenuOptions.asMap().entries.map((entry) {
-                final int index = entry.key;
-                final _MenuOption option = entry.value;
-                return _buildSidebarButton(
-                  option: option,
-                  selected: _selectedUpperIndex == index,
-                  isLast: index == _upperMenuOptions.length - 1,
-                  onTap: () => _onUpperMenuTap(index),
-                );
-              }).toList(),
-            ),
-          ),
-          const Spacer(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 34),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: _lowerMenuOptions.asMap().entries.map((entry) {
@@ -265,134 +541,47 @@ class _ConductorScreenState extends State<ConductorScreen> {
     required bool isLast,
     required VoidCallback onTap,
   }) {
-    final Color labelColor = selected ? Colors.white : Colors.white.withValues(alpha: 0.86);
-    final Color subtitleColor = selected ? Colors.white70 : Colors.white54;
-
     return Padding(
-      padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(22),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(22),
-          splashColor: _accentColor.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(8),
+          splashColor: _accentColor.withValues(alpha: 0.15),
           highlightColor: Colors.transparent,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
+            duration: const Duration(milliseconds: 200),
             curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              color: selected ? Colors.white.withValues(alpha: 0.14) : Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(8),
+              color: selected 
+                ? Colors.white.withValues(alpha: 0.12)
+                : Colors.transparent,
               border: Border.all(
                 color: selected
-                  ? _accentColor.withValues(alpha: 0.6)
-                  : Colors.white.withValues(alpha: 0.08),
+                  ? _accentColor.withValues(alpha: 0.4)
+                  : Colors.transparent,
               ),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: _accentColor.withValues(alpha: 0.32),
-                        blurRadius: 20,
-                        offset: const Offset(0, 12),
-                      ),
-                    ]
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 12,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
             ),
             child: Row(
               children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOut,
-                  width: 4,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    gradient: selected
-                        ? LinearGradient(
-                            colors: [
-                              _accentColor,
-                              _accentColor.withValues(alpha: 0.3),
-                            ],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                          )
-                        : null,
-                    color: selected ? null : Colors.transparent,
-                  ),
+                Icon(
+                  option.icon,
+                  color: Colors.white.withValues(alpha: 0.87),
+                  size: 20,
                 ),
-                const SizedBox(width: 14),
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: selected ? _accentColor.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.08),
-                    border: Border.all(
-                        color: selected
-                          ? _accentColor.withValues(alpha: 0.65)
-                          : Colors.white.withValues(alpha: 0.1),
-                    ),
-                  ),
-                  child: Icon(
-                    option.icon,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        option.label,
-                        style: TextStyle(
-                          color: labelColor,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        option.subtitle,
-                        style: TextStyle(
-                          color: subtitleColor,
-                          fontSize: 11,
-                          height: 1.2,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(
-                  width: 26,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 180),
-                    opacity: selected ? 1 : 0,
-                    child: Container(
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _accentColor.withValues(alpha: 0.2),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 14,
-                        color: Colors.white,
-                      ),
+                  child: Text(
+                    option.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                      fontSize: 12,
                     ),
                   ),
                 ),
@@ -404,92 +593,6 @@ class _ConductorScreenState extends State<ConductorScreen> {
     );
   }
 
-  Widget _buildQuickAccessButton() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(24),
-        child: InkWell(
-          onTap: () {},
-          borderRadius: BorderRadius.circular(24),
-          splashColor: Colors.white.withValues(alpha: 0.18),
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              gradient: LinearGradient(
-                colors: [
-                  Colors.white.withValues(alpha: 0.86),
-                  Colors.white.withValues(alpha: 0.72),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  blurRadius: 18,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
-              child: Row(
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _accentColor,
-                    ),
-                    child: const Icon(
-                      Icons.flash_on_rounded,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Text(
-                          'Accesos directos',
-                          style: TextStyle(
-                            color: Color(0xFF131760),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Configura tus rutas frecuentes',
-                          style: TextStyle(
-                            color: Color(0xFF131760),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    color: _surfaceColor.withValues(alpha: 0.8),
-                    size: 16,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildBottomBar({required bool isCompact}) {
     return Container(
@@ -579,7 +682,10 @@ class _ConductorScreenState extends State<ConductorScreen> {
           ),
           Stack(
             children: [
-              Icon(Icons.notifications_none, color: Colors.white, size: isCompact ? 24 : 28),
+              GestureDetector(
+                onTap: _navigateToMessages,
+                child: Icon(Icons.notifications_none, color: Colors.white, size: isCompact ? 24 : 28),
+              ),
               if (widget.notificationsCount > 0)
                 Positioned(
                   right: 0,
@@ -682,7 +788,6 @@ class _ConductorScreenState extends State<ConductorScreen> {
           userProfilePath: 'assets/user_profile.json',
           userId: widget.userId ?? '1',
           onNavigateToDocuments: _navigateToDocuments,
-          onNavigateToPayments: _navigateToPayments,
           onNavigateToProfile: _navigateToProfile,
           onNavigateToMessages: _navigateToMessages,
         );
@@ -690,6 +795,9 @@ class _ConductorScreenState extends State<ConductorScreen> {
         return DocumentosWidget(
           role: 'Conductor',
           jsonPath: 'assets/documents_data.json',
+          userId: widget.userId,
+          token: null,
+          canUpload: false,
         );
       case 'Certificaciones':
         return CertificacionesWidget(
@@ -702,18 +810,15 @@ class _ConductorScreenState extends State<ConductorScreen> {
           role: 'Conductor',
           userId: widget.userId ?? '1',
           jsonPath: 'assets/user_profile.json',
+          userName: _userName,
+          userCompany: _userCompany,
+          userEmail: _userEmail,
+          userPhone: _userPhone,
+          userAddress: _userAddress,
+          userDocument: _userDocument,
         );
       case 'Mensajes':
-        return MensajesWidget(
-          role: 'Conductor',
-          userId: widget.userId,
-        );
-      case 'Pagos':
-        return PagosWidget(
-          role: 'Conductor',
-          userId: widget.userId,
-          jsonPath: 'assets/payments_data.json',
-        );
+        return _buildMessagesContent();
       case 'Vehículo':
         return VehiculosWidget(
           role: 'Conductor',
@@ -747,6 +852,151 @@ class _ConductorScreenState extends State<ConductorScreen> {
     );
   }
 
+  Widget _buildMessagesContent() {
+    if (_alerts.isEmpty) {
+      return _buildEmptyState(
+        'Mensajes corporativos',
+        'No hay mensajes recientes para la empresa.',
+      );
+    }
+
+    final List<Map<String, dynamic>> ordered =
+        List<Map<String, dynamic>>.from(_alerts)
+          ..sort((a, b) {
+            final String severityA = a['severity']?.toString().toLowerCase() ?? '';
+            final String severityB = b['severity']?.toString().toLowerCase() ?? '';
+            return _severityRank(severityB).compareTo(_severityRank(severityA));
+          });
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Mensajes corporativos',
+            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          ...ordered.map(_buildMessageCard).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String title, String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageCard(Map<String, dynamic> alert) {
+    final String title = alert['title']?.toString() ?? 'Mensaje';
+    final String message = alert['message']?.toString() ?? '';
+    final String severity = alert['severity']?.toString().toLowerCase() ?? 'medium';
+    final String tag = alert['tag']?.toString() ?? 'General';
+    final Color borderColor = _alertSeverityColor(severity);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.mark_email_unread_rounded, color: borderColor, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                tag,
+                style: TextStyle(color: borderColor, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: borderColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  severity.toUpperCase(),
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+          if (message.isNotEmpty) ...
+            [
+              const SizedBox(height: 8),
+              Text(
+                message,
+                style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+              ),
+            ],
+        ],
+      ),
+    );
+  }
+
+  Color _alertSeverityColor(String severity) {
+    switch (severity.toLowerCase()) {
+      case 'high':
+      case 'alta':
+        return const Color(0xFFE66B6B);
+      case 'medium':
+      case 'media':
+        return const Color(0xFFEFB549);
+      case 'low':
+      case 'baja':
+        return const Color(0xFF16C79A);
+      default:
+        return Colors.white70;
+    }
+  }
+
+  int _severityRank(String severity) {
+    switch (severity) {
+      case 'high':
+      case 'alta':
+        return 3;
+      case 'medium':
+      case 'media':
+        return 2;
+      case 'low':
+      case 'baja':
+        return 1;
+      default:
+        return 0;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -761,7 +1011,8 @@ class _ConductorScreenState extends State<ConductorScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final bool isCompact = constraints.maxWidth < 700;
+            final bool isCompact = constraints.maxWidth < 860;
+            final double radius = isCompact ? 24 : 28;
 
             if (isCompact) {
               return Column(
@@ -772,9 +1023,9 @@ class _ConductorScreenState extends State<ConductorScreen> {
                   Expanded(
                     child: Container(
                       width: double.infinity,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: _surfaceColor,
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
                       ),
                       child: _buildContentView(),
                     ),
@@ -784,27 +1035,24 @@ class _ConductorScreenState extends State<ConductorScreen> {
               );
             }
 
-            return Row(
+            return Column(
               children: [
-                _buildLeftSidebar(),
+                _buildDesktopTopBar(),
                 Expanded(
-                  child: Column(
+                  child: Row(
                     children: [
-                      _buildHeader(isCompact: false),
-                      _buildSearchAndWelcome(isCompact: false),
+                      _buildLeftSidebar(),
                       Expanded(
                         child: Container(
-                          width: double.infinity,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: _surfaceColor,
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(24),
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(radius),
                             ),
                           ),
                           child: _buildContentView(),
                         ),
                       ),
-                      _buildBottomBar(isCompact: false),
                     ],
                   ),
                 ),
