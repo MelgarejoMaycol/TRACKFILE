@@ -383,7 +383,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     const String ownerId = 'prop-demo';
     const String ownerName = 'Propietario Ejemplo';
 
-    final List<String> plates = ['ABC-123', 'XYZ-987', 'LMN-456', 'QWE-741'];
     final List<_DocumentInfo> docs = [];
 
     // Personal documents
@@ -590,7 +589,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
         separatorBuilder: (_, __) => const SizedBox(width: 16),
         itemBuilder: (context, index) {
           final _DocumentInfo doc = items[index];
-          final int days = doc.daysRemaining;
           final bool isNearExpiry = doc.isNearExpiry || doc.isExpired;
           final bool highlight = doc.important || isNearExpiry;
 
@@ -913,64 +911,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     return _vehicleDocKeywords.any((k) => text.contains(k));
   }
 
-  List<String> get _availableDocTypes {
-    final Set<String> types = {'Todos'};
-    for (final d in _documents) {
-      if (_role == 'empresa') {
-        // Include categories for documents belonging to drivers or propietarios so empresa can filter by them
-        if (d.ownerType == 'conductor' || d.ownerType == 'propietario') types.add(d.category);
-      } else {
-        types.add(d.category);
-      }
-    }
-    final List<String> result = types.toList();
-    result.sort((a,b) {
-      if (a=='Todos') return -1;
-      if (b=='Todos') return 1;
-      return a.compareTo(b);
-    });
-    return result;
-  }
-
-  List<String> get _availablePeople {
-    final Set<String> people = {'Todos'};
-    for (final d in _documents) {
-      final name = (d.ownerName.isNotEmpty) ? '${d.ownerName} (${d.ownerType})' : d.ownerType;
-      people.add(name);
-    }
-    return people.toList();
-  }
-
-  List<String> get _availableVehicles {
-    final Set<String> vehicles = {'Todos'};
-    for (final d in _documents) {
-      if (d.vehiclePlate.isNotEmpty) vehicles.add(d.vehiclePlate);
-    }
-    return vehicles.toList();
-  }
-
-  final String _selectedVehicle = 'Todos';
-
   bool _groupByPerson = false; // toggle to group documents by owner
-
-  // --- Helpers for filter presets and reset ---
-  void _resetEmpresaFilters() {
-    setState(() {
-      _empresaSearch = '';
-      _selectedDocType = 'Todos';
-      _selectedPerson = 'Todos';
-      _selectedDateRange = null;
-      _selectedEmpresaFilter = _EmpresaFilter.all;
-      _empresaSortAscending = true;
-      _groupByPerson = false;
-    });
-  }
-
-  DateTimeRange _presetDateRange(int days) {
-    final DateTime start = DateTime.now();
-    final DateTime end = start.add(Duration(days: days));
-    return DateTimeRange(start: start, end: end);
-  }
 
   Widget _empresaDocumentos() { 
     return LayoutBuilder(
@@ -1378,21 +1319,10 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     );
   }
 
-  Widget _buildSummaryRow(List<_DocumentInfo> docs) {
-    final int total = docs.length;
-    final int expiring = docs.where((d) => d.isNearExpiry && !d.isExpired).length;
-    final int expired = docs.where((d) => d.isExpired).length;
-    final int important = docs.where((d) => d.important).length;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        _buildSummaryCard('Total', total.toString(), Colors.white24),
-        _buildSummaryCard('Por vencer', expiring.toString(), const Color(0xFFFF8E53)),
-        _buildSummaryCard('Vencidos', expired.toString(), const Color(0xFFFF6B6B)),
-        _buildSummaryCard('Importantes', important.toString(), _accentColor),
-      ],
-    );
+  String _formatDate(DateTime date) {
+    final String day = date.day.toString().padLeft(2, '0');
+    final String month = date.month.toString().padLeft(2, '0');
+    return '$day/$month/${date.year}';
   }
 
   Widget _buildSummaryCard(String title, String value, Color color) {
@@ -1424,11 +1354,5 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
       paymentDate: doc.paymentDate,
       expiryDate: doc.expiryDate,
     );
-  }
-
-  String _formatDate(DateTime date) {
-    final String day = date.day.toString().padLeft(2, '0');
-    final String month = date.month.toString().padLeft(2, '0');
-    return '$day/$month/${date.year}';
   }
 }

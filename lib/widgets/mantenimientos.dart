@@ -1225,7 +1225,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                     const SizedBox(height: 20),
                     // Vehículo selector
                     DropdownButtonFormField<String>(
-                      value: selectedVehiculo,
+                      initialValue: selectedVehiculo,
                       items: vehiculos.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
                       onChanged: (value) {
                         setModalState(() => selectedVehiculo = value);
@@ -1250,7 +1250,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                     const SizedBox(height: 14),
                     // Tipo selector
                     DropdownButtonFormField<String>(
-                      value: selectedTipo,
+                      initialValue: selectedTipo,
                       items: tipos.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                       onChanged: (value) {
                         setModalState(() => selectedTipo = value);

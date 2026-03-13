@@ -647,131 +647,6 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     );
   }
 
-  Widget _buildEnRevisionSection(List<_SolicitudDetalle> enRevision, bool isCompact) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: _warningColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: _warningColor.withValues(alpha: 0.35),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.schedule_rounded, 
-                color: _warningColor, 
-                size: 24
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'En revisión',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10, 
-                  vertical: 6
-                ),
-                decoration: BoxDecoration(
-                  color: _warningColor.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  enRevision.length.toString(),
-                  style: TextStyle(
-                    color: _warningColor,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (enRevision.isNotEmpty)
-            Column(
-              children: enRevision.asMap().entries.map((entry) {
-                final int index = entry.key;
-                final _SolicitudDetalle detalle = entry.value;
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: index != enRevision.length - 1 ? 12 : 0,
-                  ),
-                  child: _buildEnRevisionCard(detalle, isCompact),
-                );
-              }).toList(),
-            )
-          else
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40),
-                child: Text(
-                  'No tienes solicitudes en revisión',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHistorialSection(List<_SolicitudDetalle> historialFinal, bool isCompact) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Historial',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (historialFinal.isNotEmpty)
-            Column(
-              children: historialFinal.asMap().entries.map((entry) {
-                final int index = entry.key;
-                final _SolicitudDetalle detalle = entry.value;
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: index != historialFinal.length - 1 ? 12 : 0,
-                  ),
-                  child: _buildHistorialCard(detalle, isCompact),
-                );
-              }).toList(),
-            )
-          else
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40),
-                child: Text(
-                  'No tienes historial de solicitudes',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildEmpresaTwoColumnLayout(List<_SolicitudDetalle> detalles, bool tableCompact) {
     final List<_SolicitudDetalle> enRevision = detalles
         .where((detalle) => _normalizeStatus(detalle.estadoActual).contains('REVISION'))
@@ -1311,7 +1186,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                         border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                       ),
                       child: DropdownButtonFormField<String>(
-                        value: selectedTipoId.isEmpty ? null : selectedTipoId,
+                        initialValue: selectedTipoId.isEmpty ? null : selectedTipoId,
                         decoration: InputDecoration(
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
@@ -1380,7 +1255,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                           border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                         ),
                         child: DropdownButtonFormField<String>(
-                          value: selectedVehiculoId,
+                          initialValue: selectedVehiculoId,
                           decoration: InputDecoration(
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16,

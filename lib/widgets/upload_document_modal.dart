@@ -252,7 +252,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.2),
+                      color: Colors.orange.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.orange),
                     ),
@@ -450,7 +450,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                     ),
                   ),
                 );
-              }).toList(),
+              }),
               
               // Propietarios
               if (propietarios.isNotEmpty) ...[

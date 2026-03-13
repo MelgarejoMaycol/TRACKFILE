@@ -402,13 +402,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     return status[0].toUpperCase() + status.substring(1).toLowerCase();
   }
 
-  String _formatDate(DateTime? value) {
-    if (value == null) {
-      return 'Sin fecha';
-    }
-    return _dateFormat.format(value);
-  }
-
   Widget _buildDetailRow(String label, String value, bool isCompact) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),

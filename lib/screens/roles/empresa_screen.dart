@@ -7,7 +7,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:frontendproyecto/widgets/inicio.dart';
 import 'package:frontendproyecto/widgets/documentos.dart';
 import 'package:frontendproyecto/widgets/vehiculos.dart';
-import 'package:frontendproyecto/widgets/certificaciones.dart';
 import 'package:frontendproyecto/widgets/mantenimientos.dart';
 import 'package:frontendproyecto/widgets/logout_button.dart';
 
