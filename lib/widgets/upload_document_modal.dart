@@ -397,7 +397,9 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
           ),
           child: DropdownButton<String>(
             value: selectedPersonaId != null
-                ? '${selectedPersonaTipo}_${selectedPersonaId}'
+                ? '$selectedPersonaTipo'
+                    '_'
+                    '$selectedPersonaId'
                 : null,
             isDense: true,
             underline: Container(),

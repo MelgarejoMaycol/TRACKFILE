@@ -1327,6 +1327,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
 
   // Método auxiliar para construir tarjetas resumen
   // Se usa a través de _buildSummaryRow
+  // ignore: unused_element
   Widget _buildSummaryCard(String title, String value, Color color) {
     return Expanded(
       child: Container(

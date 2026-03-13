@@ -54,7 +54,8 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   static const String _ownerProfileAsset = 'assets/propietario_profile.json';
   static const String _ownerDashboardAsset = 'assets/propietario_dashboard.json';
   String _baseUrl = ApiConfig.fallbackBaseUrl();
-  int _selectedIndex = 0;
+  // ignore: unused_field
+  final int _selectedIndex = 0;
   String _userName = '';
   String _userCompany = '';
   bool _isLoading = true;
@@ -1037,6 +1038,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   }
 
   /// Construye el contenido de documentos
+  // ignore: unused_element
   Widget _buildDocumentsContent() {
     if (_ownerDocuments.isEmpty) {
       return _buildPlaceholderContent(
@@ -1094,6 +1096,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   }
 
   /// Construye la sección del perfil
+  // ignore: unused_element
   Widget _buildProfileSection() {
     final String displayName = _userName.isNotEmpty
         ? _userName

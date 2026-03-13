@@ -62,6 +62,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   List<Map<String, dynamic>> _drivers = [];
   List<Map<String, dynamic>> _documents = [];
   List<Map<String, dynamic>> _fleetVehicles = [];
+  // ignore: unused_field
   List<Map<String, dynamic>> _operations = [];
   List<Map<String, dynamic>> _alerts = [];
   List<Map<String, dynamic>> _certificaciones = [];
@@ -557,6 +558,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildDocumentCard(Map<String, dynamic> document) {
     final String name = document['name']?.toString() ?? 'Documento';
     final String category = document['category']?.toString() ?? '';
@@ -1225,6 +1227,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
 
   Future<void> _showResponseModal(Map<String, dynamic> solicitud) async {
     final TextEditingController commentController = TextEditingController();
+    // ignore: unused_local_variable
     String? selectedFilePath;
     String? selectedFileName;
     String? errorText;
@@ -1433,6 +1436,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     commentController.dispose();
   }
 
+  // ignore: unused_element
   Widget _buildPaymentsContent() {
     if (_documents.isEmpty) {
       return _buildEmptyState(
@@ -1492,6 +1496,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildVehicleTile(Map<String, dynamic> vehicle) {
     final String plate = vehicle['plate']?.toString() ?? 'Sin placa';
     final String model = vehicle['model']?.toString() ?? 'Modelo no disponible';
@@ -1597,6 +1602,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildOperationTile(Map<String, dynamic> operation) {
     final String title = operation['title']?.toString() ?? 'Operación';
     final String description = operation['description']?.toString() ?? '';

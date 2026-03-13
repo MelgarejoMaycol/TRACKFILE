@@ -103,6 +103,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   Uri _endpoint(String path) => ApiConfig.resolve(_baseUrl, path);
 
+  // ignore: unused_element
   Future<void> _promptBaseUrlChange() async {
     if (_loginLoading || _signUpLoading) return;
     final controller = TextEditingController(text: _baseUrl);
@@ -671,6 +672,7 @@ class _LoginScreenState extends State<LoginScreen>
     return empresa;
   }
 
+  // ignore: unused_element
   bool _isEmpresaVerificada(String state) {
     final normalized = state.toUpperCase();
     const approved = {'APROBADA', 'APROBADO'};
@@ -934,6 +936,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
+  // ignore: unused_element
   Future<void> _showEmpresaEstadoDialog(String estado) async {
     if (!mounted) return;
     final String upper = estado.toUpperCase();
