@@ -1325,6 +1325,8 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     return '$day/$month/${date.year}';
   }
 
+  // Método auxiliar para construir tarjetas resumen
+  // Se usa a través de _buildSummaryRow
   Widget _buildSummaryCard(String title, String value, Color color) {
     return Expanded(
       child: Container(

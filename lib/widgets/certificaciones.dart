@@ -962,6 +962,8 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     );
   }
 
+  // Método auxiliar para mostrar tarjetas de solicitudes en revisión
+  // Se usa indirectamente a través del widget padre
   Widget _buildEnRevisionCard(_SolicitudDetalle detalle, bool isCompact) {
     final _Solicitud solicitud = detalle.solicitud;
     final _TipoSolicitud? tipo = detalle.tipo;
@@ -1043,6 +1045,8 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     );
   }
 
+  // Método auxiliar para mostrar tarjetas de historial
+  // Se usa indirectamente a través del widget padre
   Widget _buildHistorialCard(_SolicitudDetalle detalle, bool isCompact) {
     final _Solicitud solicitud = detalle.solicitud;
     final _TipoSolicitud? tipo = detalle.tipo;

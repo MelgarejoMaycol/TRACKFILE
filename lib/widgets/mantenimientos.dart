@@ -1171,8 +1171,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     final TextEditingController observacionesController = TextEditingController();
     final TextEditingController costoController = TextEditingController();
     
-    DateTime? fechaSugerida;
-    DateTime? fechaProgramada;
     String? selectedVehiculo;
     String? selectedTipo;
     String? errorText;
