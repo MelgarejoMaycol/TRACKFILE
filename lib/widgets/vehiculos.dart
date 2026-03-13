@@ -64,8 +64,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
   List<_Vehicle> _vehicles = const [];
   // Documents associated with vehicles (loaded for propietario role)
   List<Map<String, dynamic>> _vehicleDocuments = [];
-  // Tracks expanded vehicle plates in the vehicles panel
-  final Set<String> _expandedPlates = {};
   String? _statusFilter;
   String _searchTerm = '';
   final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');

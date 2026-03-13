@@ -877,7 +877,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
             'Mensajes corporativos',
             style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
           ),
-          ...ordered.map(_buildMessageCard).toList(),
+          ...ordered.map(_buildMessageCard),
         ],
       ),
     );

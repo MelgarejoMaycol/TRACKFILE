@@ -759,10 +759,10 @@ class _LoginScreenState extends State<LoginScreen>
         final theme = Theme.of(ctx);
         final primary = const Color(0xFF0C1C58);
         final secondary = const Color(0xFF1D2B7B);
-        final overlay = Colors.white.withOpacity(0.14);
+        final overlay = Colors.white.withValues(alpha: 0.14);
         final bool isDark = theme.brightness == Brightness.dark;
         final footerColor = isDark
-            ? Colors.white.withOpacity(0.06)
+            ? Colors.white.withValues(alpha: 0.06)
             : const Color(0xFFF3F6FF);
 
         return Dialog(
@@ -858,7 +858,7 @@ class _LoginScreenState extends State<LoginScreen>
                         const SizedBox(height: 10),
                         DecoratedBox(
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Padding(
@@ -899,7 +899,7 @@ class _LoginScreenState extends State<LoginScreen>
                     border: Border(
                       top: BorderSide(
                         color: isDark
-                            ? Colors.white.withOpacity(0.1)
+                            ? Colors.white.withValues(alpha: 0.1)
                             : const Color(0xFFE1E6F5),
                       ),
                     ),

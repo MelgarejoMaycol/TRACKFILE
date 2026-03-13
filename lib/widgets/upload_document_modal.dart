@@ -377,16 +377,6 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     }
 
     // Obtener nombre de la persona seleccionada
-    String? selectedPersonaName;
-    if (selectedPersonaId != null) {
-      if (selectedPersonaTipo == 'conductor') {
-        selectedPersonaName = conductores
-            .firstWhere((c) => c['id'] == selectedPersonaId, orElse: () => {})['nombreCompleto'];
-      } else {
-        selectedPersonaName = propietarios
-            .firstWhere((p) => p['id'] == selectedPersonaId, orElse: () => {})['nombreCompleto'];
-      }
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -479,20 +469,18 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                   final value = 'propietario_${p['id']}';
                   final nombre = p['nombreCompleto'] ?? 'Sin nombre';
                   final documento = p['numeroDocumento'] ?? p['documento'] ?? 'Sin documento';
-                  final id = p['id'];
-                  final label = '$nombre - $documento (ID: $id)';
                   return DropdownMenuItem<String>(
                     value: value,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       child: Text(
-                        label,
+                        '$nombre - $documento (ID: ${p['id']})',
                         style: const TextStyle(color: Colors.white, fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   );
-                }).toList(),
+                }),
               ],
             ],
             onChanged: (value) {
@@ -544,18 +532,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
       );
     }
 
-    // Obtener placa del vehículo seleccionado
-    String? selectedVehicleInfo;
-    if (selectedVehicleId != null) {
-      final vehicle = vehiculos.firstWhere(
-        (v) => v['id'] == selectedVehicleId,
-        orElse: () => {},
-      );
-      final placa = vehicle['placa'] ?? 'Sin placa';
-      final marca = vehicle['marca'] ?? '';
-      final modelo = vehicle['modelo'] ?? '';
-      selectedVehicleInfo = '$placa - $marca $modelo'.trim();
-    }
+    // Seleccionar vehículo es opcional, ya que selectedVehicleId se maneja en el dropdown
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -641,7 +618,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                           ),
                         ),
                       );
-                    }).toList(),
+                    }),
                   ],
             onChanged: (value) {
               setState(() {
@@ -715,14 +692,6 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
 
   Widget _buildDocumentTypeSection() {
     // Obtener nombre del tipo seleccionado desde la lista dinámica
-    String? selectedDocumentTypeName;
-    if (selectedDocumentTypeId != null && documentTypes.isNotEmpty) {
-      final selected = documentTypes.firstWhere(
-        (t) => t['id'] == selectedDocumentTypeId,
-        orElse: () => {},
-      );
-      selectedDocumentTypeName = selected['nombre'] ?? selected['nombre_tipo'] ?? '';
-    }
 
     if (isLoadingDocumentTypes) {
       return Column(
@@ -764,7 +733,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.2),
+              color: Colors.red.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.red),
             ),
@@ -853,20 +822,6 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
 
   Widget _buildAreaSection() {
     // Obtener nombre del área seleccionada
-    String? selectedAreaName;
-    if (selectedArea != null && selectedArea!.isNotEmpty) {
-      switch (selectedArea) {
-        case 'TECNICO':
-          selectedAreaName = 'Técnico';
-          break;
-        case 'LEGAL':
-          selectedAreaName = 'Legal';
-          break;
-        case 'ADMINISTRATIVO':
-          selectedAreaName = 'Administrativo';
-          break;
-      }
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

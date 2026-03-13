@@ -734,9 +734,9 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                     margin: const EdgeInsets.only(left: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.18),
+                      color: Colors.orange.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orangeAccent.withOpacity(0.3)),
+                      border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.3)),
                     ),
                     child: const Text('Importante', style: TextStyle(color: Colors.white70, fontSize: 11)),
                   ),
