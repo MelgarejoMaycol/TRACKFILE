@@ -1709,8 +1709,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
 
   Widget _buildDesktopTopBar() {
     final double avatarSize = 52;
-    final DateTime now = DateTime.now();
-    final int fleetTotal = (_summary['fleetSize'] as num?)?.toInt() ?? _fleetVehicles.length;
 
     Widget avatarContent;
     if (_companyLogo != null && _companyLogo!.isNotEmpty) {

@@ -8,7 +8,6 @@ import 'package:http/http.dart' as http;
 import 'package:frontendproyecto/utils/api_config.dart';
 import 'package:frontendproyecto/widgets/inicio.dart';
 import 'package:frontendproyecto/widgets/documentos.dart';
-import 'package:frontendproyecto/widgets/mensajes.dart';
 import 'package:frontendproyecto/widgets/vehiculos.dart';
 import 'package:frontendproyecto/widgets/empresa.dart';
 import 'package:frontendproyecto/widgets/certificaciones.dart';
@@ -67,9 +66,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   String? _userAddress;
   String? _userDocument;
   int _notificationsCount = 0;
-  Map<String, dynamic> _summary = {};
   List<Map<String, dynamic>> _alerts = [];
-  List<Map<String, dynamic>> _drivers = [];
   static const List<String> _monthLabels = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 
   // --- Menus compatible con ConductorScreen ---
@@ -287,8 +284,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       final String jsonString = await rootBundle.loadString(_ownerDashboardAsset);
       final Map<String, dynamic> jsonData = json.decode(jsonString);
 
-      final Map<String, dynamic> summary =
-          jsonData['summary'] is Map<String, dynamic>
+      jsonData['summary'] is Map<String, dynamic>
               ? Map<String, dynamic>.from(jsonData['summary'] as Map)
               : <String, dynamic>{
                   'totalVehicles': jsonData['vehicles'] != null ? (jsonData['vehicles'] as List).length : 0,
@@ -362,8 +358,6 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       setState(() {
         _ownerDocuments = documents;
         _ownerVehicles = vehicles;
-        _summary = summary;
-        _drivers = drivers;
         _alerts = alerts;
         _notificationsCount = notificationsCount;
       });
@@ -373,8 +367,6 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       setState(() {
         _ownerDocuments = [];
         _ownerVehicles = [];
-        _summary = {};
-        _drivers = [];
         _alerts = [];
         _notificationsCount = 0;
       });
@@ -1044,6 +1036,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     );
   }
 
+  /// Construye el contenido de documentos
   Widget _buildDocumentsContent() {
     if (_ownerDocuments.isEmpty) {
       return _buildPlaceholderContent(
@@ -1100,6 +1093,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     );
   }
 
+  /// Construye la sección del perfil
   Widget _buildProfileSection() {
     final String displayName = _userName.isNotEmpty
         ? _userName

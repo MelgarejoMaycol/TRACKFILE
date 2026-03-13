@@ -6,7 +6,6 @@ import 'package:http/http.dart' as http;
 import 'package:frontendproyecto/utils/api_config.dart';
 import 'package:frontendproyecto/widgets/inicio.dart';
 import 'package:frontendproyecto/widgets/documentos.dart';
-import 'package:frontendproyecto/widgets/mensajes.dart';
 import 'package:frontendproyecto/widgets/vehiculos.dart';
 import 'package:frontendproyecto/widgets/empresa.dart';
 import 'package:frontendproyecto/widgets/certificaciones.dart';

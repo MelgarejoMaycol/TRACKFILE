@@ -205,7 +205,7 @@ class DocumentService {
           .timeout(const Duration(seconds: 20));
 
       debugPrint('🔍 [getConductores] Status: ${response.statusCode}');
-      debugPrint('🔍 [getConductores] Response body (primeros 500 chars): ${response.body.length > 500 ? response.body.substring(0, 500) + '...' : response.body}');
+      debugPrint('🔍 [getConductores] Response body (primeros 500 chars): ${response.body.length > 500 ? '${response.body.substring(0, 500)}...' : response.body}');
 
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
@@ -262,7 +262,7 @@ class DocumentService {
           .timeout(const Duration(seconds: 20));
 
       debugPrint('🔍 [getPropietarios] Status: ${response.statusCode}');
-      debugPrint('🔍 [getPropietarios] Response body (primeros 500 chars): ${response.body.length > 500 ? response.body.substring(0, 500) + '...' : response.body}');
+      debugPrint('🔍 [getPropietarios] Response body (primeros 500 chars): ${response.body.length > 500 ? '${response.body.substring(0, 500)}...' : response.body}');
 
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);

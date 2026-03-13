@@ -508,10 +508,7 @@ class _LoginScreenState extends State<LoginScreen>
             emailConfirmado: emailConfirmado,
           );
 
-          final String sessionRole =
-              _stringValue(sessionData['rol'])?.toUpperCase() ?? '';
           // Validación de estado de empresa removida - no es requerida por el backend
-
           await persistSession(sessionData);
           if (!mounted) return;
 
@@ -774,7 +771,7 @@ class _LoginScreenState extends State<LoginScreen>
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.18),
+                  color: Colors.black.withValues(alpha: 0.18),
                   blurRadius: 28,
                   offset: const Offset(0, 14),
                 ),

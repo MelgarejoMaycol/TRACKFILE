@@ -880,14 +880,14 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
 
   // --- Empresa documents panel (search, filters, highlighting) ---
 
-  _EmpresaFilter _selectedEmpresaFilter = _EmpresaFilter.all;
+  final _EmpresaFilter _selectedEmpresaFilter = _EmpresaFilter.all;
   String _empresaSearch = '';
   String _propietarioSearch = '';
   bool _empresaSortAscending = true;
 
   // Additional filters
-  String _selectedDocType = 'Todos';
-  String _selectedPerson = 'Todos';
+  final String _selectedDocType = 'Todos';
+  final String _selectedPerson = 'Todos';
 
   // Date range filter for empresa view
   DateTimeRange? _selectedDateRange;
