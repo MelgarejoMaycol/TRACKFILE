@@ -1000,7 +1000,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFF3330BE),
+        backgroundColor: Color(0xFF131760),
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -1022,6 +1022,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
                   Expanded(
                     child: Container(
                       width: double.infinity,
+                      height: double.infinity,
                       decoration: BoxDecoration(
                         color: _surfaceColor,
                         borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
@@ -1041,8 +1042,10 @@ class _ConductorScreenState extends State<ConductorScreen> {
                   child: Row(
                     children: [
                       _buildLeftSidebar(),
+                      const SizedBox(width: 16),
                       Expanded(
                         child: Container(
+                          height: double.infinity,
                           decoration: BoxDecoration(
                             color: _surfaceColor,
                             borderRadius: BorderRadius.vertical(

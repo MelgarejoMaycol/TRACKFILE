@@ -210,11 +210,12 @@ class _SecretariaScreenState extends State<SecretariaScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _primaryColor,
+      backgroundColor: _surfaceColor,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             final bool isCompact = constraints.maxWidth < 860;
+            final double radius = isCompact ? 24 : 28;
 
             if (isCompact) {
               // Layout móvil
@@ -223,9 +224,12 @@ class _SecretariaScreenState extends State<SecretariaScreen> {
                   Expanded(
                     child: Container(
                       width: double.infinity,
-                      decoration: const BoxDecoration(
+                      height: double.infinity,
+                      decoration: BoxDecoration(
                         color: _surfaceColor,
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(radius),
+                        ),
                       ),
                       child: _buildContentView(),
                     ),
@@ -238,11 +242,15 @@ class _SecretariaScreenState extends State<SecretariaScreen> {
               return Row(
                 children: [
                   _buildLeftSidebar(),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Container(
-                      decoration: const BoxDecoration(
+                      height: double.infinity,
+                      decoration: BoxDecoration(
                         color: _surfaceColor,
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(radius),
+                        ),
                       ),
                       child: _buildContentView(),
                     ),

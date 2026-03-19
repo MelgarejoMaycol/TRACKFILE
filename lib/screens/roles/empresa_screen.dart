@@ -2678,7 +2678,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: _primaryColor,
+        backgroundColor: _surfaceColor,
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -2688,9 +2688,8 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final bool isCompact = constraints.maxWidth < 860;
+            final bool isCompact = constraints.maxWidth < 860;      
             final double radius = isCompact ? 24 : 28;
-
             if (isCompact) {
               // Layout móvil: menú superior + contenido + menú inferior
               return Column(
@@ -2701,6 +2700,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                   Expanded(
                     child: Container(
                       width: double.infinity,
+                      height: double.infinity,
                       decoration: BoxDecoration(
                         color: _surfaceColor,
                         borderRadius: BorderRadius.vertical(
@@ -2728,8 +2728,10 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                     child: Row(
                       children: [
                         _buildLeftSidebar(),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Container(
+                            height: double.infinity,
                             decoration: BoxDecoration(
                               color: _surfaceColor,
                               borderRadius: BorderRadius.vertical(

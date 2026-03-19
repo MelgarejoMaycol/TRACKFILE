@@ -1651,7 +1651,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFF3330BE),
+        backgroundColor: Color(0xFF131760),
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -1692,8 +1692,10 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
                   child: Row(
                     children: [
                       _buildLeftSidebar(),
+                      const SizedBox(width: 16),
                       Expanded(
                         child: Container(
+                          height: double.infinity,
                           decoration: BoxDecoration(
                             color: _surfaceColor,
                             borderRadius: BorderRadius.vertical(
