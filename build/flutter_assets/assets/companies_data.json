@@ -1,0 +1,24 @@
+{
+  "companies": [
+    {
+      "id_empresa": 1,
+      "nombre": "Transporte Andino",
+      "logo": "assets/logo.png",
+      "vision": "Ser la empresa lider en transporte de pasajeros urbanos con enfoque en seguridad y sostenibilidad.",
+      "mision": "Brindar soluciones de movilidad eficientes, seguras y humanas para nuestros usuarios y aliados.",
+      "descripcion": "Operador multimodal con mas de 15 años de experiencia en rutas urbanas y empresariales.",
+      "contacto_email": "contacto@andino.com",
+      "contacto_telefono": "+57 601 555 1212"
+    },
+    {
+      "id_empresa": 2,
+      "nombre": "LogiCargo",
+      "logo": "assets/logoCirculo.png",
+      "vision": "Liderar la logistica inteligente en LATAM.",
+      "mision": "Conectar negocios a traves de una red de transporte confiable y tecnologica.",
+      "descripcion": "Especialistas en carga refrigerada y ultima milla para retail.",
+      "contacto_email": "hola@logicargo.com",
+      "contacto_telefono": "+57 315 888 0011"
+    }
+  ]
+}
