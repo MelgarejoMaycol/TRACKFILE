@@ -514,34 +514,56 @@ class DocumentService {
           debugPrint('🚗 [getVehiculosPorConductor] Total vehículos en respuesta: ${decoded.length}');
           
           // Filtrar vehículos que tienen este conductor asignado
-          final vehiculosFiltrados = decoded
-              .where((item) {
-                if (item is Map && item['conductor'] != null) {
-                  final conductorObj = item['conductor'];
-                  if (conductorObj is Map) {
-                    final idCond = conductorObj['id'];
-                    if (idCond != null) {
-                      final match = int.parse(idCond.toString()) == conductorId;
-                      if (match) {
-                        debugPrint('✅ [getVehiculosPorConductor] Vehículo encontrado:');
-                        debugPrint('   - Placa: ${item['placa']}');
-                        debugPrint('   - ID del vehículo: ${item['id']} (tipo: ${item['id'].runtimeType})');
-                        debugPrint('   - Conductor ID: $idCond');
-                        debugPrint('   - Completo: ${jsonEncode(item)}');
-                      }
-                      return match;
-                    }
-                  }
-                }
-                return false;
-              })
-              .toList();
-
-          debugPrint('✅ [getVehiculosPorConductor] Retornando ${vehiculosFiltrados.length} vehículos');
+          final vehiculosFiltrados = <Map<String, dynamic>>[];
           
-          return List<Map<String, dynamic>>.from(
-            vehiculosFiltrados.map((item) => item is Map<String, dynamic> ? item : <String, dynamic>{}),
-          );
+          for (final item in decoded) {
+            if (item is! Map<String, dynamic>) {
+              debugPrint('   ⚠️ Skip: item no es Map');
+              continue;
+            }
+            
+            debugPrint('   📋 Analizando vehículo: ${item['placa']}');
+            
+            if (item['conductor'] == null) {
+              debugPrint('      ❌ Sin conductor');
+              continue;
+            }
+            
+            final conductorObj = item['conductor'];
+            if (conductorObj is! Map) {
+              debugPrint('      ❌ Conductor no es Map');
+              continue;
+            }
+            
+            final idCond = conductorObj['id'];
+            debugPrint('      Conductor ID en JSON: $idCond (tipo: ${idCond.runtimeType})');
+            debugPrint('      Conductor ID buscado: $conductorId (tipo: ${conductorId.runtimeType})');
+            
+            if (idCond == null) {
+              debugPrint('      ❌ Conductor ID es null');
+              continue;
+            }
+            
+            try {
+              final idCondInt = idCond is int ? idCond : int.parse(idCond.toString());
+              final match = idCondInt == conductorId;
+              
+              debugPrint('      Comparación: $idCondInt == $conductorId = $match');
+              
+              if (match) {
+                debugPrint('✅ [getVehiculosPorConductor] ¡COINCIDENCIA ENCONTRADA!');
+                debugPrint('   - Placa: ${item['placa']}');
+                debugPrint('   - ID Vehículo: ${item['id']}');
+                vehiculosFiltrados.add(item);
+              }
+            } catch (e) {
+              debugPrint('      ❌ Error parseando ID: $e');
+            }
+          }
+
+          debugPrint('✅ [getVehiculosPorConductor] Total encontrados: ${vehiculosFiltrados.length}');
+          
+          return vehiculosFiltrados;
         }
       } else {
         debugPrint('❌ [getVehiculosPorConductor] Error ${response.statusCode}: ${response.body}');
@@ -575,31 +597,59 @@ class DocumentService {
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         if (decoded is List) {
-          // Filtrar vehículos que pertenecen a este propietario
-          final vehiculosFiltrados = decoded
-              .where((item) {
-                if (item is Map && item['propietario'] != null) {
-                  final propietarioObj = item['propietario'];
-                  if (propietarioObj is Map) {
-                    final idProp = propietarioObj['id'];
-                    if (idProp != null) {
-                      final match = int.parse(idProp.toString()) == propietarioId;
-                      if (match) {
-                        debugPrint('✅ [getVehiculosPorPropietario] Vehículo encontrado: ${item['placa']}');
-                      }
-                      return match;
-                    }
-                  }
-                }
-                return false;
-              })
-              .toList();
-
-          debugPrint('✅ [getVehiculosPorPropietario] Retornando ${vehiculosFiltrados.length} vehículos');
+          debugPrint('🚗 [getVehiculosPorPropietario] Total vehículos en respuesta: ${decoded.length}');
           
-          return List<Map<String, dynamic>>.from(
-            vehiculosFiltrados.map((item) => item is Map<String, dynamic> ? item : <String, dynamic>{}),
-          );
+          // Filtrar vehículos que pertenecen a este propietario
+          final vehiculosFiltrados = <Map<String, dynamic>>[];
+          
+          for (final item in decoded) {
+            if (item is! Map<String, dynamic>) {
+              debugPrint('   ⚠️ Skip: item no es Map');
+              continue;
+            }
+            
+            debugPrint('   📋 Analizando vehículo: ${item['placa']}');
+            
+            if (item['propietario'] == null) {
+              debugPrint('      ❌ Sin propietario');
+              continue;
+            }
+            
+            final propietarioObj = item['propietario'];
+            if (propietarioObj is! Map) {
+              debugPrint('      ❌ Propietario no es Map');
+              continue;
+            }
+            
+            final idProp = propietarioObj['id'];
+            debugPrint('      Propietario ID en JSON: $idProp (tipo: ${idProp.runtimeType})');
+            debugPrint('      Propietario ID buscado: $propietarioId (tipo: ${propietarioId.runtimeType})');
+            
+            if (idProp == null) {
+              debugPrint('      ❌ Propietario ID es null');
+              continue;
+            }
+            
+            try {
+              final idPropInt = idProp is int ? idProp : int.parse(idProp.toString());
+              final match = idPropInt == propietarioId;
+              
+              debugPrint('      Comparación: $idPropInt == $propietarioId = $match');
+              
+              if (match) {
+                debugPrint('✅ [getVehiculosPorPropietario] ¡COINCIDENCIA ENCONTRADA!');
+                debugPrint('   - Placa: ${item['placa']}');
+                debugPrint('   - ID Vehículo: ${item['id']}');
+                vehiculosFiltrados.add(item);
+              }
+            } catch (e) {
+              debugPrint('      ❌ Error parseando ID: $e');
+            }
+          }
+
+          debugPrint('✅ [getVehiculosPorPropietario] Total encontrados: ${vehiculosFiltrados.length}');
+          
+          return vehiculosFiltrados;
         }
       } else {
         debugPrint('❌ [getVehiculosPorPropietario] Error ${response.statusCode}: ${response.body}');
