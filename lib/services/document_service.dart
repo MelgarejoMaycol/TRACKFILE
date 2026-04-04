@@ -511,6 +511,8 @@ class DocumentService {
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         if (decoded is List) {
+          debugPrint('🚗 [getVehiculosPorConductor] Total vehículos en respuesta: ${decoded.length}');
+          
           // Filtrar vehículos que tienen este conductor asignado
           final vehiculosFiltrados = decoded
               .where((item) {
@@ -521,7 +523,11 @@ class DocumentService {
                     if (idCond != null) {
                       final match = int.parse(idCond.toString()) == conductorId;
                       if (match) {
-                        debugPrint('✅ [getVehiculosPorConductor] Vehículo encontrado: ${item['placa']}');
+                        debugPrint('✅ [getVehiculosPorConductor] Vehículo encontrado:');
+                        debugPrint('   - Placa: ${item['placa']}');
+                        debugPrint('   - ID del vehículo: ${item['id']} (tipo: ${item['id'].runtimeType})');
+                        debugPrint('   - Conductor ID: $idCond');
+                        debugPrint('   - Completo: ${jsonEncode(item)}');
                       }
                       return match;
                     }

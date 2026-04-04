@@ -829,20 +829,35 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             onChanged: (value) {
               setState(() {
                 selectedVehicleValue = value;
+                debugPrint('📍 [Vehicle Selection] onChanged value: $value');
+                
                 if (value != null && value.startsWith('vehicle_')) {
                   // Extraer el ID del valor
                   final idStr = value.replaceFirst('vehicle_', '');
                   selectedVehicleId = int.tryParse(idStr);
+                  
+                  debugPrint('📍 [Vehicle Selection] ID extraído: $selectedVehicleId');
+                  debugPrint('📍 [Vehicle Selection] Buscando en lista de ${vehiculos.length} vehículos...');
+                  
                   if (selectedVehicleId != null) {
-                    selectedVehiclePlaca = vehiculos
-                        .firstWhere((v) {
-                          final id = v['id'] is String ? int.parse(v['id'].toString()) : v['id'];
-                          return id == selectedVehicleId;
-                        }, orElse: () => {})['placa'];
+                    final foundVehicle = vehiculos.firstWhere((v) {
+                      final id = v['id'] is String ? int.parse(v['id'].toString()) : v['id'];
+                      final match = id == selectedVehicleId;
+                      debugPrint('   - Comparando: ${v['placa']} (id: ${v['id']}, tipo: ${v['id'].runtimeType}) == $selectedVehicleId? $match');
+                      return match;
+                    }, orElse: () => {});
+                    
+                    selectedVehiclePlaca = foundVehicle['placa'];
+                    
+                    debugPrint('📍 [Vehicle Selection] Vehículo seleccionado:');
+                    debugPrint('   - Placa: $selectedVehiclePlaca');
+                    debugPrint('   - ID: $selectedVehicleId');
+                    debugPrint('   - Objeto completo: $foundVehicle');
                   }
                 } else {
                   selectedVehicleId = null;
                   selectedVehiclePlaca = null;
+                  debugPrint('📍 [Vehicle Selection] Vehículo deseleccionado');
                 }
               });
             },
@@ -1252,10 +1267,21 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     try {
       debugPrint('📤 Iniciando upload...');
       debugPrint('   - Persona seleccionada: $selectedPersonaIdInt ($selectedPersonaTipo)');
-      debugPrint('   - Vehículo: $selectedVehicleId');
+      debugPrint('   - Vehículo ID: $selectedVehicleId (tipo: ${selectedVehicleId?.runtimeType})');
+      debugPrint('   - Vehículo Placa: $selectedVehiclePlaca');
+      debugPrint('   - Vehículo Value: $selectedVehicleValue');
       debugPrint('   - Tipo: $selectedDocumentTypeId');
       debugPrint('   - Archivo: $selectedFileName');
       debugPrint('   - Token: ${widget.token?.isNotEmpty == true ? "presente (${widget.token!.length} chars)" : "NULO"}');
+      
+      // Debug: mostrar todos los vehículos disponibles
+      if (vehiculos.isNotEmpty) {
+        debugPrint('   📋 Vehículos disponibles en memoria:');
+        for (int i = 0; i < vehiculos.length; i++) {
+          final v = vehiculos[i];
+          debugPrint('      [$i] Placa: ${v['placa']}, ID: ${v['id']} (tipo: ${v['id'].runtimeType})');
+        }
+      }
 
       final result = await DocumentService.uploadDocument(
         filePath: selectedFilePath!,
