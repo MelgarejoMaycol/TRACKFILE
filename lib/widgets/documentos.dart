@@ -123,11 +123,14 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     List<_DocumentInfo> parsed = [];
     bool apiCallSuccessful = false; // Bandera para saber si la API tuvo éxito
     
-    // Cargar desde la API: todos los documentos de la empresa
+    // Cargar desde la API según el rol del usuario
     if (_authToken != null && _authToken!.isNotEmpty) {
       try {
-        debugPrint('📡 Cargando documentos de la empresa desde API');
-        final documents = await DocumentService.getCompanyDocuments(
+        debugPrint('📡 Cargando documentos para rol: $_role');
+        
+        final documents = await DocumentService.getDocumentsByRole(
+          role: _role,
+          userId: widget.userId,
           token: _authToken,
         );
 
@@ -138,7 +141,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
           debugPrint('✅ Se cargaron ${documents.length} documentos desde API');
           debugPrint('📊 Documentos convertidos: ${parsed.length}');
         } else {
-          debugPrint('ℹ️ No hay documentos en la empresa (API retornó lista vacía)');
+          debugPrint('ℹ️ No hay documentos disponibles para este usuario');
         }
       } catch (e) {
         debugPrint('⚠️ Error cargando desde API: $e');
@@ -148,169 +151,14 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
       debugPrint('⚠️ No hay token disponible - no se puede cargar desde API');
     }
 
-    // Para rol empresa: NUNCA cargar JSON de prueba
-    // Solo mostrar documentos reales de la API o lista vacía
-    if (_role == 'empresa') {
-      debugPrint('👤 Rol: Empresa - NO cargar JSON de prueba, mostrar solo API real');
-    }
-    // Si no es empresa Y no hay datos de API Y hubo error, cargar desde JSON como fallback
-    // NO cargar JSON si la API fue exitosa o si es empresa
-    else if (parsed.isEmpty && !apiCallSuccessful && widget.jsonPath != null) {
-      try {
-        debugPrint('📂 Cargando desde JSON como fallback para conductor/propietario...');
-        final String jsonString = await rootBundle.loadString(widget.jsonPath!);
-        final dynamic decoded = json.decode(jsonString);
-
-        // company-level documents
-        final List<dynamic>? docs = decoded is Map<String, dynamic> ? decoded['documents'] as List<dynamic>? : null;
-        if (docs != null) {
-          parsed.addAll(docs.map((dynamic item) {
-            if (item is Map<String, dynamic>) {
-              final String name = (item['name'] ?? 'Documento').toString();
-              final String category = (item['category'] ?? 'General').toString();
-              final DateTime? expiry = DateTime.tryParse((item['expiryDate'] ?? '').toString());
-              final DateTime? creation = DateTime.tryParse((item['fechaCreacion'] ?? '').toString());
-              final bool important = item['important'] == true;
-              return expiry != null
-                  ? _DocumentInfo(
-                      name: name,
-                      expiryDate: expiry,
-                      creationDate: creation,
-                      important: important,
-                      category: category,
-                      ownerId: (item['ownerId'] ?? '').toString(),
-                      ownerType: 'empresa',
-                      ownerName: (decoded['companyName'] ?? '').toString(),
-                      vehiclePlate: (item['vehicle'] ?? item['vehiclePlate'] ?? '').toString(),
-                    )
-                  : null;
-            }
-            return null;
-          }).whereType<_DocumentInfo>());
-        }
-
-        // driver-level documents
-        final List<dynamic>? drivers = decoded is Map<String, dynamic> ? decoded['drivers'] as List<dynamic>? : null;
-        if (drivers != null) {
-          for (final dynamic d in drivers) {
-            if (d is Map<String, dynamic>) {
-              final String driverId = (d['id'] ?? d['userId'] ?? '').toString();
-              final String driverName = (d['name'] ?? '').toString();
-              final List<dynamic>? ddocs = d['documents'] as List<dynamic>? ?? d['docs'] as List<dynamic>?;
-              if (ddocs != null) {
-                parsed.addAll(ddocs.map((dynamic item) {
-                  if (item is Map<String, dynamic>) {
-                    final String name = (item['name'] ?? 'Documento').toString();
-                    final String category = (item['category'] ?? 'General').toString();
-                    final DateTime? expiry = DateTime.tryParse((item['expiryDate'] ?? '').toString());
-                    final DateTime? creation = DateTime.tryParse((item['fechaCreacion'] ?? item['creationDate'] ?? '').toString());
-                    final bool important = item['important'] == true;
-                    final String vehicle = (item['vehicle'] ?? item['vehiclePlate'] ?? '').toString();
-                    return expiry != null
-                        ? _DocumentInfo(
-                            name: name,
-                            expiryDate: expiry,
-                            creationDate: creation,
-                            important: important,
-                            category: category,
-                            ownerId: driverId,
-                            ownerType: 'conductor',
-                            ownerName: driverName,
-                            vehiclePlate: vehicle,
-                          )
-                        : null;
-                  }
-                  return null;
-                }).whereType<_DocumentInfo>());
-              }
-            }
-          }
-        }
-
-        // owner-level documents
-        final List<dynamic>? owners = decoded is Map<String, dynamic> ? decoded['owners'] as List<dynamic>? : null;
-        if (owners != null) {
-          for (final dynamic o in owners) {
-            if (o is Map<String, dynamic>) {
-              final String ownerId = (o['id'] ?? '').toString();
-              final String ownerName = (o['name'] ?? '').toString();
-              final List<dynamic>? odocs = o['documents'] as List<dynamic>? ?? o['docs'] as List<dynamic>?;
-              if (odocs != null) {
-                parsed.addAll(odocs.map((dynamic item) {
-                  if (item is Map<String, dynamic>) {
-                    final String name = (item['name'] ?? 'Documento').toString();
-                    final String category = (item['category'] ?? 'General').toString();
-                    final DateTime? expiry = DateTime.tryParse((item['expiryDate'] ?? '').toString());
-                    final DateTime? creation = DateTime.tryParse((item['fechaCreacion'] ?? '').toString());
-                    final bool important = item['important'] == true;
-                    final String vehicle = (item['vehicle'] ?? item['vehiclePlate'] ?? '').toString();
-                    return expiry != null
-                        ? _DocumentInfo(
-                            name: name,
-                            expiryDate: expiry,
-                            creationDate: creation,
-                            important: important,
-                            category: category,
-                            ownerId: ownerId,
-                            ownerType: 'propietario',
-                            ownerName: ownerName,
-                            vehiclePlate: vehicle,
-                          )
-                        : null;
-                  }
-                  return null;
-                }).whereType<_DocumentInfo>());
-              }
-            }
-          }
-        }
-
-        // vehicles (for propietario dashboards)
-        final List<dynamic>? vehiclesJson = decoded is Map<String, dynamic> ? decoded['vehicles'] as List<dynamic>? : null;
-        if (vehiclesJson != null) {
-          for (final dynamic v in vehiclesJson) {
-            if (v is Map<String, dynamic>) {
-              final String plate = (v['plate'] ?? v['vehicle'] ?? '').toString();
-              final String model = (v['model'] ?? '').toString();
-              final String driver = (v['driver'] ?? '').toString();
-              final String status = (v['status'] ?? '').toString();
-              _vehicles.add({
-                'plate': plate,
-                'model': model,
-                'driver': driver,
-                'status': status,
-                'nextExpiry': (v['nextExpiry'] ?? '').toString(),
-              });
-            }
-          }
-        }
-
-      } catch (e) {
-        debugPrint('Error cargando documentos desde JSON: $e');
-      }
-    }
-
-    // Solo cargar documentos de ejemplo si NO es empresa
-    // Para empresa, mostrar lista vacía si no hay documentos reales
-    if (parsed.isEmpty && _role != 'empresa') {
-      parsed = _exampleDocuments();
-    }
-
-    parsed.sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-
+    // Actualizar estado con los documentos cargados
     if (mounted) {
       setState(() {
         _documents = parsed;
-        _isLoading = false;
       });
-      // If we're in the company view, run the quick search automatically so
-      // the UI shows grouped personal documents on first load.
-      if (_role == 'empresa') {
-        _performQuickSearch();
-      }
+      
+      debugPrint('📊 DocumentosWidget: loaded ${parsed.length} documents, vehicles: ${_vehicles.length}');
     }
-    // Debug: log counts so developer can confirm data loaded when running app
-    debugPrint('DocumentosWidget: loaded ${parsed.length} documents, vehicles: ${_vehicles.length}');
   }
 
   List<_DocumentInfo> _convertApiDocumentsToDocumentInfo(List<Map<String, dynamic>> documents) {
@@ -636,7 +484,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'No hay documentos registrados',
+                          _getEmptyStateTitle(),
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: isCompact ? 16 : 18,
@@ -645,7 +493,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Sube tus documentos para mantener todo al día',
+                          _getEmptyStateSubtitle(),
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: isCompact ? 12 : 14,
@@ -1089,7 +937,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'No hay documentos registrados',
+                          _getEmptyStateTitle(),
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: isCompact ? 16 : 18,
@@ -1098,7 +946,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Comienza a registrar documentos de tus conductores y propietarios',
+                          _getEmptyStateSubtitle(),
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: isCompact ? 12 : 14,
@@ -1512,5 +1360,23 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
       creationDate: doc.creationDate,
       expiryDate: doc.expiryDate,
     );
+  }
+
+  /// Retorna el título del estado vacío según el rol
+  String _getEmptyStateTitle() {
+    if (_role == 'empresa') {
+      return 'No hay documentos registrados';
+    } else {
+      return 'No hay documentos';
+    }
+  }
+
+  /// Retorna el subtítulo del estado vacío según el rol
+  String _getEmptyStateSubtitle() {
+    if (_role == 'empresa') {
+      return 'Comienza a registrar documentos de tus conductores y propietarios';
+    } else {
+      return 'Próximamente la empresa agregará documentos o comunícate con la empresa';
+    }
   }
 }

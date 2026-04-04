@@ -121,6 +121,34 @@ class DocumentService {
     return [];
   }
 
+  /// Obtiene documentos según el rol del usuario
+  /// Para empresa: todos los documentos de la empresa
+  /// Para conductor/propietario: sus documentos específicos
+  static Future<List<Map<String, dynamic>>> getDocumentsByRole({
+    required String role,
+    String? userId,
+    String? token,
+  }) async {
+    try {
+      if (role.toLowerCase() == 'empresa') {
+        // Para empresa: obtener todos los documentos de la empresa
+        return await getCompanyDocuments(token: token);
+      } else {
+        // Para conductor/propietario: obtener sus documentos específicos
+        if (userId != null && userId.isNotEmpty) {
+          debugPrint('📡 Obteniendo documentos del usuario: $userId');
+          return await getDocuments(userId: userId, token: token);
+        } else {
+          debugPrint('⚠️ No hay userId disponible para cambiar rol ${role}');
+          return [];
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error obteniendo documentos por rol: $e');
+      return [];
+    }
+  }
+
   /// Sube un documento al backend
   static Future<Map<String, dynamic>?> uploadDocument({
     required String filePath,
