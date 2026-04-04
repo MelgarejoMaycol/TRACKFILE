@@ -1227,6 +1227,12 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
           );
         }
 
+        // Calcular documentos próximos a vencer (todos)
+        final List<_DocumentInfo> upcomingAll = _documents
+            .where((d) => !d.isExpired)
+            .toList()
+          ..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
+
         return SingleChildScrollView(
           padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 24, vertical: 24),
           child: Column(
@@ -1248,6 +1254,17 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                 style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13),
               ),
               const SizedBox(height: 16),
+
+              // Documentos próximos a vencer (todos, sin importar de quién es)
+              if (upcomingAll.isNotEmpty) ...[
+                Text(
+                  'Próximos a vencer',
+                  style: TextStyle(color: Colors.white, fontSize: isCompact ? 14 : 16, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
+                _buildUpcomingDocumentStrip(isCompact: isCompact, docs: upcomingAll.take(5).toList()),
+                const SizedBox(height: 24),
+              ],
 
               // Solo buscador, sin filtros
               TextField(
@@ -1493,6 +1510,12 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
       documentName: doc.name,
       creationDate: doc.creationDate,
       expiryDate: doc.expiryDate,
+      ownerName: doc.ownerName,
+      area: doc.category,
+      category: doc.name,
+      vehiclePlate: doc.vehiclePlate,
+      role: _role,
+      daysRemaining: doc.daysRemaining,
     );
   }
 

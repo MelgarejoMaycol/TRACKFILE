@@ -6,6 +6,12 @@ class DocumentModal {
     required String documentName,
     DateTime? creationDate,
     required DateTime expiryDate,
+    String? ownerName,
+    String? area,
+    String? category,
+    String? vehiclePlate,
+    String? role,
+    int? daysRemaining,
     VoidCallback? onDownload,
   }) {
     showDialog(
@@ -23,79 +29,149 @@ class DocumentModal {
               borderRadius: BorderRadius.circular(20),
             ),
             padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        documentName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          documentName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // Información para EMPRESA
+                  if (role?.toLowerCase() == 'empresa') ...[
+                    if (ownerName != null && ownerName.isNotEmpty) ...[
+                      _buildModalRow(
+                        Icons.person,
+                        'Propietario/Responsable',
+                        ownerName,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (vehiclePlate != null && vehiclePlate.isNotEmpty) ...[
+                      _buildModalRow(
+                        Icons.directions_car,
+                        'Placa del Vehículo',
+                        vehiclePlate,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (category != null && category.isNotEmpty) ...[
+                      _buildModalRow(
+                        Icons.label,
+                        'Tipo de Documento',
+                        category,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (area != null && area.isNotEmpty) ...[
+                      _buildModalRow(
+                        Icons.domain,
+                        'Área',
+                        area,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ]
+                  
+                  // Información para CONDUCTOR y PROPIETARIO
+                  else ...[
+                    if (category != null && category.isNotEmpty) ...[
+                      _buildModalRow(
+                        Icons.label,
+                        'Tipo de Documento',
+                        category,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (area != null && area.isNotEmpty) ...[
+                      _buildModalRow(
+                        Icons.domain,
+                        'Área',
+                        area,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    if (vehiclePlate != null && vehiclePlate.isNotEmpty) ...[
+                      _buildModalRow(
+                        Icons.directions_car,
+                        'Placa del Vehículo',
+                        vehiclePlate,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ],
+                  
+                  // Información común para todos
+                  _buildModalRow(
+                    Icons.calendar_today,
+                    'Fecha de Creación',
+                    creationDate != null ? _formatDate(creationDate) : 'No disponible',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildModalRow(
+                    Icons.event,
+                    'Fecha de Vencimiento',
+                    _formatDate(expiryDate),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildModalRow(
+                    Icons.timer,
+                    'Días Restantes',
+                    daysRemaining != null 
+                      ? '$daysRemaining días' 
+                      : '${expiryDate.difference(DateTime.now()).inDays.clamp(0, 999)} días',
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (onDownload != null) {
+                          onDownload();
+                        } else {
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Descargando $documentName...'),
+                              backgroundColor: const Color(0xFF16C79A),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.download, color: Colors.white),
+                      label: const Text(
+                        'Descargar Documento',
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF16C79A),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                _buildModalRow(
-                  Icons.calendar_today,
-                  'Fecha de Creación',
-                  creationDate != null ? _formatDate(creationDate) : 'No disponible',
-                ),
-                const SizedBox(height: 16),
-                _buildModalRow(
-                  Icons.event,
-                  'Fecha de Vencimiento',
-                  _formatDate(expiryDate),
-                ),
-                const SizedBox(height: 16),
-                _buildModalRow(
-                  Icons.timer,
-                  'Días Restantes',
-                  '${expiryDate.difference(DateTime.now()).inDays.clamp(0, 999)} días',
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      if (onDownload != null) {
-                        onDownload();
-                      } else {
-                        Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Descargando $documentName...'),
-                            backgroundColor: const Color(0xFF16C79A),
-                          ),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.download, color: Colors.white),
-                    label: const Text(
-                      'Descargar Documento',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF16C79A),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
