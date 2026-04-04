@@ -489,6 +489,7 @@ class DocumentService {
   }
 
   /// Obtiene los vehículos asignados a un conductor
+  /// Llama a /api/vehiculos y filtra por conductor.id
   static Future<List<Map<String, dynamic>>> getVehiculosPorConductor({
     required int conductorId,
     String? token,
@@ -496,30 +497,57 @@ class DocumentService {
     try {
       final headers = _buildHeaders(token);
       
+      debugPrint('🚗 [getVehiculosPorConductor] Obteniendo vehículos para conductor ID: $conductorId');
+      
       final response = await http
           .get(
-            Uri.parse('$_baseUrl/api/vehiculos/conductor/$conductorId'),
+            Uri.parse('$_baseUrl/api/vehiculos'),
             headers: headers,
           )
           .timeout(const Duration(seconds: 20));
 
+      debugPrint('🚗 [getVehiculosPorConductor] Status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         if (decoded is List) {
+          // Filtrar vehículos que tienen este conductor asignado
+          final vehiculosFiltrados = decoded
+              .where((item) {
+                if (item is Map && item['conductor'] != null) {
+                  final conductorObj = item['conductor'];
+                  if (conductorObj is Map) {
+                    final idCond = conductorObj['id'];
+                    if (idCond != null) {
+                      final match = int.parse(idCond.toString()) == conductorId;
+                      if (match) {
+                        debugPrint('✅ [getVehiculosPorConductor] Vehículo encontrado: ${item['placa']}');
+                      }
+                      return match;
+                    }
+                  }
+                }
+                return false;
+              })
+              .toList();
+
+          debugPrint('✅ [getVehiculosPorConductor] Retornando ${vehiculosFiltrados.length} vehículos');
+          
           return List<Map<String, dynamic>>.from(
-            decoded.map((item) => item is Map<String, dynamic> ? item : <String, dynamic>{}),
+            vehiculosFiltrados.map((item) => item is Map<String, dynamic> ? item : <String, dynamic>{}),
           );
         }
       } else {
-        debugPrint('❌ Error obteniendo vehículos del conductor ${response.statusCode}: ${response.body}');
+        debugPrint('❌ [getVehiculosPorConductor] Error ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
-      debugPrint('❌ Error al obtener vehículos del conductor: $e');
+      debugPrint('❌ [getVehiculosPorConductor] Excepción: $e');
     }
     return [];
   }
 
-  /// Obtiene los vehículos asignados a un propietario (con info de conductores)
+  /// Obtiene los vehículos asignados a un propietario
+  /// Llama a /api/vehiculos y filtra por propietario.id
   static Future<List<Map<String, dynamic>>> getVehiculosPorPropietario({
     required int propietarioId,
     String? token,
@@ -527,25 +555,51 @@ class DocumentService {
     try {
       final headers = _buildHeaders(token);
       
+      debugPrint('🚗 [getVehiculosPorPropietario] Obteniendo vehículos para propietario ID: $propietarioId');
+      
       final response = await http
           .get(
-            Uri.parse('$_baseUrl/api/vehiculos/propietario/$propietarioId'),
+            Uri.parse('$_baseUrl/api/vehiculos'),
             headers: headers,
           )
           .timeout(const Duration(seconds: 20));
 
+      debugPrint('🚗 [getVehiculosPorPropietario] Status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         if (decoded is List) {
+          // Filtrar vehículos que pertenecen a este propietario
+          final vehiculosFiltrados = decoded
+              .where((item) {
+                if (item is Map && item['propietario'] != null) {
+                  final propietarioObj = item['propietario'];
+                  if (propietarioObj is Map) {
+                    final idProp = propietarioObj['id'];
+                    if (idProp != null) {
+                      final match = int.parse(idProp.toString()) == propietarioId;
+                      if (match) {
+                        debugPrint('✅ [getVehiculosPorPropietario] Vehículo encontrado: ${item['placa']}');
+                      }
+                      return match;
+                    }
+                  }
+                }
+                return false;
+              })
+              .toList();
+
+          debugPrint('✅ [getVehiculosPorPropietario] Retornando ${vehiculosFiltrados.length} vehículos');
+          
           return List<Map<String, dynamic>>.from(
-            decoded.map((item) => item is Map<String, dynamic> ? item : <String, dynamic>{}),
+            vehiculosFiltrados.map((item) => item is Map<String, dynamic> ? item : <String, dynamic>{}),
           );
         }
       } else {
-        debugPrint('❌ Error obteniendo vehículos del propietario ${response.statusCode}: ${response.body}');
+        debugPrint('❌ [getVehiculosPorPropietario] Error ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
-      debugPrint('❌ Error al obtener vehículos del propietario: $e');
+      debugPrint('❌ [getVehiculosPorPropietario] Excepción: $e');
     }
     return [];
   }
