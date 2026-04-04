@@ -166,6 +166,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     if (mounted) {
       setState(() {
         _documents = parsed;
+        _isLoading = false;
       });
       
       debugPrint('📊 DocumentosWidget: loaded ${parsed.length} documents, vehicles: ${_vehicles.length}');
