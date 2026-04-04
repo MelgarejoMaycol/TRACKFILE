@@ -4,7 +4,7 @@ class DocumentModal {
   static void show({
     required BuildContext context,
     required String documentName,
-    DateTime? paymentDate,
+    DateTime? creationDate,
     required DateTime expiryDate,
     VoidCallback? onDownload,
   }) {
@@ -48,9 +48,9 @@ class DocumentModal {
                 ),
                 const SizedBox(height: 20),
                 _buildModalRow(
-                  Icons.payment,
-                  'Fecha de Pago',
-                  paymentDate != null ? _formatDate(paymentDate) : 'No disponible',
+                  Icons.calendar_today,
+                  'Fecha de Creación',
+                  creationDate != null ? _formatDate(creationDate) : 'No disponible',
                 ),
                 const SizedBox(height: 16),
                 _buildModalRow(

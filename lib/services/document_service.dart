@@ -58,6 +58,69 @@ class DocumentService {
     return [];
   }
 
+  /// Obtiene TODOS los documentos de la empresa del usuario autenticado
+  /// Retorna documentos de todos los usuarios/conductores/propietarios ligados a la empresa
+  static Future<List<Map<String, dynamic>>> getCompanyDocuments({
+    String? token,
+    String? estado, // 'vigente' o 'vencido'
+    int? diasMaximos, // Documentos que vencen en X días
+  }) async {
+    try {
+      final headers = _buildHeaders(token);
+      
+      // Construir URL con parámetros opcionales
+      String url = '$_baseUrl/api/documentos/tabla';
+      final List<String> queryParams = [];
+      
+      if (estado != null && estado.isNotEmpty) {
+        queryParams.add('estado=$estado');
+      }
+      if (diasMaximos != null) {
+        queryParams.add('diasMaximos=$diasMaximos');
+      }
+      
+      if (queryParams.isNotEmpty) {
+        url += '?${queryParams.join('&')}';
+      }
+      
+      debugPrint('📡 Obteniendo documentos de empresa desde: $url');
+      
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        debugPrint('📄 Respuesta recibida, parseando documentos...');
+        
+        if (decoded is List) {
+          final List<Map<String, dynamic>> docs = List<Map<String, dynamic>>.from(
+            decoded.map((item) => item is Map<String, dynamic> ? item : <String, dynamic>{}),
+          );
+          debugPrint('✅ Se obtuvieron ${docs.length} documentos de la empresa');
+          return docs;
+        }
+        if (decoded is Map && decoded['data'] is List) {
+          final List<Map<String, dynamic>> docs = List<Map<String, dynamic>>.from(
+            decoded['data'].map((item) => item is Map<String, dynamic> ? item : <String, dynamic>{}),
+          );
+          debugPrint('✅ Se obtuvieron ${docs.length} documentos de la empresa (con envolvente data)');
+          return docs;
+        }
+      } else if (response.statusCode == 401) {
+        debugPrint('❌ No autorizado para obtener documentos de empresa');
+      } else {
+        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error al obtener documentos de empresa: $e');
+    }
+    return [];
+  }
+
   /// Sube un documento al backend
   static Future<Map<String, dynamic>?> uploadDocument({
     required String filePath,
@@ -492,6 +555,68 @@ class DocumentService {
       debugPrint('❌ Error leyendo archivo: $e');
     }
     return null;
+  }
+
+  /// Edita un documento existente
+  static Future<void> updateDocument({
+    required int documentoId,
+    required int idTipo,
+    required String? area,
+    required DateTime fechaVencimiento,
+    required String? observaciones,
+  }) async {
+    try {
+      final token = await getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Token no disponible');
+      }
+
+      final headers = _buildHeaders(token);
+      headers['Content-Type'] = 'application/json';
+
+      // Solo enviar los campos que el backend permite actualizar
+      // NO enviar idUsuario ni responsableUsuarioId para evitar validación de permisos
+      final Map<String, dynamic> bodyMap = {
+        'idTipo': idTipo,
+        'area': area ?? '',
+        'fechaVencimiento': fechaVencimiento.toString().split(' ')[0], // formato YYYY-MM-DD
+        'observaciones': observaciones ?? '',
+      };
+
+      final requestBody = jsonEncode(bodyMap);
+
+      debugPrint('📝 Editando documento $documentoId');
+      debugPrint('   Body: $requestBody');
+
+      final response = await http
+          .put(
+            Uri.parse('$_baseUrl/api/documentos/$documentoId'),
+            headers: headers,
+            body: requestBody,
+          )
+          .timeout(const Duration(seconds: 20));
+
+      debugPrint('   Response: ${response.statusCode}');
+      
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        debugPrint('✅ Documento $documentoId editado exitosamente');
+      } else if (response.statusCode == 401) {
+        debugPrint('❌ 401: No autorizado - Token inválido');
+        throw Exception('No autorizado - Token inválido');
+      } else if (response.statusCode == 403) {
+        debugPrint('❌ 403: Permiso denegado. Response: ${response.body}');
+        throw Exception('Permiso denegado');
+      } else if (response.statusCode == 404) {
+        debugPrint('❌ 404: Documento no encontrado');
+        throw Exception('Documento no encontrado');
+      } else {
+        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
+        throw Exception('Error ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error editando documento: $e');
+      rethrow;
+    }
   }
 
   /// Obtiene File object desde diferentes plataformas

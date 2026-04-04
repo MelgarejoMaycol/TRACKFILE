@@ -305,7 +305,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     DocumentModal.show(
       context: context,
       documentName: '$name • $plate',
-      paymentDate: payment,
+      creationDate: payment,
       expiryDate: expiry,
     );
   }

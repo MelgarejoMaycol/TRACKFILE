@@ -805,7 +805,7 @@ class _InicioWidgetState extends State<InicioWidget> {
               DocumentModal.show(
                 context: context,
                 documentName: entry.key,
-                paymentDate: payment,
+                creationDate: payment,
                 expiryDate: expiry,
               );
             },
@@ -888,7 +888,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                 DocumentModal.show(
                   context: context,
                   documentName: entry.key,
-                  paymentDate: entry.value,
+                  creationDate: entry.value,
                   expiryDate: relatedExpiry,
                 );
               } else {
@@ -1275,7 +1275,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                   onTap: () => DocumentModal.show(
                     context: context,
                     documentName: entry.key,
-                    paymentDate: paymentDate,
+                    creationDate: paymentDate,
                     expiryDate: expiry,
                   ),
                   child: DocumentCountdown(
@@ -1372,7 +1372,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                   context: context,
                   documentName: 'Ficha vehículo ${vehicle['plate']}',
                   expiryDate: nextExpiry,
-                  paymentDate: null,
+                  creationDate: null,
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
