@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert' show jsonEncode;
 import '../services/document_service.dart';
 
 class UploadDocumentModal {
@@ -45,10 +46,12 @@ class _UploadDocumentDialog extends StatefulWidget {
 class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
   String? selectedFilePath;
   String? selectedFileName;
+  List<int>? selectedFileBytes; // Para archivos en web
   
   // Nuevos campos dinámicos
   int? selectedPersonaId;
   String? selectedPersonaTipo; // 'conductor' o 'propietario'
+  int? selectedPersonaIdUsuario; // ID del usuario de la persona seleccionada
   String? selectedVehicleValue; // Usar String para evitar autocompletado: "vehicle_ID"
   int? selectedVehicleId;
   String? selectedVehiclePlaca;
@@ -59,6 +62,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
   bool isUploading = false;
   bool isLoadingPersonas = false;
   bool isLoadingVehiculos = false;
+  String? personasLoadError; // Almacenar error de carga de personas
 
   List<Map<String, dynamic>> conductores = [];
   List<Map<String, dynamic>> propietarios = [];
@@ -82,9 +86,43 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     super.dispose();
   }
 
+  /// Extrae el nombre completo de una persona (conductor o propietario)
+  /// Intenta múltiples campos posibles para mayor compatibilidad
+  String _getNombrePersona(Map<String, dynamic> persona) {
+    // Intenta campos posibles en orden de preferencia
+    if (persona['nombreCompleto'] != null) return persona['nombreCompleto'].toString();
+    if (persona['nombre'] != null) return persona['nombre'].toString();
+    if (persona['nomina'] != null) return persona['nomina'].toString();
+    if (persona['usuario'] != null && persona['usuario'] is Map) {
+      if (persona['usuario']['nombre'] != null) return persona['usuario']['nombre'].toString();
+      if (persona['usuario']['nombreCompleto'] != null) return persona['usuario']['nombreCompleto'].toString();
+    }
+    return 'Sin nombre';
+  }
+
+  /// Extrae el documento de una persona
+  String _getDocumentoPersona(Map<String, dynamic> persona) {
+    if (persona['numeroDocumento'] != null) return persona['numeroDocumento'].toString();
+    if (persona['documento'] != null) return persona['documento'].toString();
+    if (persona['rut'] != null) return persona['rut'].toString();
+    if (persona['usuario'] != null && persona['usuario'] is Map) {
+      if (persona['usuario']['numeroDocumento'] != null) return persona['usuario']['numeroDocumento'].toString();
+    }
+    return 'Sin documento';
+  }
+
+  /// Extrae el ID de una persona
+  int _getIdPersona(Map<String, dynamic> persona) {
+    if (persona['id'] != null) return int.tryParse(persona['id'].toString()) ?? 0;
+    if (persona['idConductor'] != null) return int.tryParse(persona['idConductor'].toString()) ?? 0;
+    if (persona['idPropietario'] != null) return int.tryParse(persona['idPropietario'].toString()) ?? 0;
+    return 0;
+  }
+
   Future<void> _loadPersonas() async {
     setState(() {
       isLoadingPersonas = true;
+      personasLoadError = null; // Resetear error
     });
 
     try {
@@ -93,19 +131,21 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
       
       final conds = await DocumentService.getConductores(token: widget.token);
       debugPrint('📋 [Modal] Conductores recibidos: ${conds.length}');
-      for (int i = 0; i < conds.length && i < 2; i++) {
+      for (int i = 0; i < conds.length && i < 3; i++) {
         debugPrint('   ===== CONDUCTOR $i =====');
+        debugPrint('   JSON: ${jsonEncode(conds[i])}');
         conds[i].forEach((key, value) {
-          debugPrint('     $key: $value');
+          debugPrint('     $key: $value (tipo: ${value.runtimeType})');
         });
       }
       
       final props = await DocumentService.getPropietarios(token: widget.token);
       debugPrint('📋 [Modal] Propietarios recibidos: ${props.length}');
-      for (int i = 0; i < props.length && i < 2; i++) {
+      for (int i = 0; i < props.length && i < 3; i++) {
         debugPrint('   ===== PROPIETARIO $i =====');
+        debugPrint('   JSON: ${jsonEncode(props[i])}');
         props[i].forEach((key, value) {
-          debugPrint('     $key: $value');
+          debugPrint('     $key: $value (tipo: ${value.runtimeType})');
         });
       }
 
@@ -123,9 +163,15 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     } catch (e) {
       debugPrint('❌ [Modal] Error cargando personas: $e');
       if (mounted) {
-        _showErrorSnackBar('Error cargando datos: $e');
+        // Limpiar el mensaje de error para que sea más user-friendly
+        String errorMessage = e.toString();
+        if (errorMessage.startsWith('Exception: ')) {
+          errorMessage = errorMessage.substring(11); // Remover "Exception: "
+        }
+        
         setState(() {
           isLoadingPersonas = false;
+          personasLoadError = errorMessage;
         });
       }
     }
@@ -348,13 +394,16 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
   }
 
   Widget _buildPersonaSection() {
+    final bool isEmpresa = widget.userRole.toLowerCase() == 'empresa';
+    final String labelText = isEmpresa ? 'Conductor' : 'Conductor o Propietario';
+
     if (isLoadingPersonas) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Conductor o Propietario',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          Text(
+            labelText,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Container(
@@ -376,14 +425,150 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
       );
     }
 
+    // Si hay error cargando personas, mostrar mensaje de error
+    if (personasLoadError != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            labelText,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Error del servidor',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  personasLoadError!,
+                  style: const TextStyle(
+                    color: Colors.orange,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  isEmpresa
+                      ? '• Verifica que iniciaste sesión como EMPRESA\n• Asegúrate que hay conductores asignados a tu empresa\n• Contacta al administrador si el problema persiste'
+                      : '• Contacta al administrador del sistema\n• Si el problema persiste, intenta refrescar la página',
+                  style: const TextStyle(
+                    color: Colors.orange,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _loadPersonas,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('Reintentar'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Validar si hay datos disponibles
+    bool hasData = conductores.isNotEmpty || (isEmpresa ? false : propietarios.isNotEmpty);
+    
+    if (!hasData) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            labelText,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'No hay conductores disponibles',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  isEmpresa
+                      ? '• Verifica que iniciaste sesión como EMPRESA\n• Asegúrate que hay conductores asignados a tu empresa\n• Contacta al administrador si no ves tus conductores'
+                      : '• Verifica que hay conductores o propietarios registrados\n• Contacta al administrador del sistema',
+                  style: const TextStyle(
+                    color: Colors.orange,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     // Obtener nombre de la persona seleccionada
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Conductor o Propietario',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        Text(
+          labelText,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Container(
@@ -436,11 +621,11 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                   ),
                 ),
               ...conductores.map((c) {
-                final value = 'conductor_${c['id']}';
-                final nombre = c['nombreCompleto'] ?? 'Sin nombre';
-                final documento = c['numeroDocumento'] ?? c['documento'] ?? 'Sin documento';
-                final id = c['id'];
-                final label = '$nombre - $documento (ID: $id)';
+                final id = _getIdPersona(c);
+                final value = 'conductor_$id';
+                final nombre = _getNombrePersona(c);
+                final documento = _getDocumentoPersona(c);
+                final label = '$nombre - $documento';
                 return DropdownMenuItem<String>(
                   value: value,
                   child: Padding(
@@ -454,7 +639,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                 );
               }),
               
-              // Propietarios
+              // Propietarios (mostrar siempre que haya disponibles)
               if (propietarios.isNotEmpty) ...[
                 const DropdownMenuItem<String>(
                   enabled: false,
@@ -468,15 +653,17 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                   ),
                 ),
                 ...propietarios.map((p) {
-                  final value = 'propietario_${p['id']}';
-                  final nombre = p['nombreCompleto'] ?? 'Sin nombre';
-                  final documento = p['numeroDocumento'] ?? p['documento'] ?? 'Sin documento';
+                  final id = _getIdPersona(p);
+                  final value = 'propietario_$id';
+                  final nombre = _getNombrePersona(p);
+                  final documento = _getDocumentoPersona(p);
+                  final label = '$nombre - $documento';
                   return DropdownMenuItem<String>(
                     value: value,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       child: Text(
-                        '$nombre - $documento (ID: ${p['id']})',
+                        label,
                         style: const TextStyle(color: Colors.white, fontSize: 12),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -491,9 +678,26 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                 final tipo = parts[0];
                 final id = int.tryParse(parts[1]) ?? 0;
 
+                // Buscar el idUsuario de la persona seleccionada
+                int? idUsuario;
+                if (tipo == 'conductor') {
+                  final persona = conductores.firstWhere(
+                    (c) => _getIdPersona(c) == id,
+                    orElse: () => <String, dynamic>{},
+                  );
+                  idUsuario = persona['idUsuario'] as int?;
+                } else if (tipo == 'propietario') {
+                  final persona = propietarios.firstWhere(
+                    (p) => _getIdPersona(p) == id,
+                    orElse: () => <String, dynamic>{},
+                  );
+                  idUsuario = persona['idUsuario'] as int?;
+                }
+
                 setState(() {
                   selectedPersonaTipo = tipo;
                   selectedPersonaId = id;
+                  selectedPersonaIdUsuario = idUsuario;
                 });
 
                 _loadVehiculos(id, tipo);
@@ -995,9 +1199,14 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
 
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
+        debugPrint('📁 Archivo seleccionado: ${file.name}');
+        debugPrint('   - Path: ${file.path}');
+        debugPrint('   - Bytes disponibles: ${file.bytes != null ? "sí (${file.bytes!.length} bytes)" : "no"}');
+        
         setState(() {
           selectedFilePath = file.path ?? '';
           selectedFileName = file.name;
+          selectedFileBytes = file.bytes; // Guardar bytes para web
         });
       }
     } catch (e) {
@@ -1026,7 +1235,8 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
         selectedDocumentTypeId == null ||
         selectedExpiryDate == null ||
         selectedPersonaId == null ||
-        selectedArea == null) {
+        selectedArea == null ||
+        selectedFileBytes == null) { // Validar que tengamos bytes del archivo
       _showErrorSnackBar('⚠️ Completa: Persona, Tipo, Archivo, Área y Fecha');
       return;
     }
@@ -1059,7 +1269,9 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             : observationController.text,
         responsibleUserId: int.tryParse(widget.userId) ?? 0,
         personaId: selectedPersonaIdInt,
+        personaIdUsuario: selectedPersonaIdUsuario, // Pasar el idUsuario correcto
         token: widget.token,
+        fileBytes: selectedFileBytes, // Pasar bytes para web
       );
 
       if (mounted) {

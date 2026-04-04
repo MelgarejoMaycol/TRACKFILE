@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -68,19 +69,25 @@ class DocumentService {
     String? observations,
     int? responsibleUserId,
     int? personaId,
+    int? personaIdUsuario, // ID de usuario de la persona (conductor/propietario)
     String? token,
+    List<int>? fileBytes, // Bytes del archivo (para web)
   }) async {
     try {
       debugPrint('📤 DocumentService.uploadDocument() iniciado');
       debugPrint('   URL: $_baseUrl/api/documentos');
       debugPrint('   Token presente: ${token?.isNotEmpty == true}');
+      debugPrint('   Usando bytes: ${fileBytes != null ? "sí (${fileBytes.length} bytes)" : "no"}');
+      debugPrint('   personaId: $personaId');
+      debugPrint('   personaIdUsuario: $personaIdUsuario');
 
-      final file = await _readFile(filePath);
+      // En web usar bytes directamente, en nativo intentar leer del filesystem
+      final file = fileBytes ?? await _readFile(filePath);
       if (file == null) {
         debugPrint('❌ No se pudo leer el archivo: $filePath');
         return null;
       }
-      debugPrint('   Archivo leído: ${file.length} bytes');
+      debugPrint('   Archivo: ${file.length} bytes');
 
       // Para multipart requests, NO incluir Content-Type application/json
       // MultipartRequest lo maneja automáticamente
@@ -103,6 +110,20 @@ class DocumentService {
       if (vehicleId != null) {
         request.fields['idVehiculo'] = vehicleId.toString();
       }
+      
+      // IMPORTANTE: El backend requiere idVehiculo O idUsuario
+      // Si tenemos persona seleccionada (conductor/propietario), enviar como idUsuario
+      if (personaIdUsuario != null) {
+        request.fields['idUsuario'] = personaIdUsuario.toString();
+        debugPrint('   idUsuario enviado: $personaIdUsuario (REQUERIDO por backend)');
+      } else if (personaId != null) {
+        // Fallback: si no tenemos idUsuario, enviar el id
+        request.fields['idUsuario'] = personaId.toString();
+        debugPrint('   idUsuario enviado: $personaId (id como fallback)');
+      } else {
+        debugPrint('   ⚠️ idUsuario NO enviado (no hay persona seleccionada)');
+      }
+      
       request.fields['idTipo'] = documentTypeId.toString();
       request.fields['area'] = area;
       request.fields['fechaVencimiento'] = expiryDate.toIso8601String().split('T')[0];
@@ -111,13 +132,18 @@ class DocumentService {
         request.fields['observaciones'] = observations;
       }
       
-      // Enviar responsableUsuarioId: SOLO el conductor/propietario seleccionado (personaId)
-      // NO usar el usuario autenticado como fallback
-      if (personaId != null) {
-        request.fields['responsableUsuarioId'] = personaId.toString();
-        debugPrint('   responsableUsuarioId enviado: $personaId (conductor/propietario seleccionado)');
+      // Enviar responsableUsuarioId: el usuario autenticado (quien sube el documento)
+      if (responsibleUserId != null && responsibleUserId != 0) {
+        request.fields['responsableUsuarioId'] = responsibleUserId.toString();
+        debugPrint('   responsableUsuarioId enviado: $responsibleUserId (usuario autenticado)');
       } else {
-        debugPrint('   ⚠️ responsableUsuarioId NO enviado (no hay persona seleccionada)');
+        debugPrint('   ⚠️ responsableUsuarioId NO enviado (no hay usuario autenticado)');
+      }
+      
+      // También enviar personaId por si el backend lo necesita
+      if (personaId != null) {
+        request.fields['personaId'] = personaId.toString();
+        debugPrint('   personaId enviado: $personaId');
       }
 
       debugPrint('   Campos enviados:');
@@ -237,12 +263,28 @@ class DocumentService {
           debugPrint('⚠️ [getConductores] Response no es List ni Map.data, es: ${decoded.runtimeType}');
           debugPrint('   Contenido: $decoded');
         }
+      } else if (response.statusCode == 500) {
+        debugPrint('🔴 [getConductores] ERROR 500 en servidor - Probable causa: Usuario no tiene empresa asociada');
+        debugPrint('   ⚠️ Verifica que iniciaste sesión como EMPRESA, no como PROPIETARIO o CONDUCTOR');
+        debugPrint('   Response: ${response.body}');
+        throw Exception('Error del servidor (500): No se pudo obtener los conductores. Verifica que la empresa esté correctamente configurada.');
       } else {
         debugPrint('❌ [getConductores] Error ${response.statusCode}: ${response.body}');
+        throw Exception('Error ${response.statusCode}: ${response.body}');
       }
+    } on TimeoutException {
+      debugPrint('❌ [getConductores] Timeout: No se pudo conectar con el servidor');
+      throw Exception('Tiempo de espera agotado: No se pudo conectar con el servidor.');
     } catch (e, stackTrace) {
       debugPrint('❌ [getConductores] Excepción: $e');
       debugPrint('❌ [getConductores] Stack trace: $stackTrace');
+      
+      // Si es un error de conexión o similar
+      if (e.toString().contains('Failed to fetch') || e.toString().contains('ClientException')) {
+        throw Exception('Error de conexión: No se pudo conectar con el servidor. Verifica que el servidor esté activo.');
+      }
+      
+      rethrow;
     }
     return [];
   }
@@ -294,12 +336,70 @@ class DocumentService {
           debugPrint('⚠️ [getPropietarios] Response no es List ni Map.data, es: ${decoded.runtimeType}');
           debugPrint('   Contenido: $decoded');
         }
+      } else if (response.statusCode == 500) {
+        debugPrint('🔴 [getPropietarios] ERROR 500 en servidor');
+        debugPrint('   Response: ${response.body}');
+        throw Exception('Error del servidor (500): No se pudo obtener los propietarios.');
       } else {
         debugPrint('❌ [getPropietarios] Error ${response.statusCode}: ${response.body}');
+        throw Exception('Error ${response.statusCode}: ${response.body}');
       }
+    } on TimeoutException {
+      debugPrint('❌ [getPropietarios] Timeout: No se pudo conectar con el servidor');
+      throw Exception('Tiempo de espera agotado: No se pudo conectar con el servidor.');
     } catch (e, stackTrace) {
       debugPrint('❌ [getPropietarios] Excepción: $e');
       debugPrint('❌ [getPropietarios] Stack trace: $stackTrace');
+      
+      // Si es un error de conexión o similar
+      if (e.toString().contains('Failed to fetch') || e.toString().contains('ClientException')) {
+        throw Exception('Error de conexión: No se pudo conectar con el servidor. Verifica que el servidor esté activo.');
+      }
+      
+      rethrow;
+    }
+    return [];
+  }
+
+  /// Obtiene todos los usuarios (conductores + propietarios + otros) ligados a la empresa actual
+  static Future<List<Map<String, dynamic>>> getUsuariosEmpresa({String? token}) async {
+    try {
+      final headers = _buildHeaders(token);
+      final url = Uri.parse('$_baseUrl/api/usuarios');
+      
+      debugPrint('🔍 [getUsuariosEmpresa] URL: $url');
+      debugPrint('🔍 [getUsuariosEmpresa] Token: ${token?.isNotEmpty == true ? "presente" : "NULO/VACÍO"}');
+      
+      final response = await http
+          .get(url, headers: headers)
+          .timeout(const Duration(seconds: 20));
+
+      debugPrint('🔍 [getUsuariosEmpresa] Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        debugPrint('🔍 [getUsuariosEmpresa] Decoded type: ${decoded.runtimeType}');
+        
+        if (decoded is List) {
+          debugPrint('✅ [getUsuariosEmpresa] Es una List con ${decoded.length} elementos');
+          
+          final result = List<Map<String, dynamic>>.from(
+            decoded.map((item) => item is Map<String, dynamic> ? item : <String, dynamic>{}),
+          );
+          debugPrint('✅ [getUsuariosEmpresa] Retornando ${result.length} usuarios');
+          return result;
+        } else if (decoded is Map && decoded['data'] is List) {
+          debugPrint('✅ [getUsuariosEmpresa] Response es Map con campo data');
+          final result = List<Map<String, dynamic>>.from(
+            (decoded['data'] as List).map((item) => item is Map<String, dynamic> ? item : <String, dynamic>{}),
+          );
+          return result;
+        }
+      } else {
+        debugPrint('❌ [getUsuariosEmpresa] Error ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('❌ [getUsuariosEmpresa] Error: $e');
     }
     return [];
   }
