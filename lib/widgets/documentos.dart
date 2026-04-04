@@ -1146,11 +1146,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
   }
 
   Widget _propietarioDocumentos() {
-  bool isOwnerDoc(_DocumentInfo d) {
-    final t = d.ownerType.trim().toLowerCase();
-    return t == 'propietario';
-  }
-
   // Helper to detect vehicle-related documents (re-using empresa helper logic)
   bool isVehicleDoc(_DocumentInfo d) => _isVehicleDocument(d);
 
@@ -1158,11 +1153,9 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     builder: (context, constraints) {
       final bool isCompact = constraints.maxWidth < 560;
 
-      List<_DocumentInfo> ownerDocs = _documents.where(isOwnerDoc).toList();
-      final bool usingExampleData = ownerDocs.isEmpty;
-      if (usingExampleData) {
-        ownerDocs = _sampleOwnerDocs();
-      }
+      // _documents is already filtered by userId in _loadDocuments(), so use it directly
+      // Don't re-filter by ownerType since it's determined by API response field population
+      List<_DocumentInfo> ownerDocs = _documents;
 
       final int totalDocs = 6;
       final int completedDocs = ownerDocs.length;
