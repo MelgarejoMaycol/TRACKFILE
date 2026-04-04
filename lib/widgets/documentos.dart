@@ -126,7 +126,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     // Cargar desde la API según el rol del usuario
     if (_authToken != null && _authToken!.isNotEmpty) {
       try {
-        debugPrint('📡 Cargando documentos para rol: $_role');
+        debugPrint('📡 Cargando documentos para rol: $_role, userId: ${widget.userId}');
         
         final documents = await DocumentService.getDocumentsByRole(
           role: _role,
@@ -138,10 +138,21 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
         
         if (documents.isNotEmpty) {
           parsed = _convertApiDocumentsToDocumentInfo(documents);
+          
+          // Filtrar documentos según el rol
+          if (_role != 'empresa' && widget.userId != null && widget.userId!.isNotEmpty) {
+            final userIdInt = int.tryParse(widget.userId!);
+            if (userIdInt != null) {
+              debugPrint('📋 Filtrando documentos para ${_role} con userId: $userIdInt');
+              parsed = parsed.where((doc) => doc.ownerId.toString() == userIdInt.toString()).toList();
+              debugPrint('📊 Documentos filtrados: ${parsed.length} de ${documents.length}');
+            }
+          }
+          
           debugPrint('✅ Se cargaron ${documents.length} documentos desde API');
-          debugPrint('📊 Documentos convertidos: ${parsed.length}');
+          debugPrint('📊 Documentos convertidos y filtrados: ${parsed.length}');
         } else {
-          debugPrint('ℹ️ No hay documentos disponibles para este usuario');
+          debugPrint('ℹ️ No hay documentos disponibles');
         }
       } catch (e) {
         debugPrint('⚠️ Error cargando desde API: $e');
