@@ -534,6 +534,25 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
             ],
           );
         }
+
+        // Próximos documentos a vencer
+        final List<_DocumentInfo> upcomingDocs = _documents
+            .where((d) => !d.isExpired)
+            .toList()
+          ..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
+        final List<_DocumentInfo> topUpcoming = upcomingDocs.take(3).toList();
+
+        // Aplicar búsqueda
+        List<_DocumentInfo> filteredDocs = _documents;
+        if (_conductorSearch.isNotEmpty) {
+          final String s = _conductorSearch;
+          filteredDocs = filteredDocs.where((d) =>
+            d.name.toLowerCase().contains(s) ||
+            d.category.toLowerCase().contains(s) ||
+            d.ownerName.toLowerCase().contains(s) ||
+            d.vehiclePlate.toLowerCase().contains(s)
+          ).toList();
+        }
         
         return SingleChildScrollView(
           padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 24, vertical: 24),
@@ -551,9 +570,38 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                 ),
               ),
               const SizedBox(height: 12),
-              _buildDocumentStrip(isCompact: isCompact),
-              const SizedBox(height: 28),
-              _buildDocumentList(isCompact: isCompact),
+              
+              // Próximos vencimientos
+              if (topUpcoming.isNotEmpty) ...[
+                Text(
+                  'Próximos vencimientos',
+                  style: TextStyle(color: Colors.white, fontSize: isCompact ? 14 : 16, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
+                _buildUpcomingDocumentStrip(isCompact: isCompact, docs: topUpcoming),
+                const SizedBox(height: 16),
+              ],
+
+              // Buscador
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Buscar documentos (nombre, categoría, propietario, placa)',
+                    hintStyle: const TextStyle(color: Colors.white54),
+                    prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.04),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                  onChanged: (v) => setState(() => _conductorSearch = v.trim().toLowerCase()),
+                ),
+              ),
+              const SizedBox(height: 12),
+              
+              // Lista de documentos
+              _buildDocumentList(isCompact: isCompact, docs: filteredDocs),
             ],
           ),
         );
@@ -681,6 +729,104 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildUpcomingDocumentStrip({required bool isCompact, required List<_DocumentInfo> docs}) {
+    final double cardWidth = isCompact ? 170 : 190;
+    return SizedBox(
+      height: isCompact ? 140 : 160,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: docs.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 16),
+        itemBuilder: (context, index) {
+          final _DocumentInfo doc = docs[index];
+          final Map<String, Color> colors = _getColorForDaysRemaining(doc.daysRemaining);
+          final Color startColor = colors['start']!;
+          final Color endColor = colors['end']!;
+
+          return GestureDetector(
+            onTap: () => _openModal(doc),
+            child: Container(
+              width: cardWidth,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [startColor, endColor],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 16,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          doc.name,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isCompact ? 13 : 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (doc.important)
+                        const Icon(Icons.push_pin, color: Colors.white, size: 16)
+                      else
+                        const Icon(Icons.chevron_right, color: Colors.white, size: 18),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    doc.isExpired ? 'Vencido' : '${doc.daysRemaining.clamp(0, 999)} días restantes',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: isCompact ? 12 : 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          doc.vehiclePlate.isNotEmpty ? doc.vehiclePlate : doc.ownerName,
+                          style: TextStyle(color: Colors.white70, fontSize: isCompact ? 11 : 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        doc.category,
+                        style: TextStyle(color: Colors.white60, fontSize: isCompact ? 10 : 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -874,6 +1020,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
   final _EmpresaFilter _selectedEmpresaFilter = _EmpresaFilter.all;
   String _empresaSearch = '';
   String _propietarioSearch = '';
+  String _conductorSearch = '';
   bool _empresaSortAscending = true;
 
   // Additional filters
@@ -900,6 +1047,26 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
   bool _isVehicleDocument(_DocumentInfo d) {
     final String text = '${d.category} ${d.name}'.toLowerCase();
     return _vehicleDocKeywords.any((k) => text.contains(k));
+  }
+
+  // Obtener color basado en días restantes para vencimiento
+  Map<String, Color> _getColorForDaysRemaining(int daysRemaining) {
+    if (daysRemaining < 0) {
+      // Vencido: gris
+      return {'start': const Color(0xFF6B7280), 'end': const Color(0xFF4B5563)};
+    } else if (daysRemaining <= 7) {
+      // Rojo urgente (0-7 días)
+      return {'start': const Color(0xFFEF4444), 'end': const Color(0xFFDC2626)};
+    } else if (daysRemaining <= 15) {
+      // Naranja (8-15 días)
+      return {'start': const Color(0xFFF97316), 'end': const Color(0xFFEA580C)};
+    } else if (daysRemaining <= 30) {
+      // Amarillo (16-30 días)
+      return {'start': const Color(0xFFEAB308), 'end': const Color(0xFFFCD34D)};
+    } else {
+      // Verde (más de 30 días)
+      return {'start': const Color(0xFF16A34A), 'end': const Color(0xFF22C55E)};
+    }
   }
 
   bool _groupByPerson = false; // toggle to group documents by owner
@@ -1191,41 +1358,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.04),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white24),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.task_alt, color: Color(0xFFFF8E53), size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Documentos registrados: $completedDocs de $totalDocs',
-                        style: TextStyle(color: Colors.white, fontSize: isCompact ? 12 : 13, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 8,
-                      backgroundColor: Colors.white.withValues(alpha: 0.12),
-                      valueColor: AlwaysStoppedAnimation<Color>(barColor),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+
             Text(
               'Documentos del propietario',
               style: TextStyle(
@@ -1242,13 +1375,9 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                 style: TextStyle(color: Colors.white, fontSize: isCompact ? 14 : 16, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 10),
-              _buildDocumentStrip(
+              _buildUpcomingDocumentStrip(
                 isCompact: isCompact,
                 docs: topUpcoming,
-                showIcon: true,
-                overrideStart: const Color(0xFFFF8E53),
-                overrideEnd: const Color(0xFFFFB347),
-                forceColor: true,
               ),
               const SizedBox(height: 16),
             ],
