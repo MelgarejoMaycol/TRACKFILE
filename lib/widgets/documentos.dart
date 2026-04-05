@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/document_service.dart';
@@ -113,7 +112,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
 
   Future<void> _loadDocuments() async {
     List<_DocumentInfo> parsed = [];
-    bool apiCallSuccessful = false; // Bandera para saber si la API tuvo éxito
     
     // Cargar desde la API según el rol del usuario
     if (_authToken != null && _authToken!.isNotEmpty) {
@@ -125,8 +123,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
           userId: widget.userId,
           token: _authToken,
         );
-
-        apiCallSuccessful = true; // La API se ejecutó correctamente
         
         if (documents.isNotEmpty) {
           parsed = _convertApiDocumentsToDocumentInfo(documents);
@@ -135,7 +131,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
           if (_role != 'empresa' && widget.userId != null && widget.userId!.isNotEmpty) {
             final userIdInt = int.tryParse(widget.userId!);
             if (userIdInt != null) {
-              debugPrint('📋 Filtrando documentos para ${_role} con userId: $userIdInt');
+              debugPrint('📋 Filtrando documentos para $_role con userId: $userIdInt');
               parsed = parsed.where((doc) => doc.ownerId.toString() == userIdInt.toString()).toList();
               debugPrint('📊 Documentos filtrados: ${parsed.length} de ${documents.length}');
             }
@@ -148,7 +144,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
         }
       } catch (e) {
         debugPrint('⚠️ Error cargando desde API: $e');
-        apiCallSuccessful = false; // La API falló
       }
     } else {
       debugPrint('⚠️ No hay token disponible - no se puede cargar desde API');
@@ -215,168 +210,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
       }
       return null;
     }).whereType<_DocumentInfo>().toList();
-  }
-
-  List<_DocumentInfo> _exampleDocuments() {
-    final DateTime now = DateTime.now();
-    final Random rnd = Random(42);
-
-    final List<String> firstNames = ['Carlos', 'María', 'Juan', 'Ana', 'Luis', 'Sofía', 'Andrés', 'Lucía', 'Diego', 'Camila', 'Pedro', 'Valentina', 'Ricardo', 'Paula', 'Héctor', 'Marta', 'Enzo', 'Daniela', 'Javier', 'Laura'];
-    final List<String> lastNames = ['García', 'Pérez', 'Rodríguez', 'González', 'Martínez', 'López', 'Sánchez', 'Ramírez', 'Torres', 'Flores'];
-    final List<String> plates = List.generate(40, (i) => 'ABC-${1000 + i}');
-    final List<String> docTypes = ['SOAT', 'Tecnicomecánico', 'Póliza', 'Tarjeta de Operación'];
-
-    final List<_DocumentInfo> generated = [];
-
-    // Create many people with vehicle documents
-    for (int i = 0; i < 40; i++) {
-      final String ownerName = '${firstNames[rnd.nextInt(firstNames.length)]} ${lastNames[rnd.nextInt(lastNames.length)]}';
-      final String ownerId = 'p${i + 1}';
-      final String plate = plates[i % plates.length];
-      final int docsForOwner = 2 + rnd.nextInt(3); // 2..4 documents
-
-      for (int j = 0; j < docsForOwner; j++) {
-        final String type = docTypes[rnd.nextInt(docTypes.length)];
-        final int offsetDays = -120 + rnd.nextInt(480); // from -120 to +359 days
-        final DateTime expiry = now.add(Duration(days: offsetDays));
-        final DateTime payment = now.subtract(Duration(days: rnd.nextInt(180)));
-        final bool important = rnd.nextDouble() < 0.08; // some are important
-
-        generated.add(_DocumentInfo(
-          name: type,
-          expiryDate: expiry,
-          creationDate: rnd.nextBool() ? payment : null,
-          important: important,
-          category: type,
-          ownerId: ownerId,
-          ownerType: 'conductor',
-          ownerName: ownerName,
-          vehicleId: 'v${i + 1}',
-          vehiclePlate: plate,
-        ));
-      }
-    }
-
-    // Add a few company-level fleet documents
-    for (int k = 0; k < 8; k++) {
-      final int offset = 30 + k * 30;
-      generated.add(_DocumentInfo(
-        name: 'Póliza Flota #${k + 1}',
-        expiryDate: now.add(Duration(days: offset)),
-        creationDate: now.subtract(Duration(days: 30)),
-        important: k % 3 == 0,
-        category: 'Póliza',
-        ownerId: 'empresa',
-        ownerType: 'empresa',
-        ownerName: 'Mi Empresa',
-      ));
-    }
-
-    generated.sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-    return generated;
-  }
-
-  // Sample owner documents used for preview when there are no real owner documents
-  List<_DocumentInfo> _sampleOwnerDocs() {
-    final DateTime now = DateTime.now();
-    const String ownerId = 'prop-demo';
-    const String ownerName = 'Propietario Ejemplo';
-
-    final List<_DocumentInfo> docs = [];
-
-    // Personal documents
-    docs.addAll([
-      _DocumentInfo(
-        name: 'Cédula de ciudadanía',
-        expiryDate: now.add(const Duration(days: 45)),
-        important: false,
-        category: 'Identificación',
-        ownerId: ownerId,
-        ownerType: 'propietario',
-        ownerName: ownerName,
-      ),
-      _DocumentInfo(
-        name: 'Licencia de conducción',
-        expiryDate: now.add(const Duration(days: 365)),
-        important: false,
-        category: 'Licencia',
-        ownerId: ownerId,
-        ownerType: 'propietario',
-        ownerName: ownerName,
-      ),
-      _DocumentInfo(
-        name: 'Certificado médico',
-        expiryDate: now.subtract(const Duration(days: 10)), // already expired
-        important: true,
-        category: 'Salud',
-        ownerId: ownerId,
-        ownerType: 'propietario',
-        ownerName: ownerName,
-      ),
-      _DocumentInfo(
-        name: 'Registro RUT',
-        expiryDate: now.add(const Duration(days: 210)),
-        important: false,
-        category: 'Registro',
-        ownerId: ownerId,
-        ownerType: 'propietario',
-        ownerName: ownerName,
-      ),
-    ]);
-
-    // Reemplazamos documentos de vehículo por documentos personales/descriptivos
-    docs.addAll([
-      _DocumentInfo(
-        name: 'Registro Único Tributario (RUT) #0123456789',
-        expiryDate: now.add(const Duration(days: 210)),
-        important: false,
-        category: 'Registro',
-        ownerId: ownerId,
-        ownerType: 'propietario',
-        ownerName: ownerName,
-      ),
-      _DocumentInfo(
-        name: 'Certificado de afiliación EPS',
-        expiryDate: now.add(const Duration(days: 365)),
-        category: 'Salud',
-        ownerId: ownerId,
-        ownerType: 'propietario',
-        ownerName: ownerName,
-      ),
-      _DocumentInfo(
-        name: 'Certificado médico ocupacional',
-        expiryDate: now.subtract(const Duration(days: 10)),
-        important: true,
-        category: 'Salud',
-        ownerId: ownerId,
-        ownerType: 'propietario',
-        ownerName: ownerName,
-      ),
-      _DocumentInfo(
-        name: 'Licencia de conducción - Categoría B',
-        expiryDate: now.add(const Duration(days: 365)),
-        category: 'Licencia',
-        ownerId: ownerId,
-        ownerType: 'propietario',
-        ownerName: ownerName,
-      ),
-    ]);
-
-    // A few extra miscellaneous docs to stress-test the UI
-    for (int k = 0; k < 6; k++) {
-      docs.add(_DocumentInfo(
-        name: 'Documento extra #${k + 1}',
-        expiryDate: now.add(Duration(days: 5 + k * 12 - (k % 2 == 0 ? 30 : 0))),
-        important: k % 3 == 0,
-        category: k % 2 == 0 ? 'General' : 'Otro',
-        ownerId: ownerId,
-        ownerType: 'propietario',
-        ownerName: ownerName,
-      ));
-    }
-
-    docs.sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-    return docs;
   }
 
   @override
@@ -598,135 +431,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildDocumentStrip({required bool isCompact, List<_DocumentInfo>? docs, bool showIcon = false, Color? overrideStart, Color? overrideEnd, bool forceColor = false}) {
-    final List<_DocumentInfo> items = docs ?? _documents;
-    final double cardWidth = isCompact ? 170 : 190;
-    return SizedBox(
-      height: isCompact ? 140 : 160,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 16),
-        itemBuilder: (context, index) {
-          final _DocumentInfo doc = items[index];
-          final bool isNearExpiry = doc.isNearExpiry || doc.isExpired;
-          final bool highlight = doc.important || isNearExpiry;
-
-            final bool useOverride = forceColor && overrideStart != null && overrideEnd != null;
-            final Color startColor = useOverride
-              ? overrideStart
-              : (highlight ? const Color(0xFFFF6B6B) : (overrideStart ?? _accentColor));
-            final Color endColor = useOverride
-              ? overrideEnd
-              : (highlight ? const Color(0xFFFF8E53) : (overrideEnd ?? _accentColor.withValues(alpha: 0.7)));
-
-          return GestureDetector(
-            onTap: () => _openModal(doc),
-            child: Container(
-              width: cardWidth,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(
-                  colors: [startColor, endColor],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
-                    blurRadius: 16,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      if (showIcon) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: Icon(Icons.description, color: Colors.white70, size: isCompact ? 16 : 18),
-                        ),
-                      ],
-                      Expanded(
-                        child: Text(
-                          doc.name,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: isCompact ? 13 : 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (doc.important)
-                        const Icon(Icons.push_pin, color: Colors.white, size: 16)
-                      else
-                        const Icon(Icons.chevron_right, color: Colors.white, size: 18),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    doc.isExpired ? 'Vencido' : '${doc.daysRemaining.clamp(0, 999)} días restantes',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: isCompact ? 12 : 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          doc.vehiclePlate.isNotEmpty ? doc.vehiclePlate : doc.ownerName,
-                          style: TextStyle(color: Colors.white70, fontSize: isCompact ? 11 : 12),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        doc.category,
-                        style: TextStyle(color: Colors.white60, fontSize: isCompact ? 10 : 11),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                  if (doc.creationDate != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'Creado: ${_formatDate(doc.creationDate!)}',
-                      style: TextStyle(color: Colors.white60, fontSize: isCompact ? 10 : 11),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'Creado: -',
-                      style: TextStyle(color: Colors.white60, fontSize: isCompact ? 10 : 11),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 
@@ -1304,11 +1008,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
       // _documents is already filtered by userId in _loadDocuments(), so use it directly
       // Don't re-filter by ownerType since it's determined by API response field population
       List<_DocumentInfo> ownerDocs = _documents;
-
-      final int totalDocs = 6;
-      final int completedDocs = ownerDocs.length;
-      final double progress = (completedDocs / (totalDocs <= 0 ? 1 : totalDocs)).clamp(0.0, 1.0);
-      final Color barColor = progress >= 1 ? const Color(0xFF16C79A) : const Color(0xFFFF8E53);
 
       // Próximos documentos a vencer (top 3)
       final List<_DocumentInfo> upcomingDocs = ownerDocs
