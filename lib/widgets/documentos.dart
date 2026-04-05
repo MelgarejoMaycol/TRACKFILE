@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/document_service.dart';
 import 'document_modal.dart';
@@ -62,8 +60,6 @@ class _DocumentInfo {
   bool get isExpired => daysRemaining < 0;
 }
 
-enum _EmpresaFilter { all, important, nearExpiry, expired, paid }
-
 class _DocumentosWidgetState extends State<DocumentosWidget> {
   static const Color _accentColor = Color(0xFF4F4CE8);
   static const Color _chipBorderColor = Color(0xFF6B68F1);
@@ -75,11 +71,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
   List<_DocumentInfo> _documents = const [];
   final List<Map<String, String>> _vehicles = [];
   // Quick search UI state
-  final List<String> _quickDocTypes = ['Personal', 'Tecnicomecánico', 'Licencia', 'Póliza', 'SOAT'];
-  String _selectedQuickType = 'Personal';
   final TextEditingController _empresaSearchController = TextEditingController();
-  List<_DocumentInfo> _quickResults = [];
-  bool _showQuickResults = false;
 
   @override
   void initState() {
@@ -1017,18 +1009,9 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
 
   // --- Empresa documents panel (search, filters, highlighting) ---
 
-  final _EmpresaFilter _selectedEmpresaFilter = _EmpresaFilter.all;
   String _empresaSearch = '';
   String _propietarioSearch = '';
   String _conductorSearch = '';
-  bool _empresaSortAscending = true;
-
-  // Additional filters
-  final String _selectedDocType = 'Todos';
-  final String _selectedPerson = 'Todos';
-
-  // Date range filter for empresa view
-  DateTimeRange? _selectedDateRange;
 
   // Vehicle-related document keywords (used to restrict docs for company view)
   static const List<String> _vehicleDocKeywords = [
@@ -1068,8 +1051,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
       return {'start': const Color(0xFF16A34A), 'end': const Color(0xFF22C55E)};
     }
   }
-
-  bool _groupByPerson = false; // toggle to group documents by owner
 
   Widget _empresaDocumentos() { 
     return LayoutBuilder(
@@ -1310,24 +1291,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     return list;
   }
 
-  void _performQuickSearch() {
-    // Quick search by selected type only (no typing). Show documents grouped by person.
-    final String selected = _selectedQuickType.trim();
-    List<_DocumentInfo> candidates = _documents.where((d) => d.ownerType == 'conductor' || d.ownerType == 'propietario').toList();
 
-    final List<_DocumentInfo> results = candidates.where((d) {
-      if (selected == 'Personal') return true; // all personal documents
-      return d.category.toLowerCase().contains(selected.toLowerCase());
-    }).toList();
-
-    results.sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-
-    setState(() {
-      _quickResults = results;
-      _showQuickResults = true;
-      _groupByPerson = true;
-    });
-  }
 
   Widget _propietarioDocumentos() {
   // Helper to detect vehicle-related documents (re-using empresa helper logic)
