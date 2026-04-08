@@ -750,6 +750,88 @@ class DocumentService {
     }
   }
 
+  /// Obtiene todos los vehículos de la empresa
+  static Future<List<Map<String, dynamic>>> getVehiculos({String? token}) async {
+    try {
+      final headers = _buildHeaders(token);
+      final url = Uri.parse('$_baseUrl/api/vehiculos');
+      
+      debugPrint('🚗 [getVehiculos] Obteniendo todos los vehículos desde: $url');
+      
+      final response = await http
+          .get(url, headers: headers)
+          .timeout(const Duration(seconds: 20));
+
+      debugPrint('🚗 [getVehiculos] Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        debugPrint('🚗 [getVehiculos] Decoded type: ${decoded.runtimeType}');
+        
+        if (decoded is List) {
+          debugPrint('✅ [getVehiculos] Retornando ${decoded.length} vehículos');
+          return List<Map<String, dynamic>>.from(
+            decoded.map((item) => item is Map<String, dynamic> ? item : <String, dynamic>{}),
+          );
+        } else if (decoded is Map && decoded['data'] is List) {
+          final result = List<Map<String, dynamic>>.from(
+            (decoded['data'] as List).map((item) => item is Map<String, dynamic> ? item : <String, dynamic>{}),
+          );
+          debugPrint('✅ [getVehiculos] Retornando ${result.length} vehículos (con envolvente data)');
+          return result;
+        }
+      } else if (response.statusCode == 500) {
+        debugPrint('🔴 [getVehiculos] ERROR 500');
+      } else {
+        debugPrint('❌ [getVehiculos] Error ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('❌ [getVehiculos] Excepción: $e');
+    }
+    return [];
+  }
+
+  /// Obtiene documentos próximos a vencer con filtro de días
+  static Future<List<Map<String, dynamic>>> getDocumentosProximosAVencer({
+    int diasMaximos = 30,
+    String? token,
+  }) async {
+    try {
+      final headers = _buildHeaders(token);
+      final url = Uri.parse('$_baseUrl/api/documentos/tabla?diasMaximos=$diasMaximos');
+      
+      debugPrint('📄 [getDocumentosProximosAVencer] Obteniendo documentos que vencen en $diasMaximos días');
+      
+      final response = await http
+          .get(url, headers: headers)
+          .timeout(const Duration(seconds: 20));
+
+      debugPrint('📄 [getDocumentosProximosAVencer] Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        
+        if (decoded is List) {
+          debugPrint('✅ [getDocumentosProximosAVencer] Retornando ${decoded.length} documentos');
+          return List<Map<String, dynamic>>.from(
+            decoded.map((item) => item is Map<String, dynamic> ? item : <String, dynamic>{}),
+          );
+        } else if (decoded is Map && decoded['data'] is List) {
+          final result = List<Map<String, dynamic>>.from(
+            (decoded['data'] as List).map((item) => item is Map<String, dynamic> ? item : <String, dynamic>{}),
+          );
+          debugPrint('✅ [getDocumentosProximosAVencer] Retornando ${result.length} documentos (con envolvente data)');
+          return result;
+        }
+      } else {
+        debugPrint('❌ [getDocumentosProximosAVencer] Error ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('❌ [getDocumentosProximosAVencer] Excepción: $e');
+    }
+    return [];
+  }
+
   /// Obtiene File object desde diferentes plataformas
   static Future<File?> _getFile(String filePath) async {
     if (filePath.isEmpty) return null;

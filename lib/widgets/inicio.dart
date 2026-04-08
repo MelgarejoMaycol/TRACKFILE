@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'document_modal.dart';
+import '../services/api_service.dart';
 
 class InicioWidget extends StatefulWidget {
   final String? role;
@@ -39,9 +40,10 @@ class _InicioWidgetState extends State<InicioWidget> {
   Map<String, DateTime>? _paymentDates;
   bool _isLoading = true;
   List<Map<String, dynamic>> _fleetVehicles = [];
+  List<Map<String, dynamic>> _propietarios = [];
   Map<String, String> _documentVehicle = {};
   Map<String, dynamic> _summaryMetrics = {};
-  List<Map<String, dynamic>> _alerts = [];
+  final List<Map<String, dynamic>> _alerts = [];
   
   // User profile data
   String _userName = 'Usuario';
@@ -69,95 +71,159 @@ class _InicioWidgetState extends State<InicioWidget> {
   }
 
   Future<void> _loadDocuments() async {
-    final Map<String, DateTime> docs = Map<String, DateTime>.from(_documents);
-    final Map<String, DateTime> payments = <String, DateTime>{};
+    final Map<String, DateTime> docs = <String, DateTime>{};
     final Map<String, String> docDetails = <String, String>{};
     List<Map<String, dynamic>> fleet = [];
     Map<String, dynamic> summary = {};
-    List<Map<String, dynamic>> alerts = [];
 
-    if (widget.jsonPath != null && widget.jsonPath!.isNotEmpty) {
-      try {
-        final String raw = await rootBundle.loadString(widget.jsonPath!);
-        final dynamic decoded = json.decode(raw);
-        if (decoded is Map<String, dynamic>) {
-          summary = decoded['summary'] is Map
-              ? Map<String, dynamic>.from(decoded['summary'] as Map)
-              : {};
+    try {
+      // Cargar documentos según el rol del usuario
+      switch (_role.toLowerCase()) {
+        case 'empresa':
+          // Empresa: obtener documentos de TODOS los vehículos
+          final backendDocs = await ApiService.getDocumentosEmpresa();
+          _processDocuments(backendDocs, docs, docDetails);
+          
+          // Cargar vehículos para mostrar en flota
+          final vehiculos = await ApiService.getVehiculos();
+          fleet = _processVehiculos(vehiculos);
+          
+          // Cargar propietarios ligados a la empresa
+          final propietarios = await ApiService.getPropietarios();
+          
+          // Calcular resumen
+          final conductores = await ApiService.getConductores();
+          final vencidos = await ApiService.getDocumentosVencidos();
+          summary = {
+            'fleetSize': vehiculos.length,
+            'activeDrivers': conductores.length,
+            'documentsExpired': vencidos.length,
+          };
+          
+          // Guardar propietarios en el estado
+          if (mounted) {
+            setState(() {
+              _propietarios = propietarios;
+            });
+          }
+          
+          debugPrint('✅ EMPRESA: ${backendDocs.length} documentos, ${vehiculos.length} vehículos, ${propietarios.length} propietarios');
+          break;
 
-          final List<dynamic> docList = decoded['documents'] is List
-              ? decoded['documents'] as List
-              : const [];
-          for (final dynamic entry in docList) {
-            if (entry is! Map) continue;
-            final map = entry.map((key, value) => MapEntry(key.toString(), value));
-            final String? name = map['name']?.toString();
-            if (name == null || name.isEmpty) continue;
-            final DateTime? expiry = DateTime.tryParse(map['expiryDate']?.toString() ?? '');
-            if (expiry != null) {
-              docs[name] = expiry;
-            }
-            final DateTime? payment = DateTime.tryParse(map['paymentDate']?.toString() ?? '');
-            if (payment != null) {
-              payments[name] = payment;
-            }
-
-            final String category = map['category']?.toString() ?? '';
-            final String responsible = map['responsible']?.toString() ?? '';
-            final String detail = [category, responsible]
-                .where((part) => part.isNotEmpty)
-                .join(' · ');
-            if (detail.isNotEmpty) {
-              docDetails[name] = detail;
+        case 'conductor':
+        case 'propietario':
+        case 'secretaria':
+          // Para otros roles, obtener su usuario actual y sus documentos
+          final usuario = await ApiService.getUsuarioActual();
+          if (usuario != null) {
+            final usuarioId = usuario['id'] ?? usuario['idUsuario'];
+            if (usuarioId != null) {
+              final backendDocs = await ApiService.getDocumentos(
+                userId: usuarioId.toString(),
+              );
+              _processDocuments(backendDocs, docs, docDetails);
+              debugPrint('✅ ${_role.toUpperCase()}: ${backendDocs.length} documentos cargados');
             }
           }
+          break;
 
-          final List<dynamic> vehicleList = decoded['vehicles'] is List
-              ? decoded['vehicles'] as List
-              : const [];
-          fleet = vehicleList
-              .whereType<Map>()
-              .map((vehicle) => vehicle.map((key, value) => MapEntry(key.toString(), value)))
-              .map((map) {
-                final DateTime? nextExpiry = DateTime.tryParse(map['nextExpiry']?.toString() ?? '');
-                final DateTime? lastService = DateTime.tryParse(map['lastService']?.toString() ?? '');
-                return {
-                  ...map,
-                  'nextExpiry': nextExpiry,
-                  'lastService': lastService,
-                };
-              })
-              .toList();
+        case 'admin':
+          // Admin: puede ver documentos de todas las empresas
+          final backendDocs = await ApiService.getDocumentosEmpresa();
+          _processDocuments(backendDocs, docs, docDetails);
+          debugPrint('✅ ADMIN: ${backendDocs.length} documentos cargados');
+          break;
 
-          final List<dynamic> alertList = decoded['alerts'] is List
-              ? decoded['alerts'] as List
-              : const [];
-          alerts = alertList
-              .whereType<Map>()
-              .map((alert) => alert.map((key, value) => MapEntry(key.toString(), value)))
-              .toList();
-        }
-      } catch (e) {
-        debugPrint('Error cargando dashboard desde ${widget.jsonPath}: $e');
+        default:
+          debugPrint('⚠️ Rol no reconocido: $_role');
+          break;
       }
-    }
-
-    if (docs.isEmpty) {
-      docs.addAll(_exampleDocuments());
-    }
-    if (fleet.isEmpty) {
-      fleet = _mockFleetVehicles();
+    } catch (e) {
+      debugPrint('⚠️ Error al cargar documentos: $e');
     }
 
     if (!mounted) return;
     setState(() {
       _documents = docs;
-      _paymentDates = payments.isNotEmpty ? payments : null;
       _documentVehicle = docDetails;
       _fleetVehicles = fleet;
       _summaryMetrics = summary;
-      _alerts = alerts;
     });
+  }
+
+  /// Procesa una lista de documentos del backend
+  void _processDocuments(
+    List<Map<String, dynamic>> backendDocs,
+    Map<String, DateTime> docs,
+    Map<String, String> docDetails,
+  ) {
+    for (final doc in backendDocs) {
+      final String? nombre = doc['nombre']?.toString();
+      final String tipoNombre = doc['tipoDocumento']?['nombre']?.toString() ?? 'Documento';
+      final displayName = nombre ?? tipoNombre;
+
+      // Parsear fecha de vencimiento
+      final String? vencimientoStr = doc['fechaVencimiento']?.toString();
+      if (vencimientoStr != null && vencimientoStr.isNotEmpty) {
+        final vencimiento = DateTime.tryParse(vencimientoStr);
+        if (vencimiento != null) {
+          docs[displayName] = vencimiento;
+        }
+      }
+
+      // Construir detalles
+      final String area = doc['area']?.toString() ?? '';
+      final String responsable = doc['responsableUsuario']?['nombre']?.toString() ?? '';
+      final String vehiculoPlaca = doc['vehiculo']?['placa']?.toString() ?? '';
+
+      final List<String> detailParts = [];
+      if (area.isNotEmpty) detailParts.add(area);
+      if (responsable.isNotEmpty) detailParts.add(responsable);
+      if (vehiculoPlaca.isNotEmpty) detailParts.add('Placa: $vehiculoPlaca');
+
+      if (detailParts.isNotEmpty) {
+        docDetails[displayName] = detailParts.join(' · ');
+      }
+    }
+  }
+
+  /// Procesa vehículos del backend para mostrar en flota
+  List<Map<String, dynamic>> _processVehiculos(List<Map<String, dynamic>> vehiculos) {
+    return vehiculos
+        .map((vehiculo) {
+          final DateTime? nextExpiry = _calculateNextExpiry(vehiculo);
+          return {
+            'id': vehiculo['idVehiculo'] ?? vehiculo['id'],
+            'plate': vehiculo['placa']?.toString() ?? 'N/A',
+            'model': '${vehiculo['marca']?.toString() ?? ''} ${vehiculo['modelo']?.toString() ?? ''}'.trim(),
+            'driver': vehiculo['nombreConductor']?.toString() 
+                ?? vehiculo['conductor']?['nombre']?.toString()
+                ?? 'No asignado',
+            'status': vehiculo['estadoVehiculo']?.toString() ?? 'ACTIVO',
+            'nextExpiry': nextExpiry ?? DateTime.now().add(const Duration(days: 30)),
+            'lastService': DateTime.now().subtract(const Duration(days: 30)),
+            'mileage': vehiculo['kilometrajeActual'] ?? 0,
+            'color': vehiculo['color']?.toString() ?? '',
+          };
+        })
+        .toList();
+  }
+
+  /// Calcula el próximo vencimiento de documentos para un vehículo
+  DateTime? _calculateNextExpiry(Map<String, dynamic> vehiculo) {
+    DateTime? earliest;
+    final docs = vehiculo['documentos'] as List?;
+    if (docs != null) {
+      for (final doc in docs) {
+        if (doc is Map) {
+          final venc = DateTime.tryParse(doc['fechaVencimiento']?.toString() ?? '');
+          if (venc != null && (earliest == null || venc.isBefore(earliest))) {
+            earliest = venc;
+          }
+        }
+      }
+    }
+    return earliest;
   }
 
   Future<void> _loadUserProfile() async {
@@ -263,49 +329,6 @@ class _InicioWidgetState extends State<InicioWidget> {
     } catch (e) {
       return false;
     }
-  }
-
-  Map<String, DateTime> _exampleDocuments() {
-    final now = DateTime.now();
-    return {
-      'SOAT': now.add(const Duration(days: 12)),
-      'Tecno': now.add(const Duration(days: 45)),
-      'Matricula': now.add(const Duration(days: 80)),
-      'Seguro': now.add(const Duration(days: 200)),
-    };
-  }
-
-  List<Map<String, dynamic>> _mockFleetVehicles() {
-    final now = DateTime.now();
-    return [
-      {
-        'plate': 'ABC-123',
-        'model': 'Chevrolet NHR 2023',
-        'driver': 'Donal Glover',
-        'status': 'Al día',
-        'nextExpiry': now.add(const Duration(days: 25)),
-        'lastService': now.subtract(const Duration(days: 40)),
-        'mileage': 54000,
-      },
-      {
-        'plate': 'JKL-456',
-        'model': 'Hino Dutro 2021',
-        'driver': 'María González',
-        'status': 'Documentos pendientes',
-        'nextExpiry': now.add(const Duration(days: 10)),
-        'lastService': now.subtract(const Duration(days: 70)),
-        'mileage': 68500,
-      },
-      {
-        'plate': 'MNO-789',
-        'model': 'Foton BJ 2020',
-        'driver': 'Disponible',
-        'status': 'En mantenimiento',
-        'nextExpiry': now.add(const Duration(days: 60)),
-        'lastService': now.subtract(const Duration(days: 12)),
-        'mileage': 41200,
-      },
-    ];
   }
 
   String _formatDate(DateTime date) {
@@ -944,8 +967,9 @@ class _InicioWidgetState extends State<InicioWidget> {
       ?? _documents.entries.where((entry) => entry.value.isBefore(now)).length;
     final int maintenanceScheduled = (_summaryMetrics['maintenanceScheduled'] as num?)?.toInt() ?? 0;
     final int certificateRequests = (_summaryMetrics['certificateRequests'] as num?)?.toInt() ?? _alerts.length;
+    final int totalPropietarios = _propietarios.length;
 
-    final List<MapEntry<String, DateTime>> upcomingDocs = _upcomingDocs(limit: 4);
+    final List<MapEntry<String, DateTime>> upcomingDocs = _upcomingDocs(limit: 3);
 
     final VoidCallback documentsTap = widget.onNavigateToDocuments ?? () => _showNavigationFallback('Documentos');
 
@@ -992,6 +1016,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                     children: [
                       _buildSummaryChip(Icons.apartment_rounded, '$fleetSize vehículos', 'Flota total'),
                       _buildSummaryChip(Icons.badge_rounded, '$totalDrivers conductores', 'Activos hoy'),
+                      _buildSummaryChip(Icons.person_rounded, '$totalPropietarios propietarios', 'Ligados'),
                       _buildSummaryChip(Icons.warning_amber_rounded, '$documentsExpired vencidos', 'Documentos vencidos'),
                       _buildSummaryChip(Icons.build_circle_rounded, '$maintenanceScheduled mantenimientos', 'Programados'),
                       _buildSummaryChip(Icons.assignment_turned_in_rounded, '$certificateRequests solicitudes', 'Certificados'),
