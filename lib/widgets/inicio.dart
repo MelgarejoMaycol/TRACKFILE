@@ -112,26 +112,109 @@ class _InicioWidgetState extends State<InicioWidget> {
           break;
 
         case 'conductor':
-        case 'propietario':
-        case 'secretaria':
-          // Para otros roles, obtener su usuario actual y sus documentos
-          final usuario = await ApiService.getUsuarioActual();
-          if (usuario != null) {
-            final usuarioId = usuario['id'] ?? usuario['idUsuario'];
-            if (usuarioId != null) {
-              final backendDocs = await ApiService.getDocumentos(
-                userId: usuarioId.toString(),
-              );
-              _processDocuments(backendDocs, docs, docDetails);
-              debugPrint('✅ ${_role.toUpperCase()}: ${backendDocs.length} documentos cargados');
+          // Conductor: datos propios + vehículos asignados
+          // Cargar documentos de la empresa (ya están filtrados por empresa en backend)
+          final backendDocs = await ApiService.getDocumentosEmpresa();
+          _processDocuments(backendDocs, docs, docDetails);
+          
+          // Vehículos asignados al conductor
+          try {
+            final vehiculos = await ApiService.getVehiculos();
+            if (vehiculos.isNotEmpty) {
+              fleet = _processVehiculos(vehiculos);
             }
+          } catch (e) {
+            debugPrint('⚠️ Error al cargar vehículos del conductor: $e');
           }
+          
+          // Calcular resumen
+          final vencidosCond = backendDocs.where((doc) {
+            final fecha = doc['fechaVencimiento'];
+            if (fecha == null) return false;
+            final vencimiento = DateTime.tryParse(fecha.toString());
+            return vencimiento != null && vencimiento.isBefore(DateTime.now());
+          }).length;
+          
+          final proximosCond = backendDocs.where((doc) {
+            final fecha = doc['fechaVencimiento'];
+            if (fecha == null) return false;
+            final vencimiento = DateTime.tryParse(fecha.toString());
+            if (vencimiento == null) return false;
+            final diff = vencimiento.difference(DateTime.now()).inDays;
+            return diff > 0 && diff <= 30;
+          }).length;
+          
+          summary = {
+            'assignedVehicles': fleet.length,
+            'myDocuments': backendDocs.length,
+            'expiredDocuments': vencidosCond,
+            'expiringInDays': proximosCond,
+          };
+          
+          debugPrint('✅ CONDUCTOR: ${backendDocs.length} documentos, ${fleet.length} vehículos');
+          break;
+
+        case 'propietario':
+          // Propietario: documentos de la empresa (ya están filtrados por empresa en backend)
+          final backendDocsP = await ApiService.getDocumentosEmpresa();
+          _processDocuments(backendDocsP, docs, docDetails);
+          
+          // Vehículos del propietario
+          try {
+            final vehiculos = await ApiService.getVehiculos();
+            if (vehiculos.isNotEmpty) {
+              fleet = _processVehiculos(vehiculos);
+            }
+          } catch (e) {
+            debugPrint('⚠️ Error al cargar vehículos del propietario: $e');
+          }
+          
+          // Calcular resumen
+          final vencidosProp = backendDocsP.where((doc) {
+            final fecha = doc['fechaVencimiento'];
+            if (fecha == null) return false;
+            final vencimiento = DateTime.tryParse(fecha.toString());
+            return vencimiento != null && vencimiento.isBefore(DateTime.now());
+          }).length;
+          
+          final proximosAvencerProp = backendDocsP.where((doc) {
+            final fecha = doc['fechaVencimiento'];
+            if (fecha == null) return false;
+            final vencimiento = DateTime.tryParse(fecha.toString());
+            if (vencimiento == null) return false;
+            final diff = vencimiento.difference(DateTime.now()).inDays;
+            return diff > 0 && diff <= 30;
+          }).length;
+          
+          summary = {
+            'myVehicles': fleet.length,
+            'myDocuments': backendDocsP.length,
+            'expiredDocuments': vencidosProp,
+            'expiringInDays': proximosAvencerProp,
+          };
+          
+          debugPrint('✅ PROPIETARIO: ${backendDocsP.length} documentos, ${fleet.length} vehículos');
+          break;
+
+        case 'secretaria':
+          // Secretaria: documentos de la empresa (ya están filtrados por empresa en backend)
+          final backendDocsS = await ApiService.getDocumentosEmpresa();
+          _processDocuments(backendDocsS, docs, docDetails);
+          debugPrint('✅ SECRETARIA: ${backendDocsS.length} documentos cargados');
           break;
 
         case 'admin':
           // Admin: puede ver documentos de todas las empresas
           final backendDocs = await ApiService.getDocumentosEmpresa();
           _processDocuments(backendDocs, docs, docDetails);
+          final vehiculos = await ApiService.getVehiculos();
+          fleet = _processVehiculos(vehiculos);
+          final vencidos = await ApiService.getDocumentosVencidos();
+          summary = {
+            'totalDocuments': backendDocs.length,
+            'totalVehicles': vehiculos.length,
+            'documentsExpired': vencidos.length,
+          };
           debugPrint('✅ ADMIN: ${backendDocs.length} documentos cargados');
           break;
 
@@ -509,132 +592,158 @@ class _InicioWidgetState extends State<InicioWidget> {
 
   Widget _conductorInicio() {
     final int totalVehicles = _fleetVehicles.length;
+    final int myDocuments = _documents.length;
+    final int docsExpired = _documents.entries
+        .where((entry) => entry.value.isBefore(DateTime.now()))
+        .length;
     final int docsExpiringSoon = _documents.entries
-        .where((entry) => entry.value.isBefore(DateTime.now().add(const Duration(days: 30))))
+        .where((entry) => entry.value.isBefore(DateTime.now().add(const Duration(days: 30))) && 
+                           entry.value.isAfter(DateTime.now()))
         .length;
     final List<Map<String, dynamic>> vehiclesToShow = _fleetVehicles.take(3).toList();
-    final List<MapEntry<String, DateTime>> upcoming = _upcomingDocs(limit: 3);
+    final List<MapEntry<String, DateTime>> upcomingDocs = _upcomingDocs(limit: 5);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool isCompact = constraints.maxWidth < 480;
-        final double imageHeight = isCompact ? 160 : 200;
-        final EdgeInsets outerPadding = EdgeInsets.symmetric(
-          horizontal: isCompact ? 16 : 20,
-          vertical: 20,
-        );
+    // Debug
+    debugPrint('📊 CONDUCTOR PANEL: Documents=${_documents.length}, Vehicles=${_fleetVehicles.length}, Summary=$_summaryMetrics');
 
-        return SingleChildScrollView(
-          padding: outerPadding,
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 540),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      width: double.infinity,
-                      height: imageHeight,
-                      color: Colors.transparent,
-                      child: Image.asset(
-                        'assets/vehicles.webp',
-                        fit: BoxFit.contain,
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 540),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Banner
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: double.infinity,
+                    height: 200,
+                    color: Colors.transparent,
+                    child: Image.asset(
+                      'assets/vehicles.webp',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Título
+                const Text(
+                  'Panel Conductor',
+                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Resumen de tus asignaciones y documentos.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 20),
+                // Chips de resumen
+                Align(
+                  alignment: Alignment.center,
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _buildSummaryChip(Icons.directions_car, '$totalVehicles vehículos', 'Asignados'),
+                      _buildSummaryChip(Icons.description_rounded, '$myDocuments documentos', 'Personales'),
+                      _buildSummaryChip(Icons.warning_amber_rounded, '$docsExpired vencidos', 'Expirados'),
+                      _buildSummaryChip(Icons.schedule_rounded, '$docsExpiringSoon próximos', 'Próximos 30 días'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 26),
+                // Documentos próximos a vencer
+                if (upcomingDocs.isNotEmpty) ...[
+                  const Text(
+                    'Tus documentos próximos a vencer',
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDocumentCountdownGrid(upcomingDocs),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.center,
+                    child: TextButton.icon(
+                      onPressed: widget.onNavigateToDocuments,
+                      icon: const Icon(Icons.folder_copy_rounded, color: Color(0xFF16C79A)),
+                      label: const Text('Ver todos tus documentos', style: TextStyle(color: Color(0xFF16C79A))),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                ] else ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Center(
+                      child: Text(
+                        'No hay documentos registrados',
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                     ),
                   ),
-                  SizedBox(height: isCompact ? 12 : 16),
-                  const Text(
-                    'Panel Conductor',
-                    style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Resumen de asignaciones, documentos y próximos vencimientos.',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 20),
-                  Align(
-                    alignment: Alignment.center,
-                    child: Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      alignment: WrapAlignment.center,
-                      children: [
-                        _buildSummaryChip(Icons.directions_car, '$totalVehicles vehículos', 'Asignados'),
-                        _buildSummaryChip(Icons.warning_amber_rounded, '$docsExpiringSoon vencimientos', 'Próximos 30 días'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  if (upcoming.isNotEmpty) ...[
-                    const Text(
-                      'Documentos próximos a vencer',
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildDocumentCountdownGrid(upcoming),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        TextButton.icon(
-                          onPressed: widget.onNavigateToDocuments,
-                          icon: const Icon(Icons.folder_copy, color: Color(0xFF16C79A)),
-                          label: const Text('Ver todos los documentos', style: TextStyle(color: Color(0xFF16C79A))),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+                  const SizedBox(height: 18),
+                ],
+                // Vehículos asignados
+                if (vehiclesToShow.isNotEmpty) ...[
                   const Text(
                     'Vehículos asignados',
                     style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
-                  if (vehiclesToShow.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white24),
-                      ),
-                      child: const Text('No hay vehículos asignados actualmente.', style: TextStyle(color: Colors.white70)),
-                    )
-                  else
-                    Align(
-                      alignment: Alignment.center,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 460),
-                        child: ListView.separated(
-                          itemCount: vehiclesToShow.length,
-                          physics: const NeverScrollableScrollPhysics(),
-                          shrinkWrap: true,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) => _buildVehicleCard(vehiclesToShow[index]),
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 20),
                   Align(
                     alignment: Alignment.center,
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 520),
-                      child: _buildUserProfile(isCompact: isCompact),
+                      constraints: const BoxConstraints(maxWidth: 460),
+                      child: ListView.separated(
+                        itemCount: vehiclesToShow.length,
+                        physics: const NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final vehicle = vehiclesToShow[index];
+                          return _buildVehicleCard(vehicle);
+                        },
+                      ),
+                    ),
+                  ),
+                  if (totalVehicles > 3) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.center,
+                      child: TextButton(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Ver todos los vehículos aún no está disponible.')),
+                          );
+                        },
+                        child: const Text('Ver todos los vehículos', style: TextStyle(color: Color(0xFF16C79A))),
+                      ),
+                    ),
+                  ],
+                ] else ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Center(
+                      child: Text(
+                        'No hay vehículos asignados',
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
                     ),
                   ),
                 ],
-              ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
+  // ignore: unused_element
   Widget _buildUserProfile({required bool isCompact}) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1151,14 +1260,16 @@ class _InicioWidgetState extends State<InicioWidget> {
 
   Widget _propietarioInicio() {
     final totalVehicles = _fleetVehicles.length;
-    final docsExpiringSoon = _documents.entries
-        .where((entry) => entry.value.isBefore(DateTime.now().add(const Duration(days: 30))))
+    final int myDocuments = _documents.length;
+    final int docsExpired = _documents.entries
+        .where((entry) => entry.value.isBefore(DateTime.now()))
+        .length;
+    final int docsExpiringSoon = _documents.entries
+        .where((entry) => entry.value.isBefore(DateTime.now().add(const Duration(days: 30))) && 
+                           entry.value.isAfter(DateTime.now()))
         .length;
     final vehiclesToShow = _fleetVehicles.take(3).toList();
-
-    final List<MapEntry<String, DateTime>> upcomingDocEntries = _documents.entries.toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
-    final List<MapEntry<String, DateTime>> limitedUpcoming = upcomingDocEntries.take(3).toList();
+    final List<MapEntry<String, DateTime>> upcomingDocs = _upcomingDocs(limit: 5);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(vertical: 20),
@@ -1170,6 +1281,7 @@ class _InicioWidgetState extends State<InicioWidget> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Banner
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
@@ -1183,77 +1295,104 @@ class _InicioWidgetState extends State<InicioWidget> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text('Panel Propietario', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                // Título
+                const Text(
+                  'Panel Propietario',
+                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 4),
-                const Text('Resumen de tu flota y próximos vencimientos.', style: TextStyle(color: Colors.white70)),
+                const Text(
+                  'Resumen de tu flota y documentos.',
+                  style: TextStyle(color: Colors.white70),
+                ),
                 const SizedBox(height: 20),
-                  Align(
-                    alignment: Alignment.center,
-                    child: Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      alignment: WrapAlignment.center,
-                      children: [
-                        _buildSummaryChip(Icons.directions_bus, '$totalVehicles vehículos', 'Activos registrados'),
-                        _buildSummaryChip(Icons.warning_amber_rounded, '$docsExpiringSoon vencimientos', 'Próximos 30 días'),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 24),
-                if (limitedUpcoming.isNotEmpty) ...[
-                  const Text('Documentos próximos a vencer', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 12),
-                  _buildDocumentCountdownGrid(limitedUpcoming),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      TextButton.icon(
-                        onPressed: _showDocumentsOverview,
-                        icon: const Icon(Icons.folder_copy, color: Color(0xFF16C79A)),
-                        label: const Text('Ver todos los documentos', style: TextStyle(color: Color(0xFF16C79A))),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                const Text('Vehículos asignados', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 12),
+                // Chips de resumen
                 Align(
                   alignment: Alignment.center,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 460),
-                    child: ListView.separated(
-                      itemCount: vehiclesToShow.length,
-                      physics: const NeverScrollableScrollPhysics(),
-                      shrinkWrap: true,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final vehicle = vehiclesToShow[index];
-                        return _buildVehicleCard(vehicle);
-                      },
-                    ),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _buildSummaryChip(Icons.directions_bus, '$totalVehicles vehículos', 'Activos registrados'),
+                      _buildSummaryChip(Icons.description_rounded, '$myDocuments documentos', 'Personales'),
+                      _buildSummaryChip(Icons.warning_amber_rounded, '$docsExpired vencidos', 'Expirados'),
+                      _buildSummaryChip(Icons.schedule_rounded, '$docsExpiringSoon próximos', 'Próximos 30 días'),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.directions_car, color: Colors.white),
-                      label: const Text('Ver todos los vehículos'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white24),
+                const SizedBox(height: 26),
+                // Sección de documentos próximos a vencer
+                if (upcomingDocs.isNotEmpty) ...[
+                  const Text('Tus documentos próximos a vencer', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 12),
+                  _buildDocumentCountdownGrid(upcomingDocs),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.center,
+                    child: TextButton.icon(
+                      onPressed: _showDocumentsOverview,
+                      icon: const Icon(Icons.folder_copy_rounded, color: Color(0xFF16C79A)),
+                      label: const Text('Ver todos tus documentos', style: TextStyle(color: Color(0xFF16C79A))),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                ] else ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Center(
+                      child: Text(
+                        'No hay documentos registrados',
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Ver todos los vehículos aún no está disponible.')),
-                        );
-                      },
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                ],
+                // Sección de vehículos
+                if (vehiclesToShow.isNotEmpty) ...[
+                  const Text('Vehículos asignados', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.center,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 460),
+                      child: ListView.separated(
+                        itemCount: vehiclesToShow.length,
+                        physics: const NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final vehicle = vehiclesToShow[index];
+                          return _buildVehicleCard(vehicle);
+                        },
+                      ),
+                    ),
+                  ),
+                  if (totalVehicles > 3) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.center,
+                      child: TextButton(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Ver todos los vehículos aún no está disponible.')),
+                          );
+                        },
+                        child: const Text('Ver todos los vehículos', style: TextStyle(color: Color(0xFF16C79A))),
+                      ),
                     ),
                   ],
-                ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Center(
+                      child: Text(
+                        'No hay vehículos asignados',
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
