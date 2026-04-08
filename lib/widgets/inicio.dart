@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'document_modal.dart';
+import 'shimmer_skeleton.dart';
 import '../services/api_service.dart';
 
 class InicioWidget extends StatefulWidget {
@@ -363,10 +364,90 @@ class _InicioWidgetState extends State<InicioWidget> {
     return entries.take(limit).toList();
   }
 
+  /// Construye el estado de carga con shimmer skeletons
+  Widget _buildLoadingState() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 820),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Banner imagen
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    width: double.infinity,
+                    height: 160,
+                    color: Colors.white.withValues(alpha: 0.06),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Título
+                ShimmerSkeleton(
+                  width: 150,
+                  height: 22,
+                  borderRadius: 8,
+                  margin: EdgeInsets.zero,
+                ),
+                const SizedBox(height: 6),
+                // Subtítulo
+                ShimmerSkeleton(
+                  width: double.infinity,
+                  height: 14,
+                  borderRadius: 8,
+                  margin: EdgeInsets.zero,
+                ),
+                const SizedBox(height: 20),
+                // Chips de resumen
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
+                  children: List.generate(
+                    6,
+                    (index) => const ShimmerSummaryChip(),
+                  ),
+                ),
+                const SizedBox(height: 26),
+                // Título documentos
+                ShimmerSkeleton(
+                  width: 250,
+                  height: 18,
+                  borderRadius: 8,
+                  margin: EdgeInsets.zero,
+                ),
+                const SizedBox(height: 12),
+                // Grid de documentos
+                Column(
+                  children: List.generate(
+                    3,
+                    (index) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: ShimmerSkeleton(
+                        width: double.infinity,
+                        height: 100,
+                        borderRadius: 12,
+                        margin: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildLoadingState();
     }
 
     if (_role.isEmpty) {
