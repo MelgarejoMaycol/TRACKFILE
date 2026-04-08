@@ -295,18 +295,65 @@ class _InicioWidgetState extends State<InicioWidget> {
     return vehiculos
         .map((vehiculo) {
           final DateTime? nextExpiry = _calculateNextExpiry(vehiculo);
+          
+          // Extraer nombre del conductor desde conductor.usuario.nombre/apellido
+          String driverName = 'No asignado';
+          if (vehiculo['conductor'] != null && vehiculo['conductor'] is Map) {
+            final conductor = vehiculo['conductor'] as Map;
+            if (conductor['usuario'] != null && conductor['usuario'] is Map) {
+              final usuario = conductor['usuario'] as Map;
+              final nombre = usuario['nombre']?.toString() ?? '';
+              final apellido = usuario['apellido']?.toString() ?? '';
+              if (nombre.isNotEmpty || apellido.isNotEmpty) {
+                driverName = '$nombre $apellido'.trim();
+              }
+            }
+          }
+          
+          // Extraer datos del propietario
+          String ownerName = 'Sin definir';
+          if (vehiculo['propietario'] != null && vehiculo['propietario'] is Map) {
+            final propietario = vehiculo['propietario'] as Map;
+            if (propietario['usuario'] != null && propietario['usuario'] is Map) {
+              final usuario = propietario['usuario'] as Map;
+              final nombre = usuario['nombre']?.toString() ?? '';
+              final apellido = usuario['apellido']?.toString() ?? '';
+              if (nombre.isNotEmpty || apellido.isNotEmpty) {
+                ownerName = '$nombre $apellido'.trim();
+              }
+            }
+          }
+          
+          // Extraer datos de la licencia del conductor
+          String licenseNumber = '';
+          String licenseCategory = '';
+          DateTime? licenseExpiry;
+          if (vehiculo['conductor'] != null && vehiculo['conductor'] is Map) {
+            final conductor = vehiculo['conductor'] as Map;
+            licenseNumber = conductor['licenciaConduccion']?.toString() ?? '';
+            licenseCategory = conductor['categoriaLicencia']?.toString() ?? '';
+            final expDate = conductor['fechaVencimientoLicencia'];
+            if (expDate != null) {
+              licenseExpiry = DateTime.tryParse(expDate.toString());
+            }
+          }
+          
           return {
             'id': vehiculo['idVehiculo'] ?? vehiculo['id'],
             'plate': vehiculo['placa']?.toString() ?? 'N/A',
             'model': '${vehiculo['marca']?.toString() ?? ''} ${vehiculo['modelo']?.toString() ?? ''}'.trim(),
-            'driver': vehiculo['nombreConductor']?.toString() 
-                ?? vehiculo['conductor']?['nombre']?.toString()
-                ?? 'No asignado',
+            'driver': driverName,
+            'owner': ownerName,
+            'year': vehiculo['anio']?.toString() ?? '',
+            'color': vehiculo['color']?.toString() ?? '',
+            'vin': vehiculo['vin']?.toString() ?? '',
+            'mileage': vehiculo['kilometrajeActual'] ?? 0,
             'status': vehiculo['estadoVehiculo']?.toString() ?? 'ACTIVO',
             'nextExpiry': nextExpiry ?? DateTime.now().add(const Duration(days: 30)),
             'lastService': DateTime.now().subtract(const Duration(days: 30)),
-            'mileage': vehiculo['kilometrajeActual'] ?? 0,
-            'color': vehiculo['color']?.toString() ?? '',
+            'licenseNumber': licenseNumber,
+            'licenseCategory': licenseCategory,
+            'licenseExpiry': licenseExpiry,
           };
         })
         .toList();
@@ -1561,7 +1608,13 @@ class _InicioWidgetState extends State<InicioWidget> {
 
 
   Widget _buildVehicleCard(Map<String, dynamic> vehicle) {
-    final DateTime? nextExpiry = vehicle['nextExpiry'] as DateTime?;
+    final String driverName = vehicle['driver'] as String;
+    final String ownerName = vehicle['owner'] as String;
+    final String yearStr = vehicle['year'] as String;
+    final String colorStr = vehicle['color'] as String;
+    final bool hasDriver = driverName.isNotEmpty && driverName.toLowerCase() != 'no asignado';
+    final bool hasYear = yearStr.isNotEmpty;
+    final bool hasColor = colorStr.isNotEmpty;
 
     Color statusColor;
     switch ((vehicle['status'] as String).toLowerCase()) {
@@ -1587,12 +1640,14 @@ class _InicioWidgetState extends State<InicioWidget> {
       padding: const EdgeInsets.all(14),
       child: Row(
         children: [
+          // Ícono de vehículo
           CircleAvatar(
             radius: 22,
-            backgroundColor: Colors.white12,
-            child: Text(
-              (vehicle['plate'] as String).split('-').first,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            backgroundColor: const Color(0xFF16C79A).withValues(alpha: 0.2),
+            child: const Icon(
+              Icons.directions_car_rounded,
+              color: Color(0xFF16C79A),
+              size: 24,
             ),
           ),
           const SizedBox(width: 12),
@@ -1600,6 +1655,7 @@ class _InicioWidgetState extends State<InicioWidget> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Placa y estado
                 Row(
                   children: [
                     Text(vehicle['plate'] as String, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -1618,12 +1674,34 @@ class _InicioWidgetState extends State<InicioWidget> {
                   ],
                 ),
                 const SizedBox(height: 6),
+                // Modelo
                 _buildVehicleInfoRow('Modelo', vehicle['model'] as String),
-                _buildVehicleInfoRow('Conductor', vehicle['driver'] as String),
-                if (nextExpiry != null)
+                // Propietario
+                _buildVehicleInfoRow('Propietario', ownerName),
+                // Conductor
+                if (hasDriver)
+                  _buildVehicleInfoRow('Conductor', driverName)
+                else
+                  _buildVehicleInfoRow('Conductor', 'Sin asignar'),
+                // Año y Color en una sola fila si están disponibles
+                if (hasYear || hasColor)
                   Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: _buildVehicleInfoRow('Próximo vencimiento', _formatDate(nextExpiry)),
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      children: [
+                        if (hasYear) ...[
+                          Expanded(
+                            child: _buildVehicleInfoRow('Año', yearStr),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        if (hasColor) ...[
+                          Expanded(
+                            child: _buildVehicleInfoRow('Color', colorStr),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
               ],
             ),
@@ -1631,21 +1709,12 @@ class _InicioWidgetState extends State<InicioWidget> {
           IconButton(
             icon: const Icon(Icons.open_in_new, color: Colors.white70, size: 20),
             onPressed: () {
-              if (nextExpiry != null) {
-                DocumentModal.show(
-                  context: context,
-                  documentName: 'Ficha vehículo ${vehicle['plate']}',
-                  expiryDate: nextExpiry,
-                  creationDate: null,
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('No hay documento asociado para ${vehicle['plate']}'),
-                    backgroundColor: const Color(0xFF16C79A),
-                  ),
-                );
-              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Detalle de ${vehicle['plate']} - $ownerName'),
+                  backgroundColor: const Color(0xFF16C79A),
+                ),
+              );
             },
           ),
         ],
