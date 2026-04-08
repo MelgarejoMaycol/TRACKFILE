@@ -158,23 +158,39 @@ class _InicioWidgetState extends State<InicioWidget> {
     Map<String, String> docDetails,
   ) {
     for (final doc in backendDocs) {
+      // Usar ID del documento como identificador único para evitar sobreescrituras
+      final dynamic docId = doc['idDocumento'] ?? doc['id_documento'] ?? doc['id'];
+      if (docId == null) {
+        debugPrint('⚠️ Documento sin ID, saltando');
+        continue;
+      }
+
       final String? nombre = doc['nombre']?.toString();
-      final String tipoNombre = doc['tipoDocumento']?['nombre']?.toString() ?? 'Documento';
+      final String tipoNombre = doc['nombreTipoDocumento']?.toString() 
+          ?? doc['tipoDocumento']?['nombre']?.toString() 
+          ?? 'Documento';
       final displayName = nombre ?? tipoNombre;
+
+      // Crear una clave única combinando tipo + nombre + id
+      final String uniqueKey = '$tipoNombre - $displayName (#$docId)';
 
       // Parsear fecha de vencimiento
       final String? vencimientoStr = doc['fechaVencimiento']?.toString();
       if (vencimientoStr != null && vencimientoStr.isNotEmpty) {
         final vencimiento = DateTime.tryParse(vencimientoStr);
         if (vencimiento != null) {
-          docs[displayName] = vencimiento;
+          docs[uniqueKey] = vencimiento;
         }
       }
 
       // Construir detalles
       final String area = doc['area']?.toString() ?? '';
-      final String responsable = doc['responsableUsuario']?['nombre']?.toString() ?? '';
-      final String vehiculoPlaca = doc['vehiculo']?['placa']?.toString() ?? '';
+      final String responsable = doc['nombreResponsable']?.toString() 
+          ?? doc['responsableUsuario']?['nombre']?.toString() 
+          ?? '';
+      final String vehiculoPlaca = doc['placa']?.toString() 
+          ?? doc['vehiculo']?['placa']?.toString() 
+          ?? '';
 
       final List<String> detailParts = [];
       if (area.isNotEmpty) detailParts.add(area);
@@ -182,9 +198,12 @@ class _InicioWidgetState extends State<InicioWidget> {
       if (vehiculoPlaca.isNotEmpty) detailParts.add('Placa: $vehiculoPlaca');
 
       if (detailParts.isNotEmpty) {
-        docDetails[displayName] = detailParts.join(' · ');
+        docDetails[uniqueKey] = detailParts.join(' · ');
       }
+
+      debugPrint('✅ Documento procesado: $uniqueKey, vencimiento: $vencimientoStr');
     }
+    debugPrint('📊 Total documentos procesados: ${docs.length}');
   }
 
   /// Procesa vehículos del backend para mostrar en flota
