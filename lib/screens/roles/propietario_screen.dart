@@ -130,24 +130,11 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       if (widget.userId != null && widget.userId!.isNotEmpty) {
         await _loadOwnerProfileFromBackend(widget.userId!);
       } else {
-        // Fallback a JSON local si no hay userId
-        await _loadOwnerProfileFromJson();
-      }
-    } catch (e) {
-      debugPrint('Error cargando datos de propietario: $e');
-      // Fallback a JSON si falla el backend
-      try {
-        await _loadOwnerProfileFromJson();
-      } catch (fallbackError) {
-        debugPrint('Error en fallback JSON: $fallbackError');
+        // Usar datos del constructor (datos reales del login)
         if (!mounted) return;
         setState(() {
-          if (_userName.isEmpty && widget.personName.isNotEmpty) {
-            _userName = widget.personName;
-          }
-          if (_userCompany.isEmpty && widget.companyName.isNotEmpty) {
-            _userCompany = widget.companyName;
-          }
+          _userName = widget.personName;
+          _userCompany = widget.companyName;
           _userProfileImage = null;
           _userEmail = null;
           _userPhone = null;
@@ -155,6 +142,19 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           _userDocument = null;
         });
       }
+    } catch (e) {
+      debugPrint('Error cargando datos de propietario: $e');
+      // Usar datos del constructor como fallback (datos reales del login)
+      if (!mounted) return;
+      setState(() {
+        _userName = widget.personName;
+        _userCompany = widget.companyName;
+        _userProfileImage = null;
+        _userEmail = null;
+        _userPhone = null;
+        _userAddress = null;
+        _userDocument = null;
+      });
     }
   }
 
@@ -198,75 +198,15 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           _userAddress = userData['direccion']?.toString();
           _userDocument = userData['numeroDocumento']?.toString();
           _userProfileImage = null; // El backend no proporciona imagen actualmente
+          debugPrint('\u2705 Datos de propietario cargados del backend: $_userName | $_userCompany');
         });
       } else {
-        debugPrint('Error al obtener perfil del backend: ${response.statusCode}');
-        // Fallback a valores por defecto
-        await _loadOwnerProfileFromJson();
-      }
-    } on TimeoutException {
-      debugPrint('Timeout al obtener perfil del backend');
-      await _loadOwnerProfileFromJson();
-    } catch (e) {
-      debugPrint('Excepción al obtener perfil del backend: $e');
-      await _loadOwnerProfileFromJson();
-    }
-  }
-
-  Future<void> _loadOwnerProfileFromJson() async {
-    try {
-      final String jsonString = await rootBundle.loadString(_ownerProfileAsset);
-      final Map<String, dynamic> jsonData = json.decode(jsonString);
-
-      final List<dynamic>? ownersRaw = jsonData['owners'] as List<dynamic>?;
-      final List<Map<String, dynamic>>? owners = ownersRaw
-          ?.map((entry) => Map<String, dynamic>.from(entry as Map))
-          .toList();
-
-      Map<String, dynamic>? userData;
-      String? resolvedProfileImage;
-      if (owners != null && owners.isNotEmpty) {
-        String? targetId = widget.userId;
-        targetId ??= owners.first['id']?.toString();
-
-        userData = owners.firstWhere(
-          (owner) => owner['id']?.toString() == targetId,
-          orElse: () => owners.first,
-        );
-      } else if (jsonData.isNotEmpty) {
-        userData = jsonData;
-      }
-
-      final String? profilePath = userData?['profileImage']?.toString();
-      if (profilePath != null && profilePath.isNotEmpty) {
-        try {
-          await rootBundle.load(profilePath);
-          resolvedProfileImage = profilePath;
-        } catch (_) {
-          resolvedProfileImage = null;
-        }
-      }
-
-      if (!mounted) return;
-
-      if (userData != null) {
+        debugPrint('\u26a0\ufe0f Error al obtener perfil del backend: ${response.statusCode}');
+        // Usar datos del constructor como fallback (datos reales del login)
+        if (!mounted) return;
         setState(() {
-          _userName = userData?['name']?.toString() ?? _userName;
-          _userCompany = userData?['company']?.toString() ?? _userCompany;
-          _userProfileImage = resolvedProfileImage;
-          _userEmail = userData?['email']?.toString();
-          _userPhone = userData?['phone']?.toString();
-          _userAddress = userData?['address']?.toString();
-          _userDocument = userData?['document']?.toString() ?? userData?['documento']?.toString();
-        });
-      } else {
-        setState(() {
-          if (_userName.isEmpty && widget.personName.isNotEmpty) {
-            _userName = widget.personName;
-          }
-          if (_userCompany.isEmpty && widget.companyName.isNotEmpty) {
-            _userCompany = widget.companyName;
-          }
+          _userName = widget.personName;
+          _userCompany = widget.companyName;
           _userProfileImage = null;
           _userEmail = null;
           _userPhone = null;
@@ -274,9 +214,30 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           _userDocument = null;
         });
       }
+    } on TimeoutException {
+      debugPrint('⚠️ Timeout al obtener perfil del backend - usando datos del login');
+      if (!mounted) return;
+      setState(() {
+        _userName = widget.personName;
+        _userCompany = widget.companyName;
+        _userProfileImage = null;
+        _userEmail = null;
+        _userPhone = null;
+        _userAddress = null;
+        _userDocument = null;
+      });
     } catch (e) {
-      debugPrint('Error cargando JSON de propietario: $e');
-      rethrow;
+      debugPrint('⚠️ Excepción al obtener perfil del backend: $e - usando datos del login');
+      if (!mounted) return;
+      setState(() {
+        _userName = widget.personName;
+        _userCompany = widget.companyName;
+        _userProfileImage = null;
+        _userEmail = null;
+        _userPhone = null;
+        _userAddress = null;
+        _userDocument = null;
+      });
     }
   }
 

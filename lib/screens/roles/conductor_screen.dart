@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:http/http.dart' as http;
@@ -79,16 +78,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
       if (widget.userId != null && widget.userId!.isNotEmpty) {
         await _loadUserDataFromBackend(widget.userId!);
       } else {
-        // Fallback a JSON local si no hay userId
-        await _loadUserDataFromJson();
-      }
-    } catch (e) {
-      debugPrint('Error cargando datos de conductor: $e');
-      // Fallback a JSON si falla el backend
-      try {
-        await _loadUserDataFromJson();
-      } catch (fallbackError) {
-        debugPrint('Error en fallback JSON: $fallbackError');
+        // Usar datos del constructor (datos reales del login)
         setState(() {
           _userName = widget.personName;
           _userCompany = widget.companyName;
@@ -99,6 +89,18 @@ class _ConductorScreenState extends State<ConductorScreen> {
           _isLoading = false;
         });
       }
+    } catch (e) {
+      debugPrint('Error cargando datos de conductor: $e');
+      // Usar datos del constructor como fallback (son datos reales del login)
+      setState(() {
+        _userName = widget.personName;
+        _userCompany = widget.companyName;
+        _userEmail = null;
+        _userPhone = null;
+        _userAddress = null;
+        _userDocument = null;
+        _isLoading = false;
+      });
     }
   }
 
@@ -142,53 +144,11 @@ class _ConductorScreenState extends State<ConductorScreen> {
           _userAddress = userData['direccion']?.toString();
           _userDocument = userData['numeroDocumento']?.toString();
           _isLoading = false;
+          debugPrint('✅ Datos de conductor cargados del backend: $_userName | $_userCompany');
         });
       } else {
-        debugPrint('Error al obtener perfil del backend: ${response.statusCode}');
-        // Fallback a valores por defecto
-        await _loadUserDataFromJson();
-      }
-    } on TimeoutException {
-      debugPrint('Timeout al obtener perfil del backend');
-      await _loadUserDataFromJson();
-    } catch (e) {
-      debugPrint('Excepción al obtener perfil del backend: $e');
-      await _loadUserDataFromJson();
-    }
-  }
-
-  Future<void> _loadUserDataFromJson() async {
-    try {
-      final String jsonString = await rootBundle.loadString('assets/user_profile.json');
-      final Map<String, dynamic> jsonData = json.decode(jsonString);
-      
-      Map<String, dynamic>? userData;
-      if (jsonData['users'] != null) {
-        final List<dynamic> users = jsonData['users'];
-        if (widget.userId != null) {
-          userData = users.firstWhere(
-            (user) => user['id'].toString() == widget.userId,
-            orElse: () => users.isNotEmpty ? users[0] : null,
-          );
-        } else {
-          userData = users.isNotEmpty ? users[0] : null;
-        }
-      }
-
-      // Load alerts from documents
-      await _loadAlerts();
-
-      if (userData != null) {
-        setState(() {
-          _userName = userData!['name'] ?? widget.personName;
-          _userCompany = userData['company'] ?? widget.companyName;
-          _userEmail = userData['email']?.toString();
-          _userPhone = userData['phone']?.toString();
-          _userAddress = userData['address']?.toString();
-          _userDocument = userData['document']?.toString() ?? userData['documento']?.toString();
-          _isLoading = false;
-        });
-      } else {
+        debugPrint('⚠️ Error al obtener perfil del backend: ${response.statusCode}');
+        // Usar datos del constructor como fallback (datos reales del login)
         setState(() {
           _userName = widget.personName;
           _userCompany = widget.companyName;
@@ -199,48 +159,27 @@ class _ConductorScreenState extends State<ConductorScreen> {
           _isLoading = false;
         });
       }
-    } catch (e) {
-      debugPrint('Error cargando JSON de usuario: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> _loadAlerts() async {
-    try {
-      final String jsonString = await rootBundle.loadString('assets/documents_data.json');
-      final Map<String, dynamic> jsonData = json.decode(jsonString);
-      final List<dynamic> documents = jsonData['documents'] ?? [];
-
-      final List<Map<String, dynamic>> alerts = [];
-      for (final doc in documents) {
-        final String? expiryDateStr = doc['expiryDate']?.toString();
-        if (expiryDateStr != null) {
-          try {
-            final DateTime expiry = DateTime.parse(expiryDateStr);
-            final Duration difference = expiry.difference(DateTime.now());
-            if (difference.inDays <= 30) {
-              alerts.add({
-                'title': '${doc['name']} próximo a vencer',
-                'message': 'El documento ${doc['name']} vence el ${expiry.day}/${expiry.month}/${expiry.year}',
-                'severity': difference.inDays <= 7 ? 'high' : 'medium',
-                'tag': 'Documentos',
-              });
-            }
-          } catch (e) {
-            debugPrint('Error parsing date for ${doc['name']}: $e');
-          }
-        }
-      }
-
-      if (!mounted) return;
+    } on TimeoutException {
+      debugPrint('⚠️ Timeout al obtener perfil del backend - usando datos del login');
       setState(() {
-        _alerts = alerts;
+        _userName = widget.personName;
+        _userCompany = widget.companyName;
+        _userEmail = null;
+        _userPhone = null;
+        _userAddress = null;
+        _userDocument = null;
+        _isLoading = false;
       });
     } catch (e) {
-      debugPrint('Error cargando alertas: $e');
-      if (!mounted) return;
+      debugPrint('⚠️ Excepción al obtener perfil del backend: $e - usando datos del login');
       setState(() {
-        _alerts = [];
+        _userName = widget.personName;
+        _userCompany = widget.companyName;
+        _userEmail = null;
+        _userPhone = null;
+        _userAddress = null;
+        _userDocument = null;
+        _isLoading = false;
       });
     }
   }
