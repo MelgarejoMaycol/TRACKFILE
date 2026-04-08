@@ -73,6 +73,9 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
 
   final TextEditingController observationController = TextEditingController();
 
+  // Getter para determinar si el modal completo está cargando
+  bool get _isLoadingModal => isLoadingPersonas || isLoadingDocumentTypes;
+
   @override
   void initState() {
     super.initState();
@@ -247,8 +250,132 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     }
   }
 
+  Widget _buildLoadingModalState(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 600),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF11698E), Color(0xFF19456B)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Subir Documento',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Usuario
+              ShimmerSkeleton(
+                width: double.infinity,
+                height: 50,
+                borderRadius: 8,
+                margin: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 12),
+              // Vehículo
+              ShimmerSkeleton(
+                width: double.infinity,
+                height: 50,
+                borderRadius: 8,
+                margin: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 12),
+              // Archivo
+              ShimmerSkeleton(
+                width: double.infinity,
+                height: 50,
+                borderRadius: 8,
+                margin: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 12),
+              // Tipo de documento
+              ShimmerSkeleton(
+                width: double.infinity,
+                height: 50,
+                borderRadius: 8,
+                margin: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 12),
+              // Área
+              ShimmerSkeleton(
+                width: double.infinity,
+                height: 50,
+                borderRadius: 8,
+                margin: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 12),
+              // Fecha
+              ShimmerSkeleton(
+                width: double.infinity,
+                height: 50,
+                borderRadius: 8,
+                margin: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 12),
+              // Observaciones
+              ShimmerSkeleton(
+                width: double.infinity,
+                height: 80,
+                borderRadius: 8,
+                margin: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 16),
+              // Botones
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ShimmerSkeleton(
+                    width: 80,
+                    height: 36,
+                    borderRadius: 8,
+                    margin: EdgeInsets.zero,
+                  ),
+                  const SizedBox(width: 12),
+                  ShimmerSkeleton(
+                    width: 100,
+                    height: 36,
+                    borderRadius: 8,
+                    margin: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Si el modal está cargando, mostrar shimmer de toda la página
+    if (_isLoadingModal) {
+      return _buildLoadingModalState(context);
+    }
+
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
@@ -286,39 +413,13 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
               ),
               const SizedBox(height: 12),
               
-              // Sección: Seleccionar Conductor/Propietario
+              // Seccion: Seleccionar Usuario
               _buildPersonaSection(),
               const SizedBox(height: 12),
               
-              // Sección: Seleccionar Vehículo (dinámico)
-              if (selectedPersonaId != null && vehiculos.isNotEmpty)
-                _buildVehicleSection(),
-              if (selectedPersonaId != null && vehiculos.isEmpty && !isLoadingVehiculos)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.info, color: Colors.orange),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Esta persona no tiene vehículos asignados',
-                            style: TextStyle(color: Colors.orange),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              
-              // Sección: Seleccionar archivo
+              // Seccion: Seleccionar Vehiculo (siempre visible, deshabilitado al inicio)
+              _buildVehicleSection(),
+              const SizedBox(height: 12),
               _buildFilePickerSection(),
               const SizedBox(height: 12),
               
@@ -396,7 +497,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
 
   Widget _buildPersonaSection() {
     final bool isEmpresa = widget.userRole.toLowerCase() == 'empresa';
-    final String labelText = isEmpresa ? 'Conductor' : 'Conductor o Propietario';
+    const String labelText = 'Usuario';
 
     if (isLoadingPersonas) {
       return Column(
@@ -702,12 +803,50 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
   }
 
   Widget _buildVehicleSection() {
+    final bool isEnabled = selectedPersonaId != null;
+
+    // If no user is selected, show disabled state
+    if (!isEnabled) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Vehiculo',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Row(
+              children: [
+                const Icon(Icons.directions_car, color: Colors.grey, size: 16),
+                const SizedBox(width: 8),
+                const Flexible(
+                  child: Text(
+                    'Seleccione un usuario primero',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // If loading vehicles, show shimmer skeleton
     if (isLoadingVehiculos) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Vehículo Asignado (Opcional)',
+            'Vehiculo',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
@@ -721,13 +860,47 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
       );
     }
 
-    // Seleccionar vehículo es opcional, ya que selectedVehicleId se maneja en el dropdown
+    // If user has no vehicles, show warning message
+    if (vehiculos.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Vehiculo',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, color: Colors.orange, size: 16),
+                const SizedBox(width: 8),
+                const Flexible(
+                  child: Text(
+                    'Este usuario no tiene vehiculos asignados',
+                    style: TextStyle(color: Colors.orange, fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
 
+    // If user is enabled and has vehicles, show dropdown
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Vehículo Asignado',
+          'Vehiculo',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
@@ -741,7 +914,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             ),
           ),
           child: DropdownButton<String?>(
-            value: selectedVehicleValue,  // null = sin seleccionar
+            value: selectedVehicleValue,
             isDense: true,
             underline: Container(),
             dropdownColor: const Color(0xFF19456B),
@@ -754,7 +927,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
-                      'Seleccione el Vehículo (Opcional)',
+                      'Seleccione el Vehiculo (Opcional)',
                       style: const TextStyle(color: Colors.white70, fontSize: 11),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -762,53 +935,40 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                 ],
               ),
             ),
-            items: vehiculos.isEmpty
-                ? [
-                    const DropdownMenuItem<String?>(
-                      value: null,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        child: Text(
-                          'No hay vehículos disponibles',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                      ),
-                    ),
-                  ]
-                : [
-                    // Primer item: "Sin seleccionar"
-                    const DropdownMenuItem<String?>(
-                      value: null,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        child: Text(
-                          '-- Sin seleccionar --',
-                          style: TextStyle(color: Colors.white70, fontSize: 12, fontStyle: FontStyle.italic),
-                        ),
-                      ),
-                    ),
-                    // Items de vehículos
-                    ...vehiculos.map((v) {
-                      final id = v['id'] is String ? int.parse(v['id'].toString()) : v['id'];
-                      final value = 'vehicle_$id';
-                      final placa = v['placa'] ?? 'Sin placa';
-                      final marca = v['marca'] ?? '';
-                      final modelo = v['modelo'] ?? '';
-                      final label = '$placa - $marca $modelo'.trim();
+            items: [
+              // Primer item: "Sin seleccionar"
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  child: Text(
+                    '-- Sin seleccionar --',
+                    style: TextStyle(color: Colors.white70, fontSize: 12, fontStyle: FontStyle.italic),
+                  ),
+                ),
+              ),
+              // Items de vehículos
+              ...vehiculos.map((v) {
+                final id = v['id'] is String ? int.parse(v['id'].toString()) : v['id'];
+                final value = 'vehicle_$id';
+                final placa = v['placa'] ?? 'Sin placa';
+                final marca = v['marca'] ?? '';
+                final modelo = v['modelo'] ?? '';
+                final label = '$placa - $marca $modelo'.trim();
 
-                      return DropdownMenuItem<String?>(
-                        value: value,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          child: Text(
-                            label,
-                            style: const TextStyle(color: Colors.white, fontSize: 12),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
+                return DropdownMenuItem<String?>(
+                  value: value,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    child: Text(
+                      label,
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                );
+              }),
+            ],
             onChanged: (value) {
               setState(() {
                 selectedVehicleValue = value;
@@ -846,7 +1006,6 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             },
           ),
         ),
-
       ],
     );
   }
