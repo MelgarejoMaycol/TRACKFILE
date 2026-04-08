@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert' show jsonEncode;
 import '../services/document_service.dart';
+import 'shimmer_skeleton.dart';
 
 class UploadDocumentModal {
   static void show({
@@ -406,20 +407,11 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white12,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: const SizedBox(
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(Colors.white),
-              ),
-            ),
+          ShimmerSkeleton(
+            width: double.infinity,
+            height: 50,
+            borderRadius: 8,
+            margin: EdgeInsets.zero,
           ),
         ],
       );
@@ -719,20 +711,11 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white12,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: const SizedBox(
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(Colors.white),
-              ),
-            ),
+          ShimmerSkeleton(
+            width: double.infinity,
+            height: 50,
+            borderRadius: 8,
+            margin: EdgeInsets.zero,
           ),
         ],
       );
@@ -923,20 +906,11 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white12,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: const SizedBox(
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(Colors.white),
-              ),
-            ),
+          ShimmerSkeleton(
+            width: double.infinity,
+            height: 50,
+            borderRadius: 8,
+            margin: EdgeInsets.zero,
           ),
         ],
       );

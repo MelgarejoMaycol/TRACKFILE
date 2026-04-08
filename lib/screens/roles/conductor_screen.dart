@@ -57,7 +57,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
   String? _userDocument;
   bool _isLoading = true;
   String _baseUrl = ApiConfig.fallbackBaseUrl();
-  List<Map<String, dynamic>> _alerts = [];
+  final List<Map<String, dynamic>> _alerts = [];
 
   @override
   void initState() {

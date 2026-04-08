@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/document_service.dart';
 import 'document_modal.dart';
 import 'upload_document_modal.dart';
+import 'shimmer_skeleton.dart';
 
 class DocumentosWidget extends StatefulWidget {
   final String? role;
@@ -215,7 +216,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildDocumentsLoadingState();
     }
 
     final Widget contentWidget = _buildContentByRole();
@@ -242,6 +243,56 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDocumentsLoadingState() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Título
+                ShimmerSkeleton(
+                  width: 200,
+                  height: 24,
+                  borderRadius: 8,
+                  margin: EdgeInsets.zero,
+                ),
+                const SizedBox(height: 6),
+                // Subtítulo
+                ShimmerSkeleton(
+                  width: double.infinity,
+                  height: 16,
+                  borderRadius: 8,
+                  margin: EdgeInsets.zero,
+                ),
+                const SizedBox(height: 20),
+                // Documentos skeleton
+                Column(
+                  children: List.generate(
+                    5,
+                    (index) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: ShimmerSkeleton(
+                        width: double.infinity,
+                        height: 110,
+                        borderRadius: 12,
+                        margin: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
