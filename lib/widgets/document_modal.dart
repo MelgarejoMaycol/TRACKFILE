@@ -20,6 +20,7 @@ class DocumentModal {
         return Dialog(
           backgroundColor: Colors.transparent,
           child: Container(
+            constraints: const BoxConstraints(maxWidth: 500),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFF11698E), Color(0xFF19456B)],
