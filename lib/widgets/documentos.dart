@@ -477,7 +477,8 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
             .where((d) => !d.isExpired)
             .toList()
           ..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-        final List<_DocumentInfo> topUpcoming = upcomingDocs.take(3).toList();
+        final int upcomingLimit = isCompact ? 1 : 3;
+        final List<_DocumentInfo> topUpcoming = upcomingDocs.take(upcomingLimit).toList();
 
         // Aplicar búsqueda
         List<_DocumentInfo> filteredPersonalDocs = personalDocs;
@@ -520,7 +521,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                   style: TextStyle(color: Colors.white, fontSize: isCompact ? 14 : 16, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 10),
-                _buildUpcomingDocumentStrip(isCompact: isCompact, docs: topUpcoming),
+                _buildUpcomingDocumentCircularGrid(isCompact: isCompact, docs: topUpcoming),
                 const SizedBox(height: 16),
               ],
 
@@ -679,6 +680,200 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
         },
       ),
     );
+  }
+
+  /// Build circular progress indicators for upcoming documents
+  Widget _buildUpcomingDocumentCircularGrid({
+    required bool isCompact,
+    required List<_DocumentInfo> docs,
+  }) {
+    if (docs.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Limit to 1 for mobile, 3 for desktop
+    final int displayCount = isCompact ? 1 : 3;
+    final List<_DocumentInfo> displayDocs = docs.take(displayCount).toList();
+
+    if (isCompact) {
+      // Mobile: horizontal scroll with 1 visible
+      return SizedBox(
+        height: 230,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: displayDocs.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (context, index) => _buildCircularDocumentCard(
+            doc: displayDocs[index],
+            isCompact: true,
+          ),
+        ),
+      );
+    } else {
+      // Desktop: 3 in a row
+      return Row(
+        children: displayDocs
+            .map((doc) => Expanded(
+                  child: _buildCircularDocumentCard(
+                    doc: doc,
+                    isCompact: false,
+                  ),
+                ))
+            .toList(),
+      );
+    }
+  }
+
+  /// Build individual circular progress card for a document
+  Widget _buildCircularDocumentCard({
+    required _DocumentInfo doc,
+    required bool isCompact,
+  }) {
+    final progressPercent = _calculateProgressPercent(doc);
+    final Map<String, Color> colors = _getColorForDaysRemaining(doc.daysRemaining);
+    final Color accentColor = colors['start']!;
+    final circleSize = isCompact ? 100.0 : 110.0;
+
+    return GestureDetector(
+      onTap: () => _openModal(doc),
+      child: Container(
+        margin: EdgeInsets.symmetric(horizontal: isCompact ? 0 : 8.0),
+        padding: EdgeInsets.all(isCompact ? 12 : 14),
+        decoration: BoxDecoration(
+          color: _cardColor.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: accentColor.withValues(alpha: 0.25), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: accentColor.withValues(alpha: 0.1),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Circular progress indicator with custom painter
+            SizedBox(
+              width: circleSize,
+              height: circleSize,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CustomPaint(
+                    size: Size(circleSize, circleSize),
+                    painter: _CircleProgressPainter(
+                      progress: progressPercent.clamp(0.0, 1.0),
+                      backgroundColor: Colors.white.withValues(alpha: 0.08),
+                      progressColor: accentColor,
+                      strokeWidth: 6,
+                    ),
+                  ),
+                  // Center content
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '${doc.daysRemaining.clamp(0, 999)}',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isCompact ? 24 : 28,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        'días',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: isCompact ? 10 : 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: isCompact ? 10 : 12),
+            // Document name
+            Text(
+              doc.name,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: isCompact ? 11 : 12,
+                fontWeight: FontWeight.w700,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+            // Document category
+            Text(
+              doc.category,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: isCompact ? 9 : 10,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+            // Show owner name for personal documents
+            if (doc.isPersonal && doc.ownerName.isNotEmpty) ...[
+              SizedBox(height: isCompact ? 4 : 6),
+              Text(
+                doc.ownerName,
+                style: TextStyle(
+                  color: accentColor,
+                  fontSize: isCompact ? 8 : 9,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ],
+            if (doc.vehiclePlate.isNotEmpty) ...[
+              SizedBox(height: isCompact ? 4 : 6),
+              Text(
+                doc.vehiclePlate,
+                style: TextStyle(
+                  color: accentColor,
+                  fontSize: isCompact ? 9 : 10,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Calculate progress percentage from creation to expiry date
+  /// Progress = remaining days / total days
+  /// 100% = many days left, 0% = expiring soon
+  double _calculateProgressPercent(_DocumentInfo doc) {
+    if (doc.creationDate == null) {
+      return 0.0;
+    }
+
+    final totalDaysSpan = doc.expiryDate.difference(doc.creationDate!).inDays;
+    if (totalDaysSpan <= 0) {
+      return 0.0;
+    }
+
+    // Use remaining days instead of elapsed days
+    final remainingDays = doc.daysRemaining.toDouble();
+    final progressPercent = (remainingDays / totalDaysSpan).clamp(0.0, 1.0);
+
+    return progressPercent;
   }
 
   Widget _buildDocumentList({required bool isCompact, List<_DocumentInfo>? docs}) {
@@ -1293,6 +1488,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
             .where((d) => !d.isExpired)
             .toList()
           ..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
+        final int upcomingLimit = isCompact ? 1 : 3;
 
         return SingleChildScrollView(
           padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 24, vertical: 24),
@@ -1323,7 +1519,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                   style: TextStyle(color: Colors.white, fontSize: isCompact ? 14 : 16, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 10),
-                _buildUpcomingDocumentStrip(isCompact: isCompact, docs: upcomingAll.take(5).toList()),
+                _buildUpcomingDocumentCircularGrid(isCompact: isCompact, docs: upcomingAll.take(upcomingLimit).toList()),
                 const SizedBox(height: 24),
               ],
 
@@ -1629,3 +1825,60 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     }
   }
 }
+
+/// Custom painter to draw circular progress indicator
+class _CircleProgressPainter extends CustomPainter {
+  final double progress;
+  final Color backgroundColor;
+  final Color progressColor;
+  final double strokeWidth;
+
+  _CircleProgressPainter({
+    required this.progress,
+    required this.backgroundColor,
+    required this.progressColor,
+    required this.strokeWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Offset center = Offset(size.width / 2, size.height / 2);
+    final double radius = (size.width / 2) - (strokeWidth / 2);
+
+    // Background circle
+    final Paint backgroundPaint = Paint()
+      ..color = backgroundColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(center, radius, backgroundPaint);
+
+    // Progress arc
+    final Paint progressPaint = Paint()
+      ..color = progressColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    // Draw progress arc (starting from top, going clockwise)
+    const double startAngle = -3.14159265359 / 2; // -90 degrees
+    final double sweepAngle = (2 * 3.14159265359) * progress;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      progressPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CircleProgressPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.progressColor != progressColor ||
+        oldDelegate.backgroundColor != backgroundColor;
+  }
+}
+
