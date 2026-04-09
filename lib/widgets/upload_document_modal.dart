@@ -123,6 +123,165 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     return 0;
   }
 
+  /// Categoriza documentos según su aplicabilidad
+  /// Retorna: 'CONDUCTOR', 'PROPIETARIO', 'VEHICULO', o 'FLEXIBLE'
+  String _categorizeDocumentType(String nombreDocumento) {
+    final nombre = nombreDocumento.toUpperCase().trim();
+
+    // Documentos del CONDUCTOR (solo para conductores)
+    if (nombre == 'LICENCIA') return 'CONDUCTOR';
+
+    // Documentos del PROPIETARIO (solo para propietarios)
+    if (nombre == 'RUT' || nombre == 'CERTIFICADO_PROPIEDAD') return 'PROPIETARIO';
+
+    // Documentos del VEHÍCULO
+    if (nombre == 'SOAT' ||
+        nombre == 'TECNOMECANICA' ||
+        nombre == 'TARJETA_OPERACION' ||
+        nombre == 'SEGURO' ||
+        nombre == 'CONTRACTUAL' ||
+        nombre == 'EXTRACONTRACTUAL' ||
+        nombre == 'POLIZA_TODO_RIESGO' ||
+        nombre == 'PERMISO_CIRCULACION') {
+      return 'VEHICULO';
+    }
+
+    // Documentos para AMBOS (Conductor y Propietario) - Identidad
+    if (nombre == 'CEDULA' || nombre == 'PASAPORTE') return 'AMBOS_PERSONA';
+
+    // OTRO y sin categoría definida = válido para todos
+    return 'FLEXIBLE';
+  }
+
+  /// Obtiene las áreas permitidas para un tipo de documento
+  /// Según la especificación exacta de tipos de documento
+  List<String> _getPermittedAreas(int? documentTypeId) {
+    if (documentTypeId == null) {
+      return const ['TECNICA', 'LEGAL', 'ADMINISTRATIVO'];
+    }
+
+    final docType = documentTypes.firstWhere(
+      (d) => d['id'] == documentTypeId,
+      orElse: () => <String, dynamic>{},
+    );
+
+    if (docType.isEmpty) {
+      return const ['TECNICA', 'LEGAL', 'ADMINISTRATIVO'];
+    }
+
+    final nombre = docType['nombre']?.toString().toUpperCase() ?? '';
+
+    // ===== DOCUMENTOS PERSONALES (CONDUCTOR / PROPIETARIO) =====
+    
+    // LICENCIA, CEDULA, PASAPORTE → Legal
+    if (nombre == 'LICENCIA' || nombre == 'CEDULA' || nombre == 'PASAPORTE') {
+      return const ['LEGAL'];
+    }
+
+    // RUT → Administrativa (solo propietario)
+    if (nombre == 'RUT') {
+      return const ['ADMINISTRATIVO'];
+    }
+
+    // CERTIFICADO_PROPIEDAD → Legal (solo propietario)
+    if (nombre == 'CERTIFICADO_PROPIEDAD') {
+      return const ['LEGAL'];
+    }
+
+    // ===== DOCUMENTOS DE VEHÍCULO =====
+
+    // SOAT, SEGURO, CONTRACTUAL, EXTRACONTRACTUAL, POLIZA_TODO_RIESGO, PERMISO_CIRCULACION → Legal
+    if (nombre == 'SOAT' ||
+        nombre == 'SEGURO' ||
+        nombre == 'CONTRACTUAL' ||
+        nombre == 'EXTRACONTRACTUAL' ||
+        nombre == 'POLIZA_TODO_RIESGO' ||
+        nombre == 'PERMISO_CIRCULACION') {
+      return const ['LEGAL'];
+    }
+
+    // TECNOMECANICA → Técnica
+    if (nombre == 'TECNOMECANICA') {
+      return const ['TECNICA'];
+    }
+
+    // TARJETA_OPERACION → Administrativa
+    if (nombre == 'TARJETA_OPERACION') {
+      return const ['ADMINISTRATIVO'];
+    }
+
+    // OTRO → Administrativa (flexible, puede ser personal o vehículo)
+    if (nombre == 'OTRO') {
+      return const ['ADMINISTRATIVO'];
+    }
+
+    // Por defecto, todas las áreas
+    return const ['TECNICA', 'LEGAL', 'ADMINISTRATIVO'];
+  }
+
+  /// Obtiene los documentos filtrados según contexto (persona/vehículo)
+  List<Map<String, dynamic>> _getFilteredDocumentTypes() {
+    if (documentTypes.isEmpty) return [];
+
+    final bool hasVehicle = selectedVehicleId != null && selectedVehicleId! > 0;
+    final String personaType = selectedPersonaTipo?.toLowerCase() ?? '';
+
+    final filtered = documentTypes.where((doc) {
+      final docName = doc['nombre']?.toString() ?? '';
+      final category = _categorizeDocumentType(docName);
+
+      if (hasVehicle) {
+        // Si hay vehículo: mostrar documentos de VEHICULO o FLEXIBLE
+        return category == 'VEHICULO' || category == 'FLEXIBLE';
+      } else {
+        // Si NO hay vehículo: mostrar documentos personales según tipo de persona
+        if (personaType == 'conductor') {
+          // Conductor puede ver: LICENCIA + AMBOS_PERSONA + FLEXIBLE
+          return category == 'CONDUCTOR' || 
+                 category == 'AMBOS_PERSONA' || 
+                 category == 'FLEXIBLE';
+        } else if (personaType == 'propietario') {
+          // Propietario puede ver: RUT + CERTIFICADO_PROPIEDAD + AMBOS_PERSONA + FLEXIBLE
+          return category == 'PROPIETARIO' || 
+                 category == 'AMBOS_PERSONA' || 
+                 category == 'FLEXIBLE';
+        }
+        // Si no se especifica persona, mostrar todo excepto vehículos
+        return category != 'VEHICULO';
+      }
+    }).toList();
+
+    // Debug: mostrar resultado del filtrado
+    debugPrint('📋 Filtrado de documentos:');
+    debugPrint('   - Persona: $personaType');
+    debugPrint('   - Vehículo seleccionado: $hasVehicle');
+    debugPrint('   - Total documentos disponibles: ${documentTypes.length}');
+    debugPrint('   - Documentos después de filtrar: ${filtered.length}');
+    for (var doc in filtered) {
+      final cat = _categorizeDocumentType(doc['nombre']?.toString() ?? '');
+      debugPrint('      ✓ ${doc['nombre']} (categoría: $cat)');
+    }
+
+    return filtered;
+  }
+
+  /// Valida si se requiere observación obligatoria
+  bool _isObservationRequired() {
+    if (selectedDocumentTypeId == null) return false;
+    
+    final docType = documentTypes.firstWhere(
+      (d) => d['id'] == selectedDocumentTypeId,
+      orElse: () => <String, dynamic>{},
+    );
+
+    if (docType.isEmpty) return false;
+
+    final nombre = docType['nombre']?.toString().toUpperCase() ?? '';
+    
+    // Observación obligatoria solo para OTRO
+    return nombre == 'OTRO';
+  }
+
   Future<void> _loadPersonas() async {
     setState(() {
       isLoadingPersonas = true;
@@ -191,7 +350,9 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
       final types = await DocumentService.getDocumentTypes(token: widget.token);
       debugPrint('📋 [Modal] Tipos de documento recibidos: ${types.length}');
       for (int i = 0; i < types.length; i++) {
-        debugPrint('   Tipo $i: ${types[i]}');
+        final nombre = types[i]['nombre'] ?? types[i]['nombre_tipo'] ?? 'Sin nombre';
+        final cat = _categorizeDocumentType(nombre.toString());
+        debugPrint('   [$i] $nombre → Categoría: $cat');
       }
 
       if (mounted) {
@@ -1075,8 +1236,6 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
   }
 
   Widget _buildDocumentTypeSection() {
-    // Obtener nombre del tipo seleccionado desde la lista dinámica
-
     if (isLoadingDocumentTypes) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1130,12 +1289,43 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
       );
     }
 
+    final filteredDocs = _getFilteredDocumentTypes();
+    final bool hasVehicle = selectedVehicleId != null && selectedVehicleId! > 0;
+    final String personaType = selectedPersonaTipo?.toLowerCase() ?? '';
+    
+    String docTypeInfo = '';
+    if (hasVehicle) {
+      docTypeInfo = '🚗 Documentos del vehículo';
+    } else if (personaType == 'conductor') {
+      docTypeInfo = '👤 Documentos del conductor';
+    } else if (personaType == 'propietario') {
+      docTypeInfo = '👤 Documentos del propietario';
+    } else {
+      docTypeInfo = '📋 Selecciona documentos';
+    }
+
+    // Validar si el tipo actualmente seleccionado está en la lista filtrada
+    bool selectedTypeIsValid = filteredDocs.any((d) => d['id'] == selectedDocumentTypeId);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Tipo de Documento',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Tipo de Documento',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              docTypeInfo,
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         Container(
@@ -1143,12 +1333,14 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             color: Colors.white12,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: selectedDocumentTypeId != null ? Colors.purple : Colors.white24,
-              width: selectedDocumentTypeId != null ? 2 : 1,
+              color: selectedDocumentTypeId != null && selectedTypeIsValid
+                  ? Colors.purple
+                  : Colors.white24,
+              width: selectedDocumentTypeId != null && selectedTypeIsValid ? 2 : 1,
             ),
           ),
           child: DropdownButton<int>(
-            value: selectedDocumentTypeId,
+            value: selectedTypeIsValid ? selectedDocumentTypeId : null,
             isDense: true,
             underline: Container(),
             dropdownColor: const Color(0xFF19456B),
@@ -1169,7 +1361,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                 ],
               ),
             ),
-            items: documentTypes.map((type) {
+            items: filteredDocs.map((type) {
               final id = type['id'];
               final nombre = type['nombre'] ?? type['nombre_tipo'] ?? 'Sin nombre';
               return DropdownMenuItem<int>(
@@ -1187,23 +1379,75 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             onChanged: (value) {
               setState(() {
                 selectedDocumentTypeId = value;
+                // Reset área cuando se cambia tipo de documento
+                selectedArea = null;
               });
             },
           ),
         ),
+        if (filteredDocs.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.orange, width: 1),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.orange, size: 14),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      hasVehicle
+                          ? 'No hay documentos de vehículo disponibles. Deselecciona el vehículo para ver documentos personales.'
+                          : 'Selecciona un usuario primero para ver los documentos disponibles.',
+                      style: const TextStyle(color: Colors.orange, fontSize: 11),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }
 
   Widget _buildAreaSection() {
-    // Obtener nombre del área seleccionada
+    final permittedAreas = _getPermittedAreas(selectedDocumentTypeId);
+    
+    // Validar que el área seleccionada esté en las permitidas
+    bool selectedAreaIsValid = selectedArea != null && permittedAreas.contains(selectedArea);
+    
+    // Opciones de área con sus etiquetas amigables
+    final areaOptions = {
+      'TECNICA': ('🔧 Técnica', Icons.build),
+      'LEGAL': ('⚖️ Legal', Icons.balance),
+      'ADMINISTRATIVO': ('📋 Administrativo', Icons.description),
+    };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Área',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Área',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            if (selectedDocumentTypeId != null)
+              Text(
+                '${permittedAreas.length} ${permittedAreas.length == 1 ? 'opción' : 'opciones'}',
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         Container(
@@ -1211,12 +1455,12 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             color: Colors.white12,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: selectedArea != null && selectedArea!.isNotEmpty ? Colors.orange : Colors.white24,
-              width: selectedArea != null && selectedArea!.isNotEmpty ? 2 : 1,
+              color: selectedAreaIsValid ? Colors.orange : Colors.white24,
+              width: selectedAreaIsValid ? 2 : 1,
             ),
           ),
           child: DropdownButton<String>(
-            value: selectedArea,
+            value: selectedAreaIsValid ? selectedArea : null,
             isDense: true,
             underline: Container(),
             dropdownColor: const Color(0xFF19456B),
@@ -1229,7 +1473,9 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
-                      'Seleccione el tipo de Área',
+                      selectedDocumentTypeId == null
+                          ? 'Selecciona un tipo primero'
+                          : 'Selecciona el área',
                       style: const TextStyle(color: Colors.white70, fontSize: 11),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1237,45 +1483,58 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                 ],
               ),
             ),
-            items: const [
-              DropdownMenuItem(
-                value: 'TECNICO',
+            items: permittedAreas.map((area) {
+              final displayInfo = areaOptions[area] ?? (area, Icons.category);
+              return DropdownMenuItem<String>(
+                value: area,
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  child: Text(
-                    'Técnico',
-                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  child: Row(
+                    children: [
+                      Icon(displayInfo.$2, color: Colors.white70, size: 14),
+                      const SizedBox(width: 8),
+                      Text(
+                        displayInfo.$1,
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              DropdownMenuItem(
-                value: 'LEGAL',
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  child: Text(
-                    'Legal',
-                    style: TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                ),
-              ),
-              DropdownMenuItem(
-                value: 'ADMINISTRATIVO',
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  child: Text(
-                    'Administrativo',
-                    style: TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                ),
-              ),
-            ],
-            onChanged: (value) {
-              setState(() {
-                selectedArea = value;
-              });
-            },
+              );
+            }).toList(),
+            onChanged: selectedDocumentTypeId == null
+                ? null
+                : (value) {
+                    setState(() {
+                      selectedArea = value;
+                    });
+                  },
           ),
         ),
+        if (permittedAreas.length == 1)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.blue, width: 1),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.lock, color: Colors.blue, size: 14),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Este documento tiene un área fija según su tipo',
+                      style: const TextStyle(color: Colors.blue, fontSize: 11),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1321,12 +1580,37 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
   }
 
   Widget _buildObservationsSection() {
+    final isRequired = _isObservationRequired();
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Observaciones (opcional)',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            const Text(
+              'Observaciones',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            if (isRequired)
+              Container(
+                margin: const EdgeInsets.only(left: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.3),
+                  border: Border.all(color: Colors.red, width: 1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'Obligatorio',
+                  style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              )
+            else
+              const Text(
+                '(opcional)',
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         TextField(
@@ -1334,26 +1618,58 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
           maxLines: 3,
           enabled: !isUploading,
           decoration: InputDecoration(
-            hintText: 'Agrega notas sobre el documento...',
+            hintText: isRequired
+                ? 'Agrega una observación sobre este documento...'
+                : 'Agrega notas sobre el documento (opcional)...',
             hintStyle: const TextStyle(color: Colors.white54),
             filled: true,
             fillColor: Colors.white12,
             contentPadding: const EdgeInsets.all(12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.white24),
+              borderSide: BorderSide(
+                color: isRequired ? Colors.red.withValues(alpha: 0.5) : Colors.white24,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.white24),
+              borderSide: BorderSide(
+                color: isRequired ? Colors.red.withValues(alpha: 0.5) : Colors.white24,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.white),
+              borderSide: BorderSide(
+                color: isRequired ? Colors.red : Colors.white,
+              ),
             ),
           ),
           style: const TextStyle(color: Colors.white),
         ),
+        if (isRequired)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.orange, width: 1),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.orange, size: 14),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Este tipo de documento requiere una observación descriptiva',
+                      style: const TextStyle(color: Colors.orange, fontSize: 11),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1406,12 +1722,40 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
         selectedPersonaId == null ||
         selectedArea == null ||
         selectedFileBytes == null) { // Validar que tengamos bytes del archivo
-      _showErrorSnackBar('⚠️ Completa: Persona, Tipo, Archivo, Área y Fecha');
+      _showErrorSnackBar('⚠️ Completa todos los campos requeridos: Persona, Tipo, Archivo, Área y Fecha');
+      return;
+    }
+
+    // Validar observación obligatoria si el documento lo requiere
+    if (_isObservationRequired() && observationController.text.trim().isEmpty) {
+      _showErrorSnackBar('⚠️ Este tipo de documento requiere una observación descriptiva');
+      return;
+    }
+
+    // Validar que se haya seleccionado correctamente el tipo de documento para el contexto
+    final filteredDocs = _getFilteredDocumentTypes();
+    bool selectedDocIsValid = filteredDocs.any((d) => d['id'] == selectedDocumentTypeId);
+    
+    if (!selectedDocIsValid) {
+      final bool hasVehicle = selectedVehicleId != null && selectedVehicleId! > 0;
+      final String personaType = selectedPersonaTipo?.toLowerCase() ?? '';
+      
+      String errorMsg = '';
+      if (hasVehicle) {
+        errorMsg = 'Este documento no puede asignarse a un vehículo.';
+      } else if (personaType == 'conductor') {
+        errorMsg = 'Este documento no puede asignarse a un conductor.';
+      } else if (personaType == 'propietario') {
+        errorMsg = 'Este documento no puede asignarse a un propietario.';
+      } else {
+        errorMsg = 'Tipo de documento no válido para este contexto.';
+      }
+      
+      _showErrorSnackBar('⚠️ $errorMsg');
       return;
     }
 
     // Obtener el ID numérico del usuario seleccionado
-    // selectedPersonaId ya es un int, no necesita split
     int? selectedPersonaIdInt = selectedPersonaId;
 
     setState(() {
@@ -1420,36 +1764,13 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
 
     try {
       debugPrint('📤 Iniciando upload...');
-      debugPrint('   - Persona seleccionada: $selectedPersonaIdInt ($selectedPersonaTipo)');
-      debugPrint('   - Vehículo ID: $selectedVehicleId (tipo: ${selectedVehicleId?.runtimeType})');
-      debugPrint('   - Vehículo Placa: $selectedVehiclePlaca');
-      debugPrint('   - Tipo: $selectedDocumentTypeId');
+      debugPrint('   - Persona: ${selectedPersonaTipo?.toUpperCase()} (ID: $selectedPersonaIdInt)');
+      debugPrint('   - Vehículo: ${selectedVehicleId != null ? '$selectedVehicleId ($selectedVehiclePlaca)' : 'Sin vehículo'}');
+      debugPrint('   - Tipo de Documento: $selectedDocumentTypeId');
+      debugPrint('   - Área: $selectedArea');
       debugPrint('   - Archivo: $selectedFileName');
-      debugPrint('   - Token: ${widget.token?.isNotEmpty == true ? "presente (${widget.token!.length} chars)" : "NULO"}');
+      debugPrint('   - Observación requerida: ${_isObservationRequired()}');
       
-      // Resumen de lo que se enviará
-      final resumen = <String>[];
-      resumen.add('RESUMEN DEL DOCUMENTO A ENVIAR:');
-      resumen.add('  ✅ ID Usuario: $selectedPersonaIdInt');
-      if (selectedVehicleId != null && selectedVehicleId! > 0) {
-        resumen.add('  ✅ ID Vehículo: $selectedVehicleId (Placa: $selectedVehiclePlaca)');
-      } else {
-        resumen.add('  ⚠️ Sin vehículo seleccionado');
-      }
-      resumen.add('  ✅ Tipo: $selectedDocumentTypeId');
-      resumen.add('  ✅ Área: $selectedArea');
-      resumen.add('  ✅ Archivo: $selectedFileName');
-      debugPrint(resumen.join('\n'));
-      
-      // Debug: mostrar todos los vehículos disponibles
-      if (vehiculos.isNotEmpty) {
-        debugPrint('   📋 Vehículos disponibles en memoria:');
-        for (int i = 0; i < vehiculos.length; i++) {
-          final v = vehiculos[i];
-          debugPrint('      [$i] Placa: ${v['placa']}, ID: ${v['id']} (tipo: ${v['id'].runtimeType})');
-        }
-      }
-
       final result = await DocumentService.uploadDocument(
         filePath: selectedFilePath!,
         fileName: selectedFileName ?? 'document',
@@ -1462,9 +1783,9 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             : observationController.text,
         responsibleUserId: int.tryParse(widget.userId) ?? 0,
         personaId: selectedPersonaIdInt,
-        personaIdUsuario: selectedPersonaIdUsuario, // Pasar el idUsuario correcto
+        personaIdUsuario: selectedPersonaIdUsuario,
         token: widget.token,
-        fileBytes: selectedFileBytes, // Pasar bytes para web
+        fileBytes: selectedFileBytes,
       );
 
       if (mounted) {

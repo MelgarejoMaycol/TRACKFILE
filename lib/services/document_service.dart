@@ -284,9 +284,7 @@ class DocumentService {
 
   /// Obtiene los tipos de documentos disponibles
   static Future<List<Map<String, dynamic>>> getDocumentTypes({String? token}) async {
-    // Lista hardcodeada de tipos de documento
-    // Los IDs se envían en orden: 1=SOAT, 2=TECNOMECANICA, 3=LICENCIA, 4=TARJETA_OPERACION,
-    // 5=SEGURO, 6=CONTRACTUAL, 7=EXTRACONTRACTUAL, 8=OTRO
+    // Lista de tipos de documento según la BD
     final List<Map<String, dynamic>> documentTypes = [
       {'id': 1, 'nombre': 'SOAT'},
       {'id': 2, 'nombre': 'TECNOMECANICA'},
@@ -296,11 +294,17 @@ class DocumentService {
       {'id': 6, 'nombre': 'CONTRACTUAL'},
       {'id': 7, 'nombre': 'EXTRACONTRACTUAL'},
       {'id': 8, 'nombre': 'OTRO'},
+      {'id': 9, 'nombre': 'CEDULA'},
+      {'id': 10, 'nombre': 'PASAPORTE'},
+      {'id': 11, 'nombre': 'RUT'},
+      {'id': 12, 'nombre': 'POLIZA_TODO_RIESGO'},
+      {'id': 13, 'nombre': 'CERTIFICADO_PROPIEDAD'},
+      {'id': 14, 'nombre': 'PERMISO_CIRCULACION'},
     ];
     
-    debugPrint('📋 [getDocumentTypes] Retornando ${documentTypes.length} tipos de documento (hardcodeado)');
+    debugPrint('📋 [getDocumentTypes] Retornando ${documentTypes.length} tipos de documento');
     for (int i = 0; i < documentTypes.length; i++) {
-      debugPrint('   Tipo $i: ${documentTypes[i]}');
+      debugPrint('   [$i] ID: ${documentTypes[i]['id']}, Nombre: ${documentTypes[i]['nombre']}');
     }
     
     return documentTypes;
