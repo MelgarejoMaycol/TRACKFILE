@@ -79,7 +79,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
   late String _role;
   String? _authToken; // Token obtenido de SharedPreferences si es necesario
   List<_DocumentInfo> _documents = const [];
-  List<Map<String, dynamic>> _vehicles = []; // Cargar vehículos para buscar propietario/conductor
   // Quick search UI state
   final TextEditingController _empresaSearchController = TextEditingController();
 
@@ -186,7 +185,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     if (mounted) {
       setState(() {
         _documents = parsed;
-        _vehicles = vehicles;
         _isLoading = false;
       });
       
@@ -600,104 +598,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildUpcomingDocumentStrip({required bool isCompact, required List<_DocumentInfo> docs}) {
-    final double cardWidth = isCompact ? 170 : 190;
-    return SizedBox(
-      height: isCompact ? 140 : 160,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: docs.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 16),
-        itemBuilder: (context, index) {
-          final _DocumentInfo doc = docs[index];
-          final Map<String, Color> colors = _getColorForDaysRemaining(doc.daysRemaining);
-          final Color startColor = colors['start']!;
-          final Color endColor = colors['end']!;
-
-          return GestureDetector(
-            onTap: () => _openModal(doc),
-            child: Container(
-              width: cardWidth,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(
-                  colors: [startColor, endColor],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
-                    blurRadius: 16,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          doc.name,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: isCompact ? 13 : 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (doc.important)
-                        const Icon(Icons.push_pin, color: Colors.white, size: 16)
-                      else
-                        const Icon(Icons.chevron_right, color: Colors.white, size: 18),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    doc.isExpired ? 'Vencido' : '${doc.daysRemaining.clamp(0, 999)} días restantes',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: isCompact ? 12 : 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          doc.vehiclePlate.isNotEmpty ? doc.vehiclePlate : doc.ownerName,
-                          style: TextStyle(color: Colors.white70, fontSize: isCompact ? 11 : 12),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        doc.category,
-                        style: TextStyle(color: Colors.white60, fontSize: isCompact ? 10 : 11),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 
