@@ -802,22 +802,35 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     );
   }
 
-  Widget _buildGroupedList({required bool isCompact, required List<_DocumentInfo> docs, bool showProgress = false, int totalDocs = 6}) {
-    final Map<String, List<_DocumentInfo>> grouped = {};
-    for (final d in docs) {
-      final String key = d.ownerName.isNotEmpty ? '${d.ownerName} (${d.ownerType})' : 'Empresa';
-      grouped.putIfAbsent(key, () => []).add(d);
+
+  /// Agrupa documentos personales por usuario y muestra también sus documentos de vehículos
+  Widget _buildGroupedListWithVehicles({
+    required bool isCompact,
+    required List<_DocumentInfo> personalDocs,
+    required List<_DocumentInfo> vehicleDocs,
+  }) {
+    // Agrupar documentos personales por nombre de usuario
+    final Map<String, List<_DocumentInfo>> groupedPersonal = {};
+    for (final d in personalDocs) {
+      final String key = d.ownerName.isNotEmpty ? d.ownerName : 'Usuario';
+      groupedPersonal.putIfAbsent(key, () => []).add(d);
     }
 
-    final entries = grouped.entries.toList();
+    final entries = groupedPersonal.entries.toList();
     return Column(
       children: entries.map((entry) {
-        final String person = entry.key;
-        final List<_DocumentInfo> items = entry.value;
-        final int completed = items.length;
-        final int total = totalDocs <= 0 ? 1 : totalDocs;
-        final double progress = (completed / total).clamp(0.0, 1.0);
-        final Color barColor = progress >= 1 ? const Color(0xFF16C79A) : const Color(0xFFFF8E53);
+        final String userName = entry.key;
+        final List<_DocumentInfo> personalItems = entry.value;
+
+        // Buscar documentos de vehículos ligados a este usuario
+        // (donde sea propietario O conductor)
+        final List<_DocumentInfo> userVehicleDocs = vehicleDocs.where((doc) {
+          return doc.propietarioName == userName || doc.conductorName == userName;
+        }).toList();
+
+        // Total de documentos (personales + vehículos)
+        final int totalDocs = personalItems.length + userVehicleDocs.length;
+
         return ExpansionTile(
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -843,7 +856,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        person,
+                        userName,
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -853,34 +866,52 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                         color: Colors.white.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Text('$completed', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                      child: Text(
+                        '$totalDocs',
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
                     ),
                   ],
                 ),
               ),
-              if (showProgress) ...[
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 6,
-                    backgroundColor: Colors.white.withValues(alpha: 0.12),
-                    valueColor: AlwaysStoppedAnimation<Color>(barColor),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '$completed de $total documentos',
-                  style: const TextStyle(color: Colors.white70, fontSize: 11),
-                ),
-              ],
             ],
           ),
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: _buildDocumentList(isCompact: isCompact, docs: items),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Documentos personales
+                  if (personalItems.isNotEmpty) ...[
+                    Text(
+                      'Documentos Personales',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: isCompact ? 12 : 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _buildDocumentList(isCompact: isCompact, docs: personalItems),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Documentos de vehículos
+                  if (userVehicleDocs.isNotEmpty) ...[
+                    Text(
+                      'Documentos de Vehículos Asociados',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: isCompact ? 12 : 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _buildDocumentList(isCompact: isCompact, docs: userVehicleDocs),
+                  ],
+                ],
+              ),
             ),
             const SizedBox(height: 12),
           ],
@@ -888,8 +919,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
       }).toList(),
     );
   }
-
-  /// Agrupa documentos del vehículo por placa y muestra info de propietario/conductor
   Widget _buildVehicleDocumentsSection({required bool isCompact, required List<_DocumentInfo> docs}) {
     // Agrupar documentos por vehicleId + placa
     final Map<String, List<_DocumentInfo>> groupedByVehicle = {};
@@ -1313,8 +1342,8 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
               ),
               const SizedBox(height: 24),
 
-              // SECCIÓN 1: DOCUMENTOS DE USUARIOS
-              if (personalDocs.isNotEmpty) ...[
+              // SECCIÓN: DOCUMENTOS DE USUARIOS (con sus vehículos)
+              if (personalDocs.isNotEmpty || vehicleDocs.isNotEmpty) ...[
                 Text(
                   'Documentos de Usuarios',
                   style: TextStyle(
@@ -1324,22 +1353,11 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildGroupedList(isCompact: isCompact, docs: personalDocs, showProgress: false, totalDocs: personalDocs.length),
-                const SizedBox(height: 24),
-              ],
-
-              // SECCIÓN 2: DOCUMENTOS DE VEHÍCULOS
-              if (vehicleDocs.isNotEmpty) ...[
-                Text(
-                  'Documentos de Vehículos',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: isCompact ? 16 : 18,
-                    fontWeight: FontWeight.w600,
-                  ),
+                _buildGroupedListWithVehicles(
+                  isCompact: isCompact,
+                  personalDocs: personalDocs,
+                  vehicleDocs: vehicleDocs,
                 ),
-                const SizedBox(height: 12),
-                _buildVehicleDocumentsSection(isCompact: isCompact, docs: vehicleDocs),
               ],
 
               const SizedBox(height: 24),
