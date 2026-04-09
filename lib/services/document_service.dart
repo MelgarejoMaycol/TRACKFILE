@@ -191,21 +191,31 @@ class DocumentService {
       request.headers.addAll(headers);
 
       // Agregar campos - NO enviar idVehiculo si es null
-      if (vehicleId != null) {
+      if (vehicleId != null && vehicleId > 0) {
         request.fields['idVehiculo'] = vehicleId.toString();
+        debugPrint('   ✅ idVehiculo enviado: $vehicleId (vehículo seleccionado)');
+      } else {
+        debugPrint('   ⚠️ idVehiculo NO enviado (no seleccionado)');
       }
       
-      // IMPORTANTE: El backend requiere idVehiculo O idUsuario
-      // Si tenemos persona seleccionada (conductor/propietario), enviar como idUsuario
-      if (personaIdUsuario != null) {
-        request.fields['idUsuario'] = personaIdUsuario.toString();
-        debugPrint('   idUsuario enviado: $personaIdUsuario (REQUERIDO por backend)');
-      } else if (personaId != null) {
-        // Fallback: si no tenemos idUsuario, enviar el id
-        request.fields['idUsuario'] = personaId.toString();
-        debugPrint('   idUsuario enviado: $personaId (id como fallback)');
+      // IMPORTANTE: La BD tiene restricción CHECK que NO permite ambos idVehiculo e idUsuario NOT NULL
+      // Lógica: Si hay vehículo, NO enviar idUsuario (el propietario se deduce del vehículo)
+      //        Si NO hay vehículo, enviamos idUsuario (documento asociado a usuario directo)
+      if (vehicleId == null || vehicleId == 0) {
+        // Sin vehículo: enviar idUsuario
+        if (personaIdUsuario != null) {
+          request.fields['idUsuario'] = personaIdUsuario.toString();
+          debugPrint('   ✅ idUsuario enviado: $personaIdUsuario (usuario sin vehículo)');
+        } else if (personaId != null) {
+          // Fallback: si no tenemos idUsuario, enviar el id
+          request.fields['idUsuario'] = personaId.toString();
+          debugPrint('   ✅ idUsuario enviado: $personaId (id como fallback)');
+        } else {
+          debugPrint('   ⚠️ idUsuario NO enviado (no hay persona seleccionada)');
+        }
       } else {
-        debugPrint('   ⚠️ idUsuario NO enviado (no hay persona seleccionada)');
+        // Con vehículo: NO enviar idUsuario (se deduce del vehículo)
+        debugPrint('   ⚠️ idUsuario NO enviado (vehículo ya tiene propietario asignado)');
       }
       
       request.fields['idTipo'] = documentTypeId.toString();
@@ -224,11 +234,7 @@ class DocumentService {
         debugPrint('   ⚠️ responsableUsuarioId NO enviado (no hay usuario autenticado)');
       }
       
-      // También enviar personaId por si el backend lo necesita
-      if (personaId != null) {
-        request.fields['personaId'] = personaId.toString();
-        debugPrint('   personaId enviado: $personaId');
-      }
+      // NOTA: personaId NO se envía al backend, es solo para control en frontend
 
       debugPrint('   Campos enviados:');
       request.fields.forEach((k, v) {

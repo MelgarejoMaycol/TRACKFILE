@@ -772,19 +772,40 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                 final id = int.tryParse(parts[1]) ?? 0;
 
                 // Buscar el idUsuario de la persona seleccionada
+                // El backend devuelve diferentes estructuras según el endpoint:
+                // - /api/propietarios y /api/conductores: {"id": 3, "idUsuario": 23}
+                // - /api/vehiculos: {"propietario": {"usuario": {"id": 23}}}
                 int? idUsuario;
                 if (tipo == 'conductor') {
                   final persona = conductores.firstWhere(
                     (c) => _getIdPersona(c) == id,
                     orElse: () => <String, dynamic>{},
                   );
-                  idUsuario = persona['idUsuario'] as int?;
+                  if (persona.isNotEmpty) {
+                    // Intentar obtener idUsuario del nivel superior (estructura simplificada)
+                    idUsuario = persona['idUsuario'] as int?;
+                    
+                    // Si no existe, intentar obtener del usuario anidado
+                    if (idUsuario == null && persona['usuario'] != null) {
+                      idUsuario = persona['usuario']['id'] as int?;
+                    }
+                  }
+                  debugPrint('📋 Conductor seleccionado: ID=$id, Usuario ID=$idUsuario');
                 } else if (tipo == 'propietario') {
                   final persona = propietarios.firstWhere(
                     (p) => _getIdPersona(p) == id,
                     orElse: () => <String, dynamic>{},
                   );
-                  idUsuario = persona['idUsuario'] as int?;
+                  if (persona.isNotEmpty) {
+                    // Intentar obtener idUsuario del nivel superior (estructura simplificada)
+                    idUsuario = persona['idUsuario'] as int?;
+                    
+                    // Si no existe, intentar obtener del usuario anidado
+                    if (idUsuario == null && persona['usuario'] != null) {
+                      idUsuario = persona['usuario']['id'] as int?;
+                    }
+                  }
+                  debugPrint('📋 Propietario seleccionado: ID=$id, Usuario ID=$idUsuario');
                 }
 
                 setState(() {
@@ -1402,10 +1423,23 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
       debugPrint('   - Persona seleccionada: $selectedPersonaIdInt ($selectedPersonaTipo)');
       debugPrint('   - Vehículo ID: $selectedVehicleId (tipo: ${selectedVehicleId?.runtimeType})');
       debugPrint('   - Vehículo Placa: $selectedVehiclePlaca');
-      debugPrint('   - Vehículo Value: $selectedVehicleValue');
       debugPrint('   - Tipo: $selectedDocumentTypeId');
       debugPrint('   - Archivo: $selectedFileName');
       debugPrint('   - Token: ${widget.token?.isNotEmpty == true ? "presente (${widget.token!.length} chars)" : "NULO"}');
+      
+      // Resumen de lo que se enviará
+      final resumen = <String>[];
+      resumen.add('RESUMEN DEL DOCUMENTO A ENVIAR:');
+      resumen.add('  ✅ ID Usuario: $selectedPersonaIdInt');
+      if (selectedVehicleId != null && selectedVehicleId! > 0) {
+        resumen.add('  ✅ ID Vehículo: $selectedVehicleId (Placa: $selectedVehiclePlaca)');
+      } else {
+        resumen.add('  ⚠️ Sin vehículo seleccionado');
+      }
+      resumen.add('  ✅ Tipo: $selectedDocumentTypeId');
+      resumen.add('  ✅ Área: $selectedArea');
+      resumen.add('  ✅ Archivo: $selectedFileName');
+      debugPrint(resumen.join('\n'));
       
       // Debug: mostrar todos los vehículos disponibles
       if (vehiculos.isNotEmpty) {
