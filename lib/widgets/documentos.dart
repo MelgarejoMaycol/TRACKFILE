@@ -33,9 +33,11 @@ class _DocumentInfo {
   final String category; // tipo de documento (SOAT, Licencia, etc.)
   final String ownerId; // id del conductor/propietario/empresa
   final String ownerType; // 'empresa' | 'conductor' | 'propietario' | 'vehiculo'
-  final String ownerName; // nombre para agrupar
+  final String ownerName; // nombre del propietario/conductor para documentos personales
   final String vehicleId; // id del vehículo si aplica
   final String vehiclePlate; // placa del vehículo si aplica
+  final String conductorName; // nombre del conductor si es documento de vehículo
+  final String propietarioName; // nombre del propietario si es documento de vehículo
   final int documentId; // id del documento
   final int idTipo; // id del tipo de documento
 
@@ -50,6 +52,8 @@ class _DocumentInfo {
     this.ownerName = '',
     this.vehicleId = '',
     this.vehiclePlate = '',
+    this.conductorName = '',
+    this.propietarioName = '',
     this.documentId = 0,
     this.idTipo = 0,
   });
@@ -58,6 +62,8 @@ class _DocumentInfo {
 
   bool get isNearExpiry => daysRemaining <= 30 && daysRemaining >= 0;
   bool get isExpired => daysRemaining < 0;
+  bool get isPersonal => vehicleId.isEmpty; // Documento personal si no tiene vehículo
+  bool get isVehicleDocument => vehicleId.isNotEmpty; // Documento de vehículo si tiene vehículo
 }
 
 class _DocumentosWidgetState extends State<DocumentosWidget> {
@@ -69,7 +75,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
   late String _role;
   String? _authToken; // Token obtenido de SharedPreferences si es necesario
   List<_DocumentInfo> _documents = const [];
-  final List<Map<String, String>> _vehicles = [];
+  List<Map<String, dynamic>> _vehicles = []; // Cargar vehículos para buscar propietario/conductor
   // Quick search UI state
   final TextEditingController _empresaSearchController = TextEditingController();
 
@@ -113,20 +119,33 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
 
   Future<void> _loadDocuments() async {
     List<_DocumentInfo> parsed = [];
+    List<Map<String, dynamic>> vehicles = [];
     
     // Cargar desde la API según el rol del usuario
     if (_authToken != null && _authToken!.isNotEmpty) {
       try {
         debugPrint('📡 Cargando documentos para rol: $_role, userId: ${widget.userId}');
         
-        final documents = await DocumentService.getDocumentsByRole(
+        // Cargar documentos y vehículos en paralelo
+        final docsFuture = DocumentService.getDocumentsByRole(
           role: _role,
           userId: widget.userId,
           token: _authToken,
         );
+        final vehiclesFuture = DocumentService.getAllVehicles(token: _authToken);
+        
+        final results = await Future.wait([docsFuture, vehiclesFuture]);
+        final documents = List<Map<String, dynamic>>.from(results[0]);
+        vehicles = List<Map<String, dynamic>>.from(results[1]);
+        
+        debugPrint('🚗 Se cargaron ${vehicles.length} vehículos');
         
         if (documents.isNotEmpty) {
-          parsed = _convertApiDocumentsToDocumentInfo(documents);
+          parsed = _convertApiDocumentsToDocumentInfo(documents, vehicles);
+          debugPrint('✅ Documentos convertidos: ${parsed.length}');
+          for (final doc in parsed) {
+            debugPrint('  - Tipo: ${doc.ownerType}, Usuario: ${doc.ownerName}, Vehículo: ${doc.vehiclePlate}, Prop: ${doc.propietarioName}, Cond: ${doc.conductorName}');
+          }
           
           // Filtrar documentos según el rol
           if (_role != 'empresa' && widget.userId != null && widget.userId!.isNotEmpty) {
@@ -154,18 +173,25 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     if (mounted) {
       setState(() {
         _documents = parsed;
+        _vehicles = vehicles;
         _isLoading = false;
       });
       
-      debugPrint('📊 DocumentosWidget: loaded ${parsed.length} documents, vehicles: ${_vehicles.length}');
+      debugPrint('📊 DocumentosWidget: loaded ${parsed.length} documents y ${vehicles.length} vehicles');
     }
   }
 
-  List<_DocumentInfo> _convertApiDocumentsToDocumentInfo(List<Map<String, dynamic>> documents) {
+  List<_DocumentInfo> _convertApiDocumentsToDocumentInfo(
+    List<Map<String, dynamic>> documents,
+    List<Map<String, dynamic>> vehicles,
+  ) {
+    debugPrint('🔄 Convirtiendo ${documents.length} documentos con ${vehicles.length} vehículos disponibles');
+    
     return documents.map((doc) {
-      // Mapear campos del backend (DocumentoTablaResponse)
       final String name = doc['nombreTipoDocumento'] ?? doc['nombreTipo'] ?? doc['nombre'] ?? 'Documento';
       final String category = doc['area'] ?? 'General';
+      final String vehicleId = doc['idVehiculo']?.toString() ?? '';
+      final String vehiclePlate = doc['placa'] ?? '';
       
       DateTime? expiry;
       final dynamic fechaVencimiento = doc['fechaVencimiento'];
@@ -174,37 +200,68 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
       }
       
       if (expiry != null) {
-        // Determinar el nombre del propietario (puede ser conductor, propietario o usuario)
-        String ownerName = 'Usuario';
-        String ownerType = 'usuario';
-        
-        // Si tiene propietario (vehículo)
-        if (doc['nombrePropietario'] != null && doc['nombrePropietario'].toString().isNotEmpty) {
-          final nombre = doc['nombrePropietario'] ?? '';
-          final apellido = doc['apellidoPropietario'] ?? '';
-          ownerName = '$nombre ${apellido ?? ''}'.trim();
-          ownerType = 'propietario';
-        }
-        // Si tiene usuario/conductor
-        else if (doc['nombreUsuario'] != null && doc['nombreUsuario'].toString().isNotEmpty) {
-          final nombre = doc['nombreUsuario'] ?? '';
-          final apellido = doc['apellidoUsuario'] ?? '';
-          ownerName = '$nombre ${apellido ?? ''}'.trim();
-          ownerType = 'conductor';
-        }
-        
         final DateTime? creation = DateTime.tryParse((doc['fechaCreacion'] ?? '').toString());
+        
+        // Construir nombre del usuario (del documento personal)
+        final userFirstName = doc['nombreUsuario'] ?? '';
+        final userLastName = doc['apellidoUsuario'] ?? '';
+        final String ownerName = '$userFirstName $userLastName'.trim();
+        
+        // Buscar nombres de conductor y propietario en la lista de vehículos
+        String conductorName = '';
+        String propietarioName = '';
+        
+        if (vehicleId.isNotEmpty && vehicles.isNotEmpty) {
+          debugPrint('🔍 Buscando vehículo ID: $vehicleId');
+          
+          // Buscar el vehículo en la lista
+          for (final vehicle in vehicles) {
+            final vhId = vehicle['id']?.toString() ?? '';
+            if (vhId == vehicleId) {
+              debugPrint('   ✅ Vehículo encontrado: $vehiclePlate');
+              
+              // Obtener datos del conductor (estructura anidada: conductor.usuario.nombre)
+              final conductor = vehicle['conductor'];
+              if (conductor != null && conductor is Map) {
+                final usuario = conductor['usuario'];
+                if (usuario != null && usuario is Map) {
+                  final condFirstName = usuario['nombre'] ?? '';
+                  final condLastName = usuario['apellido'] ?? '';
+                  conductorName = '$condFirstName $condLastName'.trim();
+                  debugPrint('   ✓ Conductor: $conductorName');
+                }
+              }
+              
+              // Obtener datos del propietario (estructura anidada: propietario.usuario.nombre)
+              final propietario = vehicle['propietario'];
+              if (propietario != null && propietario is Map) {
+                final usuario = propietario['usuario'];
+                if (usuario != null && usuario is Map) {
+                  final propFirstName = usuario['nombre'] ?? '';
+                  final propLastName = usuario['apellido'] ?? '';
+                  propietarioName = '$propFirstName $propLastName'.trim();
+                  debugPrint('   ✓ Propietario: $propietarioName');
+                }
+              }
+              
+              break;
+            }
+          }
+        }
+        
         return _DocumentInfo(
           name: name,
           expiryDate: expiry,
           creationDate: creation,
           important: false,
           category: category,
-          ownerId: doc['idUsuario']?.toString() ?? doc['idVehiculo']?.toString() ?? '',
-          ownerType: ownerType,
+          ownerId: doc['idUsuario']?.toString() ?? '',
+          ownerType: vehicleId.isNotEmpty ? 'vehiculo' : 'usuario',
           ownerName: ownerName,
-          vehicleId: doc['idVehiculo']?.toString() ?? '',
-          vehiclePlate: doc['placa'] ?? '',
+          vehicleId: vehicleId,
+          vehiclePlate: vehiclePlate,
+          conductorName: conductorName,
+          propietarioName: propietarioName,
           documentId: int.tryParse(doc['idDocumento']?.toString() ?? '0') ?? 0,
           idTipo: int.tryParse(doc['idTipo']?.toString() ?? '0') ?? 0,
         );
@@ -352,7 +409,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Documentos del conductor',
+                      'Documentos de ${widget.userId ?? 'Usuario'}',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: isCompact ? 18 : 20,
@@ -411,7 +468,11 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
           );
         }
 
-        // Próximos documentos a vencer
+        // Separar documentos: personales vs del vehículo
+        final List<_DocumentInfo> personalDocs = _documents.where((d) => d.vehicleId.isEmpty).toList();
+        final List<_DocumentInfo> vehicleDocs = _documents.where((d) => d.vehicleId.isNotEmpty).toList();
+
+        // Próximos documentos a vencer (todos)
         final List<_DocumentInfo> upcomingDocs = _documents
             .where((d) => !d.isExpired)
             .toList()
@@ -419,13 +480,18 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
         final List<_DocumentInfo> topUpcoming = upcomingDocs.take(3).toList();
 
         // Aplicar búsqueda
-        List<_DocumentInfo> filteredDocs = _documents;
+        List<_DocumentInfo> filteredPersonalDocs = personalDocs;
+        List<_DocumentInfo> filteredVehicleDocs = vehicleDocs;
         if (_conductorSearch.isNotEmpty) {
           final String s = _conductorSearch;
-          filteredDocs = filteredDocs.where((d) =>
+          filteredPersonalDocs = filteredPersonalDocs.where((d) =>
             d.name.toLowerCase().contains(s) ||
             d.category.toLowerCase().contains(s) ||
-            d.ownerName.toLowerCase().contains(s) ||
+            d.ownerName.toLowerCase().contains(s)
+          ).toList();
+          filteredVehicleDocs = filteredVehicleDocs.where((d) =>
+            d.name.toLowerCase().contains(s) ||
+            d.category.toLowerCase().contains(s) ||
             d.vehiclePlate.toLowerCase().contains(s)
           ).toList();
         }
@@ -437,7 +503,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Text(
-                'Documentos del conductor',
+                'Documentos de ${widget.userId ?? 'Usuario'}',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: isCompact ? 18 : 20,
@@ -460,10 +526,10 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
 
               // Buscador
               Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
+                padding: const EdgeInsets.only(bottom: 16.0),
                 child: TextField(
                   decoration: InputDecoration(
-                    hintText: 'Buscar documentos (nombre, categoría, propietario, placa)',
+                    hintText: 'Buscar documentos (nombre, categoría, placa)',
                     hintStyle: const TextStyle(color: Colors.white54),
                     prefixIcon: const Icon(Icons.search, color: Colors.white54),
                     filled: true,
@@ -474,10 +540,42 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                   onChanged: (v) => setState(() => _conductorSearch = v.trim().toLowerCase()),
                 ),
               ),
-              const SizedBox(height: 12),
               
-              // Lista de documentos
-              _buildDocumentList(isCompact: isCompact, docs: filteredDocs),
+              // SECCIÓN 1: MIS DOCUMENTOS (personales)
+              if (filteredPersonalDocs.isNotEmpty) ...[
+                Text(
+                  'Mis Documentos',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isCompact ? 16 : 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildDocumentList(isCompact: isCompact, docs: filteredPersonalDocs),
+                const SizedBox(height: 24),
+              ],
+              
+              // SECCIÓN 2: DOCUMENTOS DEL VEHÍCULO
+              if (filteredVehicleDocs.isNotEmpty) ...[
+                Text(
+                  'Documentos del Vehículo',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isCompact ? 16 : 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildVehicleDocumentsSection(isCompact: isCompact, docs: filteredVehicleDocs),
+              ] else if (filteredPersonalDocs.isEmpty) ...[
+                Center(
+                  child: Text(
+                    'No hay documentos que coincidan con la búsqueda',
+                    style: TextStyle(color: Colors.white54, fontSize: isCompact ? 12 : 14),
+                  ),
+                ),
+              ],
             ],
           ),
         );
@@ -589,6 +687,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
       children: items.map((doc) {
         final bool isExpired = doc.isExpired;
         final bool isNearExpiry = doc.isNearExpiry;
+        
         return Container(
           margin: const EdgeInsets.only(bottom: 14),
           decoration: BoxDecoration(
@@ -599,37 +698,79 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
           child: ListTile(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            title: Row(
+            // TÍTULO: Mostrar diferente según tipo de documento
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    doc.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        doc.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (doc.important)
+                      Container(
+                        margin: const EdgeInsets.only(left: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.3)),
+                        ),
+                        child: const Text('Importante', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                      ),
+                  ],
                 ),
-                if (doc.important)
-                  Container(
-                    margin: const EdgeInsets.only(left: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.3)),
+                // Para documentos de vehículo: mostrar placa, conductor y propietario debajo del título
+                if (doc.isVehicleDocument && doc.vehiclePlate.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Placa: ${doc.vehiclePlate}',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                    child: const Text('Importante', style: TextStyle(color: Colors.white70, fontSize: 11)),
                   ),
               ],
             ),
+            // SUBTITLE: Información de propietario/conductor/fecha
             subtitle: Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Wrap(
                 spacing: 12,
                 runSpacing: 6,
                 children: [
+                  // Para documentos personales: mostrar nombre del usuario
+                  if (doc.isPersonal && doc.ownerName.isNotEmpty)
+                    _buildChip(
+                      label: 'Usuario: ${doc.ownerName}',
+                      highlight: false,
+                    ),
+                  
+                  // Para documentos de vehículo: mostrar conductor y propietario
+                  if (doc.isVehicleDocument) ...[
+                    if (doc.conductorName.isNotEmpty)
+                      _buildChip(
+                        label: 'Conductor: ${doc.conductorName}',
+                        highlight: false,
+                      ),
+                    if (doc.propietarioName.isNotEmpty)
+                      _buildChip(
+                        label: 'Propietario: ${doc.propietarioName}',
+                        highlight: false,
+                      ),
+                  ],
+                  
+                  // Información de vencimiento y estado
                   _buildChip(
                     label: isExpired ? 'Documento vencido' : 'Vence el ${_formatDate(doc.expiryDate)}',
                     highlight: isNearExpiry || isExpired,
@@ -638,13 +779,16 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                     label: '${doc.daysRemaining.clamp(0, 999)} días restantes',
                     highlight: isNearExpiry,
                   ),
+                  
+                  // Fecha de creación
                   if (doc.creationDate != null)
                     _buildChip(
                       label: 'Creado el ${_formatDate(doc.creationDate!)}',
                       highlight: false,
                     ),
+                  
+                  // Tipo de documento
                   _buildChip(label: doc.category, highlight: false),
-                  if (doc.ownerName.isNotEmpty) _buildChip(label: doc.ownerName, highlight: false),
                 ],
               ),
             ),
@@ -745,6 +889,163 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     );
   }
 
+  /// Agrupa documentos del vehículo por placa y muestra info de propietario/conductor
+  Widget _buildVehicleDocumentsSection({required bool isCompact, required List<_DocumentInfo> docs}) {
+    // Agrupar documentos por vehicleId + placa
+    final Map<String, List<_DocumentInfo>> groupedByVehicle = {};
+    for (final doc in docs) {
+      final String key = '${doc.vehicleId}|${doc.vehiclePlate}';
+      groupedByVehicle.putIfAbsent(key, () => []).add(doc);
+    }
+
+    return Column(
+      children: groupedByVehicle.entries.map((entry) {
+        final List<_DocumentInfo> vehicleDocs = entry.value;
+        final _DocumentInfo firstDoc = vehicleDocs.first;
+        final String placa = firstDoc.vehiclePlate.isNotEmpty ? firstDoc.vehiclePlate : 'Placa desconocida';
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 20),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Column(
+            children: [
+              // Encabezado con info del vehículo
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3330BE).withValues(alpha: 0.2),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                  border: Border(
+                    bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Placa del vehículo
+                    Row(
+                      children: [
+                        Icon(Icons.directions_car, color: Colors.cyan, size: 24),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Vehículo: $placa',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: isCompact ? 14 : 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                '${vehicleDocs.length} documento${vehicleDocs.length == 1 ? '' : 's'}',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: isCompact ? 11 : 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Info de Propietario y Conductor
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Propietario',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: isCompact ? 10 : 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  firstDoc.propietarioName.isNotEmpty ? firstDoc.propietarioName : '-',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: isCompact ? 12 : 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Conductor',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: isCompact ? 10 : 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  firstDoc.conductorName.isNotEmpty ? firstDoc.conductorName : 'Info disponible',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: isCompact ? 12 : 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Lista de documentos del vehículo
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: _buildDocumentList(isCompact: isCompact, docs: vehicleDocs),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildChip({required String label, required bool highlight}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -768,24 +1069,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
   String _propietarioSearch = '';
   String _conductorSearch = '';
 
-  // Vehicle-related document keywords (used to restrict docs for company view)
-  static const List<String> _vehicleDocKeywords = [
-    'soat',
-    'tecnicomecanico',
-    'tecnicomecánico',
-    'poliza',
-    'póliza',
-    'seguro',
-    'tarjeta de operación',
-    'tarjeta de operacion',
-    'revision',
-    'revisión',
-  ];
-
-  bool _isVehicleDocument(_DocumentInfo d) {
-    final String text = '${d.category} ${d.name}'.toLowerCase();
-    return _vehicleDocKeywords.any((k) => text.contains(k));
-  }
 
   // Obtener color basado en días restantes para vencimiento
   Map<String, Color> _getColorForDaysRemaining(int daysRemaining) {
@@ -811,11 +1094,27 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool isCompact = constraints.maxWidth < 560;
-        final List<_DocumentInfo> filtered = _filteredEmpresaDocuments();
-        // For empresa view, focus on personal documents (drivers/owners).
-        final List<_DocumentInfo> personalDocs = filtered.where((d) => d.ownerType == 'conductor' || d.ownerType == 'propietario').toList();
         
-        // Si no hay documentos en absoluto (antes de buscar)
+        // Separar documentos según búsqueda
+        String q = _empresaSearch.trim().toLowerCase();
+        
+        // Documentos personales (sin vehículo)
+        List<_DocumentInfo> personalDocs = _documents.where((d) => d.isPersonal).toList();
+        if (q.isNotEmpty) {
+          personalDocs = personalDocs.where((d) => d.ownerName.toLowerCase().contains(q)).toList();
+        }
+        
+        // Documentos de vehículo (con idVehiculo)
+        List<_DocumentInfo> vehicleDocs = _documents.where((d) => d.isVehicleDocument).toList();
+        if (q.isNotEmpty) {
+          vehicleDocs = vehicleDocs.where((d) => 
+            d.vehiclePlate.toLowerCase().contains(q) ||
+            d.propietarioName.toLowerCase().contains(q) ||
+            d.conductorName.toLowerCase().contains(q)
+          ).toList();
+        }
+        
+        // Si no hay documentos en absoluto
         if (_documents.isEmpty) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -837,11 +1136,10 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Busca y visualiza los documentos de tus conductores y propietarios',
+                      'Busca y visualiza los documentos de tus conductores, propietarios y vehículos',
                       style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13),
                     ),
                     const SizedBox(height: 24),
-                    // Empty state
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -889,7 +1187,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
         }
         
         // Si hay búsqueda pero no hay resultados
-        if (_empresaSearch.isNotEmpty && personalDocs.isEmpty) {
+        if (q.isNotEmpty && personalDocs.isEmpty && vehicleDocs.isEmpty) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.start,
@@ -910,14 +1208,13 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Busca y visualiza los documentos de tus conductores y propietarios',
+                      'Busca y visualiza los documentos de tus conductores, propietarios y vehículos',
                       style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13),
                     ),
                     const SizedBox(height: 24),
-                    // Buscador
                     TextField(
                       decoration: InputDecoration(
-                        hintText: 'Buscar por nombre de persona',
+                        hintText: 'Buscar por nombre de persona o placa',
                         hintStyle: const TextStyle(color: Colors.white54),
                         prefixIcon: const Icon(Icons.search, color: Colors.white54),
                         filled: true,
@@ -928,7 +1225,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                       onChanged: (v) => setState(() => _empresaSearch = v.trim().toLowerCase()),
                     ),
                     const SizedBox(height: 40),
-                    // No results state
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -939,7 +1235,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'No se encontraron personas',
+                          'No se encontraron resultados',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: isCompact ? 16 : 18,
@@ -948,7 +1244,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'No hay resultados para "$_empresaSearch"',
+                          'No hay resultados para "$q"',
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: isCompact ? 12 : 14,
@@ -986,12 +1282,12 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Busca y visualiza los documentos de tus conductores y propietarios',
+                'Busca y visualiza los documentos de tus conductores, propietarios y vehículos',
                 style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13),
               ),
               const SizedBox(height: 16),
 
-              // Documentos próximos a vencer (todos, sin importar de quién es)
+              // Documentos próximos a vencer
               if (upcomingAll.isNotEmpty) ...[
                 Text(
                   'Próximos a vencer',
@@ -1002,10 +1298,10 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                 const SizedBox(height: 24),
               ],
 
-              // Solo buscador, sin filtros
+              // Buscador
               TextField(
                 decoration: InputDecoration(
-                  hintText: 'Buscar por nombre de persona',
+                  hintText: 'Buscar por nombre de persona o placa',
                   hintStyle: const TextStyle(color: Colors.white54),
                   prefixIcon: const Icon(Icons.search, color: Colors.white54),
                   filled: true,
@@ -1017,8 +1313,35 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
               ),
               const SizedBox(height: 24),
 
-              // Documentos agrupados por persona
-              _buildGroupedList(isCompact: isCompact, docs: personalDocs, showProgress: false, totalDocs: personalDocs.length),
+              // SECCIÓN 1: DOCUMENTOS DE USUARIOS
+              if (personalDocs.isNotEmpty) ...[
+                Text(
+                  'Documentos de Usuarios',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isCompact ? 16 : 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildGroupedList(isCompact: isCompact, docs: personalDocs, showProgress: false, totalDocs: personalDocs.length),
+                const SizedBox(height: 24),
+              ],
+
+              // SECCIÓN 2: DOCUMENTOS DE VEHÍCULOS
+              if (vehicleDocs.isNotEmpty) ...[
+                Text(
+                  'Documentos de Vehículos',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isCompact ? 16 : 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildVehicleDocumentsSection(isCompact: isCompact, docs: vehicleDocs),
+              ],
+
               const SizedBox(height: 24),
             ],
           ),
@@ -1027,138 +1350,175 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     );
   }
 
-  List<_DocumentInfo> _filteredEmpresaDocuments() {
-    final String q = _empresaSearch.trim().toLowerCase();
-    List<_DocumentInfo> list = List<_DocumentInfo>.from(_documents);
-
-    // For empresa view, show all documents that belong to drivers or propietarios
-    if (_role == 'empresa') {
-      list = list.where((d) => d.ownerType == 'conductor' || d.ownerType == 'propietario').toList();
-    }
-
-    // Search only by owner name (persona name)
-    if (q.isNotEmpty) {
-      list = list.where((d) => d.ownerName.toLowerCase().contains(q)).toList();
-    }
-
-    // Sort by expiry date
-    list.sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-    return list;
-  }
 
 
 
   Widget _propietarioDocumentos() {
-  // Helper to detect vehicle-related documents (re-using empresa helper logic)
-  bool isVehicleDoc(_DocumentInfo d) => _isVehicleDocument(d);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < 560;
 
-  return LayoutBuilder(
-    builder: (context, constraints) {
-      final bool isCompact = constraints.maxWidth < 560;
-
-      // _documents is already filtered by userId in _loadDocuments(), so use it directly
-      // Don't re-filter by ownerType since it's determined by API response field population
-      List<_DocumentInfo> ownerDocs = _documents;
-
-      // Próximos documentos a vencer (top 3)
-      final List<_DocumentInfo> upcomingDocs = ownerDocs
-          .where((d) => !d.isExpired)
-          .toList()
-        ..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-      final List<_DocumentInfo> topUpcoming = upcomingDocs.take(3).toList();
-
-      // Aplicar búsqueda (si existe) para filtrar documentos del propietario
-      if (_propietarioSearch.isNotEmpty) {
-        final String s = _propietarioSearch;
-        ownerDocs = ownerDocs.where((d) =>
-          d.name.toLowerCase().contains(s) ||
-          d.category.toLowerCase().contains(s) ||
-          d.ownerName.toLowerCase().contains(s) ||
-          d.vehiclePlate.toLowerCase().contains(s)
-        ).toList();
-      }
-
-      // Documentos personales: todos los documentos del propietario que no están relacionados con vehículos.
-      final List<_DocumentInfo> personalOwnerDocs = ownerDocs.where((d) => d.vehiclePlate.isEmpty && !isVehicleDoc(d)).toList();
-
-      return SingleChildScrollView(
-        padding: EdgeInsets.symmetric(
-          horizontal: isCompact ? 16 : 24,
-          vertical: 24,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-
-            Text(
-              'Documentos del propietario',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: isCompact ? 18 : 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            if (topUpcoming.isNotEmpty) ...[
-              Text(
-                'Próximos vencimientos',
-                style: TextStyle(color: Colors.white, fontSize: isCompact ? 14 : 16, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 10),
-              _buildUpcomingDocumentStrip(
-                isCompact: isCompact,
-                docs: topUpcoming,
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Barra de búsqueda para documentos del propietario
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: 'Buscar documentos (nombre, categoría, propietario, placa)',
-                  hintStyle: const TextStyle(color: Colors.white54),
-                  prefixIcon: const Icon(Icons.search, color: Colors.white54),
-                  filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.04),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                ),
-                style: const TextStyle(color: Colors.white),
-                onChanged: (v) => setState(() => _propietarioSearch = v.trim().toLowerCase()),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // 2) Documentos personales del propietario (mostrar como tarjetas verticales)
-            if (personalOwnerDocs.isNotEmpty) ...[
+        // Si no hay documentos, mostrar mensaje
+        if (_documents.isEmpty) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
               Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Text('Documentos personales', style: TextStyle(color: Colors.white, fontSize: isCompact ? 14 : 16, fontWeight: FontWeight.w600)),
+                padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 24, vertical: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Documentos de ${widget.userId ?? 'Usuario'}',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: isCompact ? 18 : 20,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.file_present_rounded,
+                          size: 64,
+                          color: Colors.white.withValues(alpha: 0.3),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No hay documentos',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isCompact ? 16 : 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              // Mostrar todos los documentos personales del propietario como tarjetas en lista vertical,
-              // en lugar de agruparlos por persona (comportamiento solicitado por el usuario).
-              _buildDocumentList(isCompact: isCompact, docs: personalOwnerDocs),
-              const SizedBox(height: 20),
             ],
+          );
+        }
 
-            // 3) Sección de vehículos removida: los documentos relacionados con vehículos no se muestran
-            // en este panel por solicitud del usuario. Todos los documentos personales del propietario
-            // se muestran arriba como tarjetas para facilitar la visualización.
+        // Separar documentos: personales vs del vehículo
+        final List<_DocumentInfo> personalDocs = _documents.where((d) => d.vehicleId.isEmpty).toList();
+        final List<_DocumentInfo> vehicleDocs = _documents.where((d) => d.vehicleId.isNotEmpty).toList();
 
-            // If there are no vehicles and we haven't shown personal docs, show grouped owner list as fallback
-            if (_vehicles.isEmpty && personalOwnerDocs.isEmpty) ...[
-              _buildGroupedList(isCompact: isCompact, docs: ownerDocs),
+        // Próximos documentos a vencer (todos)
+        final List<_DocumentInfo> upcomingDocs = _documents
+            .where((d) => !d.isExpired)
+            .toList()
+          ..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
+        final List<_DocumentInfo> topUpcoming = upcomingDocs.take(3).toList();
+
+        // Aplicar búsqueda
+        List<_DocumentInfo> filteredPersonalDocs = personalDocs;
+        List<_DocumentInfo> filteredVehicleDocs = vehicleDocs;
+        if (_propietarioSearch.isNotEmpty) {
+          final String s = _propietarioSearch;
+          filteredPersonalDocs = filteredPersonalDocs.where((d) =>
+            d.name.toLowerCase().contains(s) ||
+            d.category.toLowerCase().contains(s) ||
+            d.ownerName.toLowerCase().contains(s)
+          ).toList();
+          filteredVehicleDocs = filteredVehicleDocs.where((d) =>
+            d.name.toLowerCase().contains(s) ||
+            d.category.toLowerCase().contains(s) ||
+            d.vehiclePlate.toLowerCase().contains(s)
+          ).toList();
+        }
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 24, vertical: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              Text(
+                'Documentos de ${widget.userId ?? 'Usuario'}',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: isCompact ? 18 : 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Próximos vencimientos
+              if (topUpcoming.isNotEmpty) ...[
+                Text(
+                  'Próximos vencimientos',
+                  style: TextStyle(color: Colors.white, fontSize: isCompact ? 14 : 16, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
+                _buildUpcomingDocumentStrip(isCompact: isCompact, docs: topUpcoming),
+                const SizedBox(height: 16),
+              ],
+
+              // Buscador
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Buscar documentos (nombre, categoría, placa)',
+                    hintStyle: const TextStyle(color: Colors.white54),
+                    prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.04),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                  onChanged: (v) => setState(() => _propietarioSearch = v.trim().toLowerCase()),
+                ),
+              ),
+
+              // SECCIÓN 1: MIS DOCUMENTOS (personales)
+              if (filteredPersonalDocs.isNotEmpty) ...[
+                Text(
+                  'Mis Documentos',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isCompact ? 16 : 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildDocumentList(isCompact: isCompact, docs: filteredPersonalDocs),
+                const SizedBox(height: 24),
+              ],
+
+              // SECCIÓN 2: DOCUMENTOS DEL VEHÍCULO
+              if (filteredVehicleDocs.isNotEmpty) ...[
+                Text(
+                  'Documentos del Vehículo',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isCompact ? 16 : 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildVehicleDocumentsSection(isCompact: isCompact, docs: filteredVehicleDocs),
+              ] else if (filteredPersonalDocs.isEmpty) ...[
+                Center(
+                  child: Text(
+                    'No hay documentos que coincidan con la búsqueda',
+                    style: TextStyle(color: Colors.white54, fontSize: isCompact ? 12 : 14),
+                  ),
+                ),
+              ],
             ],
-
-            const SizedBox(height: 24),
-          ],
-        ),
-      );
-    },
-  );
-}
+          ),
+        );
+      },
+    );
+  }
 
 
   Widget _secretariaDocumentos() {

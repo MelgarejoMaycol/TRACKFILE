@@ -666,6 +666,40 @@ class DocumentService {
     return [];
   }
 
+  /// Obtiene TODOS los vehículos disponibles
+  /// Útil para encontrar propietario y conductor de un vehículo específico
+  static Future<List<Map<String, dynamic>>> getAllVehicles({
+    String? token,
+  }) async {
+    try {
+      final headers = _buildHeaders(token);
+      
+      debugPrint('🚗 [getAllVehicles] Obteniendo todos los vehículos');
+      
+      final response = await http
+          .get(
+            Uri.parse('$_baseUrl/api/vehiculos'),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is List) {
+          debugPrint('✅ [getAllVehicles] Se obtuvieron ${decoded.length} vehículos');
+          return List<Map<String, dynamic>>.from(
+            decoded.map((item) => item is Map<String, dynamic> ? item : <String, dynamic>{}),
+          );
+        }
+      } else {
+        debugPrint('❌ [getAllVehicles] Error ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('❌ [getAllVehicles] Excepción: $e');
+    }
+    return [];
+  }
+
   /// Obtiene el token guardado locally
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
