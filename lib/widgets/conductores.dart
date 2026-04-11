@@ -96,6 +96,37 @@ class _ConductoresWidgetState extends State<ConductoresWidget> {
     }
   }
 
+  Future<void> _loadDriverDetail(int driverId, Function(Map<String, dynamic>) onSuccess) async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? token = prefs.getString('auth_token');
+
+      if (token == null) {
+        throw Exception('No hay sesión activa');
+      }
+
+      final uri = ApiConfig.resolve(_baseUrl, '/api/conductores/$driverId/detalle');
+      debugPrint('🔗 Llamando a: $uri');
+
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body) as Map<String, dynamic>;
+        onSuccess(data);
+      } else {
+        throw Exception('Error ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error cargando detalle: $e');
+    }
+  }
+
   Color _driverStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'en ruta':
@@ -270,6 +301,323 @@ class _ConductoresWidgetState extends State<ConductoresWidget> {
     );
   }
 
+  void _showDriverDetails(Map<String, dynamic> conductor) {
+    Map<String, dynamic> detalle = {};
+    int driverId = conductor['id'] ?? 0;
+
+    if (driverId > 0) {
+      _loadDriverDetail(driverId, (data) {
+        detalle = data;
+      });
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          _loadDriverDetail(driverId, (data) {
+            detalle = data;
+            setState(() {});
+          });
+
+          return DraggableScrollableSheet(
+            initialChildSize: 0.90,
+            maxChildSize: 1.0,
+            minChildSize: 0.75,
+            expand: false,
+            snap: true,
+            snapSizes: const [0.75, 0.90, 1.0],
+            builder: (context, scrollController) => Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFF1A1A2E),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black54,
+                    blurRadius: 24,
+                    offset: Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                controller: scrollController,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      /// 🔹 DRAG HANDLE
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      /// 🔹 HEADER CON AVATAR
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 70,
+                            height: 70,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [_accentColor, _accentColor.withValues(alpha: 0.6)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white24, width: 2),
+                            ),
+                            child: const Icon(
+                              Icons.person_rounded,
+                              size: 36,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'CONDUCTOR',
+                                  style: TextStyle(
+                                    color: _accentColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  conductor['nombreCompleto'] ?? '${conductor['nombre'] ?? ''} ${conductor['apellido'] ?? ''}'.trim(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.close_rounded,
+                                color: Colors.white54,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      /// 🔹 INFORMACIÓN PERSONAL
+                      _buildDetailSection(
+                        icon: Icons.person_rounded,
+                        title: 'Información Personal',
+                        backgroundColor: const Color(0xFF2D2D4A),
+                        fields: [
+                          (label: 'Nombre', value: conductor['nombre']?.toString() ?? 'N/A'),
+                          (label: 'Apellido', value: conductor['apellido']?.toString() ?? 'N/A'),
+                          (label: 'Documento', value: conductor['numeroDocumento']?.toString() ?? 'N/A'),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      /// 🔹 INFORMACIÓN DE CONDUCCIÓN
+                      _buildDetailSection(
+                        icon: Icons.badge_rounded,
+                        title: 'Licencia de Conducción',
+                        backgroundColor: const Color(0xFF2D2D4A),
+                        fields: [
+                          (label: 'Licencia', value: conductor['extra']?.toString() ?? 'Sin especificar'),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      /// 🔹 CONTACTO
+                      _buildDetailSection(
+                        icon: Icons.contact_mail_rounded,
+                        title: 'Información de Contacto',
+                        backgroundColor: const Color(0xFF2D2D4A),
+                        fields: [
+                          (label: 'Teléfono', value: conductor['telefono']?.toString() ?? 'N/A'),
+                          (label: 'Correo', value: conductor['correo']?.toString() ?? 'N/A'),
+                        ],
+                      ),
+
+                      if (detalle.isNotEmpty) ...
+                        [
+                          const SizedBox(height: 16),
+                          /// 🔹 ESTADO
+                          _buildDetailSection(
+                            icon: Icons.check_circle_rounded,
+                            title: 'Estado',
+                            backgroundColor: const Color(0xFF2D2D4A),
+                            fields: [
+                              (label: 'Estado', value: detalle['estado']?.toString() ?? 'N/A'),
+                            ],
+                          ),
+                        ],
+
+                      const SizedBox(height: 24),
+
+                      /// 🔹 BOTONES DE ACCIÓN
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              label: const Text('Cerrar'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _accentColor,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDetailSection({
+    required IconData icon,
+    required String title,
+    required List<({String label, String value})> fields,
+    Color? backgroundColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: backgroundColor ?? Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.1),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _accentColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: _accentColor, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...fields.asMap().entries.map((entry) {
+            bool isLast = entry.key == fields.length - 1;
+            return Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.03),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.06),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 110,
+                        child: Text(
+                          entry.value.label,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          entry.value.value,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.right,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!isLast) const SizedBox(height: 10),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDriverCard(Map<String, dynamic> conductor) {
     final String nombre = conductor['nombre']?.toString() ?? '';
     final String apellido = conductor['apellido']?.toString() ?? '';
@@ -278,67 +626,75 @@ class _ConductoresWidgetState extends State<ConductoresWidget> {
     final String licencia = conductor['extra']?.toString() ?? 'Sin licencia';
     final String numeroDocumento = conductor['numeroDocumento']?.toString() ?? '';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  nombreCompleto,
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              const Icon(Icons.badge_rounded, color: Colors.white54, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Documento: $numeroDocumento',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Icon(Icons.card_travel_rounded, color: Colors.white54, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Licencia: $licencia',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-              ),
-            ],
-          ),
-          if (telefono.isNotEmpty) ...[
-            const SizedBox(height: 6),
+    return GestureDetector(
+      onTap: () => _showDriverDetails(conductor),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white24),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
               children: [
-                const Icon(Icons.phone_rounded, color: Colors.white54, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  telefono,
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                Expanded(
+                  child: Text(
+                    nombreCompleto,
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Colors.white54,
+                  size: 16,
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(Icons.badge_rounded, color: Colors.white54, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Documento: $numeroDocumento',
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.card_travel_rounded, color: Colors.white54, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Licencia: $licencia',
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            if (telefono.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.phone_rounded, color: Colors.white54, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    telefono,
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ],
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
