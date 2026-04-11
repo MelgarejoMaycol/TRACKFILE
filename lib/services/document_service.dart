@@ -739,6 +739,8 @@ class DocumentService {
     required String? area,
     required DateTime fechaVencimiento,
     required String? observaciones,
+    int? idVehiculo, // ID del vehículo si el documento es de vehículo
+    int? idUsuario, // ID del usuario si el documento es personal
   }) async {
     try {
       final token = await getToken();
@@ -749,13 +751,15 @@ class DocumentService {
       final headers = _buildHeaders(token);
       headers['Content-Type'] = 'application/json';
 
-      // Solo enviar los campos que el backend permite actualizar
-      // NO enviar idUsuario ni responsableUsuarioId para evitar validación de permisos
+      // Enviar todos los campos necesarios para la validación de permisos
       final Map<String, dynamic> bodyMap = {
         'idTipo': idTipo,
         'area': area ?? '',
         'fechaVencimiento': fechaVencimiento.toString().split(' ')[0], // formato YYYY-MM-DD
         'observaciones': observaciones ?? '',
+        // Incluir referencia al vehículo o usuario si aplica
+        if (idVehiculo != null) 'idVehiculo': idVehiculo,
+        if (idUsuario != null) 'idUsuario': idUsuario,
       };
 
       final requestBody = jsonEncode(bodyMap);

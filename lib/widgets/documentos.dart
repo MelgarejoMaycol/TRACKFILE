@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/document_service.dart';
 import 'document_modal.dart';
 import 'upload_document_modal.dart';
+import 'edit_document_modal.dart';
 import 'shimmer_skeleton.dart';
 
 class DocumentosWidget extends StatefulWidget {
@@ -42,6 +43,12 @@ class _DocumentInfo {
   final String propietarioUserId; // id del usuario propietario si es documento de vehículo
   final int documentId; // id del documento
   final int idTipo; // id del tipo de documento
+  final String responsableUserId; // id del usuario responsable del documento
+  final String responsableName; // nombre completo del responsable
+  final String rolResponsable; // rol del responsable (EMPRESA, ADMIN, SECRETARIA, etc.)
+  final String empresaNombre; // nombre de la empresa
+  final String area; // área del documento (TECNICA, LEGAL, ADMINISTRATIVO)
+  final String observaciones; // observaciones del documento
 
   const _DocumentInfo({
     required this.name,
@@ -60,6 +67,12 @@ class _DocumentInfo {
     this.propietarioUserId = '',
     this.documentId = 0,
     this.idTipo = 0,
+    this.responsableUserId = '',
+    this.responsableName = '',
+    this.rolResponsable = '',
+    this.empresaNombre = '',
+    this.area = '',
+    this.observaciones = '',
   });
 
   int get daysRemaining => expiryDate.difference(DateTime.now()).inDays;
@@ -201,6 +214,8 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     return documents.map((doc) {
       final String name = doc['nombreTipoDocumento'] ?? doc['nombreTipo'] ?? doc['nombre'] ?? 'Documento';
       final String category = doc['area'] ?? 'General';
+      final String area = doc['area'] ?? '';
+      final String observaciones = doc['observaciones'] ?? '';
       final String vehicleId = doc['idVehiculo']?.toString() ?? '';
       final String vehiclePlate = doc['placa'] ?? '';
       
@@ -217,6 +232,16 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
         final userFirstName = doc['nombreUsuario'] ?? '';
         final userLastName = doc['apellidoUsuario'] ?? '';
         final String ownerName = '$userFirstName $userLastName'.trim();
+        
+        // Obtener datos del responsable
+        final responsableUserId = doc['responsable_usuario']?.toString() ?? doc['responsableUsuario']?.toString() ?? '';
+        final responsableFirstName = doc['nombreResponsable'] ?? doc['nombre_responsable'] ?? '';
+        final responsableLastName = doc['apellidoResponsable'] ?? doc['apellido_responsable'] ?? '';
+        final String responsableName = '$responsableFirstName $responsableLastName'.trim();
+        final String rolResponsable = doc['rolResponsable'] ?? doc['rol_responsable'] ?? '';
+        
+        // Obtener nombre de la empresa
+        final String empresaNombre = doc['nombreEmpresa'] ?? doc['nombre_empresa'] ?? 'Empresa';
         
         // Buscar nombres de conductor y propietario en la lista de vehículos
         String conductorName = '';
@@ -270,7 +295,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
           creationDate: creation,
           important: false,
           category: category,
-          ownerId: doc['idUsuario']?.toString() ?? '',
+          ownerId: vehicleId.isNotEmpty ? vehicleId : (doc['idUsuario']?.toString() ?? ''),
           ownerType: vehicleId.isNotEmpty ? 'vehiculo' : 'usuario',
           ownerName: ownerName,
           vehicleId: vehicleId,
@@ -281,6 +306,12 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
           propietarioUserId: propietarioUserId,
           documentId: int.tryParse(doc['idDocumento']?.toString() ?? '0') ?? 0,
           idTipo: int.tryParse(doc['idTipo']?.toString() ?? '0') ?? 0,
+          responsableUserId: responsableUserId,
+          responsableName: responsableName,
+          rolResponsable: rolResponsable,
+          empresaNombre: empresaNombre,
+          area: area,
+          observaciones: observaciones,
         );
       }
       return null;
@@ -922,9 +953,38 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                 ],
               ),
             ),
-            trailing: IconButton(
-              icon: const Icon(Icons.visibility_rounded, color: Colors.white70),
-              onPressed: () => _openModal(doc),
+            trailing: PopupMenuButton<String>(
+              onSelected: (String action) {
+                if (action == 'view') {
+                  _openModal(doc);
+                } else if (action == 'edit') {
+                  _openEditModal(doc);
+                }
+              },
+              itemBuilder: (BuildContext context) => [
+                const PopupMenuItem(
+                  value: 'view',
+                  child: Row(
+                    children: [
+                      Icon(Icons.visibility, color: Colors.white70, size: 20),
+                      SizedBox(width: 8),
+                      Text('Ver detalles', style: TextStyle(color: Colors.white)),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, color: Colors.white70, size: 20),
+                      SizedBox(width: 8),
+                      Text('Editar', style: TextStyle(color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ],
+              color: const Color(0xFF1B1F6B),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
         );
@@ -1765,6 +1825,46 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
       role: _role,
       daysRemaining: doc.daysRemaining,
     );
+  }
+
+  /// Abre el modal para editar un documento
+  void _openEditModal(_DocumentInfo doc) async {
+    // Lógica: Si rol es EMPRESA o no hay responsable específico, mostrar nombre de empresa
+    // Si hay responsable con otro rol, mostrar nombre del responsable
+    String responsableDisplay;
+    if (doc.rolResponsable.toUpperCase() == 'EMPRESA' || doc.rolResponsable.isEmpty) {
+      // Si el responsable es la empresa o no hay responsable específico
+      responsableDisplay = doc.empresaNombre;
+    } else {
+      // Si hay un responsable específico (secretaria, admin, etc.)
+      responsableDisplay = doc.responsableName.isNotEmpty ? doc.responsableName : doc.empresaNombre;
+    }
+    
+    // Cargar tipos de documento
+    final tiposDocumento = await DocumentService.getDocumentTypes(token: widget.token);
+    
+    if (mounted) {
+      EditDocumentModal.show(
+        context: context,
+        documentoId: doc.documentId,
+        idTipo: doc.idTipo,
+        tipoDocumento: doc.category,
+        fechaVencimiento: doc.expiryDate,
+        titular: doc.ownerName,
+        responsable: responsableDisplay,
+        observaciones: doc.observaciones,
+        area: doc.area,
+        isVehicleDocument: doc.isVehicleDocument,
+        vehicleId: doc.vehicleId,
+        ownerUserId: doc.ownerId,
+        tiposDocumento: tiposDocumento,
+        usuarios: [],
+        onSuccess: () {
+          // Recargar documentos después de editar
+          _loadDocuments();
+        },
+      );
+    }
   }
 
   /// Retorna el título del estado vacío según el rol
