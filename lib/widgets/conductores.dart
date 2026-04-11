@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:frontendproyecto/utils/api_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shimmer/shimmer.dart';
 
 class ConductoresWidget extends StatefulWidget {
   const ConductoresWidget({super.key});
@@ -164,6 +165,111 @@ class _ConductoresWidgetState extends State<ConductoresWidget> {
     );
   }
 
+  Widget _buildSkeletonLoading() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Conductores',
+            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          // 3 skeleton cards
+          ...List.generate(3, (index) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Shimmer.fromColors(
+                    baseColor: Colors.white.withValues(alpha: 0.1),
+                    highlightColor: Colors.white.withValues(alpha: 0.2),
+                    child: Container(
+                      width: 200,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Icon(Icons.badge_rounded, color: Colors.white54, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Shimmer.fromColors(
+                          baseColor: Colors.white.withValues(alpha: 0.1),
+                          highlightColor: Colors.white.withValues(alpha: 0.2),
+                          child: Container(
+                            height: 13,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.card_travel_rounded, color: Colors.white54, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Shimmer.fromColors(
+                          baseColor: Colors.white.withValues(alpha: 0.1),
+                          highlightColor: Colors.white.withValues(alpha: 0.2),
+                          child: Container(
+                            height: 13,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.phone_rounded, color: Colors.white54, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Shimmer.fromColors(
+                          baseColor: Colors.white.withValues(alpha: 0.1),
+                          highlightColor: Colors.white.withValues(alpha: 0.2),
+                          child: Container(
+                            height: 13,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDriverCard(Map<String, dynamic> conductor) {
     final String nombre = conductor['nombre']?.toString() ?? '';
     final String apellido = conductor['apellido']?.toString() ?? '';
@@ -240,24 +346,7 @@ class _ConductoresWidgetState extends State<ConductoresWidget> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Cargando conductores...',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            const SizedBox(
-              height: 40,
-              width: 40,
-              child: CircularProgressIndicator(),
-            ),
-          ],
-        ),
-      );
+      return _buildSkeletonLoading();
     }
 
     if (_error != null) {
