@@ -9,6 +9,8 @@ import 'package:frontendproyecto/widgets/documentos.dart';
 import 'package:frontendproyecto/widgets/vehiculos.dart';
 import 'package:frontendproyecto/widgets/mantenimientos.dart';
 import 'package:frontendproyecto/widgets/logout_button.dart';
+import 'package:frontendproyecto/widgets/conductores.dart';
+import 'package:frontendproyecto/widgets/propietarios.dart';
 
 class _MenuOption {
   final String label;
@@ -343,9 +345,9 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           onNavigateToProfile: () => _activateSection('Perfil'),
         );
       case 'Conductores':
-        return _buildDriversContent();
+        return const ConductoresWidget();
       case 'Propietarios':
-        return _buildOwnersContent();
+        return const PropietariosWidget();
       case 'Documentos':
         return _buildDocumentsContent();
       case 'Perfil':
@@ -363,189 +365,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     }
   }
 
-  Widget _buildDriversContent() {
-    if (_drivers.isEmpty) {
-      return _buildEmptyState(
-        'Conductores',
-        'No se encontraron conductores registrados en el panel corporativo.',
-      );
-    }
 
-    final List<Map<String, dynamic>> ordered =
-        List<Map<String, dynamic>>.from(_drivers)
-          ..sort((a, b) {
-            final DateTime? aDate = a['lastCheckIn'] as DateTime?;
-            final DateTime? bDate = b['lastCheckIn'] as DateTime?;
-            return (bDate ?? DateTime.fromMillisecondsSinceEpoch(0))
-                .compareTo(aDate ?? DateTime.fromMillisecondsSinceEpoch(0));
-          });
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Conductores',
-            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          ...ordered.map(_buildDriverCard),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDriverCard(Map<String, dynamic> driver) {
-    final String name = driver['name']?.toString() ?? 'Conductor';
-    final String vehicle = driver['assignedVehicle']?.toString() ?? 'Sin vehículo';
-    final String status = driver['status']?.toString() ?? 'Sin estado';
-    final DateTime? lastCheck = driver['lastCheckIn'] as DateTime?;
-    final String phone = driver['phone']?.toString() ?? '';
-    final Color statusColor = _driverStatusColor(status);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  name,
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  status,
-                  style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              const Icon(Icons.directions_bus_filled_rounded, color: Colors.white54, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Asignación: $vehicle',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-              ),
-            ],
-          ),
-          if (phone.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                const Icon(Icons.phone_rounded, color: Colors.white54, size: 18),
-                const SizedBox(width: 8),
-                Text(phone, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-              ],
-            ),
-          ],
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Icon(Icons.access_time_rounded, color: Colors.white54, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                'Último check-in: ${_formatDateTimeLabel(lastCheck)}',
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOwnersContent() {
-    final int fleetTotal =
-        (_summary['fleetSize'] as num?)?.toInt() ?? _fleetVehicles.length;
-    final int routesToday =
-        (_summary['routesToday'] as num?)?.toInt() ?? 0;
-    final int activeDrivers =
-        (_summary['activeDrivers'] as num?)?.toInt() ?? _drivers.length;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Propietarios aliados',
-            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Integración pendiente',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _accentColor.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'Próximamente',
-                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Integra la información de los propietarios de flota para habilitar contratos, documentación y seguimiento de compromisos.',
-                  style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 10,
-                  children: [
-                    _buildQuickBadge(Icons.directions_bus_filled_rounded, 'Flota activa: $fleetTotal'),
-                    _buildQuickBadge(Icons.route_rounded, 'Rutas hoy: $routesToday'),
-                    _buildQuickBadge(Icons.badge_rounded, 'Conductores: $activeDrivers'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildDocumentsContent() {
     // Use the shared DocumentosWidget which provides search, filters and highlights.
@@ -2549,20 +2369,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     );
   }
 
-  Color _driverStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'en ruta':
-        return const Color(0xFF16C79A);
-      case 'disponible':
-        return const Color(0xFF4F4CE8);
-      case 'relevo':
-      case 'en relevo':
-        return const Color(0xFFEFB549);
-      default:
-        return Colors.white70;
-    }
-  }
-
   Color _documentStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'alerta':
@@ -2649,17 +2455,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     return '$day/$month/${date.year}';
   }
 
-  String _formatDateTimeLabel(DateTime? date) {
-    if (date == null) {
-      return 'Sin registro';
-    }
-    final String day = date.day.toString().padLeft(2, '0');
-    final String month = date.month.toString().padLeft(2, '0');
-    final String hour = date.hour.toString().padLeft(2, '0');
-    final String minute = date.minute.toString().padLeft(2, '0');
-    return '$day/$month/${date.year} $hour:$minute';
-  }
-
   String _formatRemaining(DateTime? date) {
     if (date == null) {
       return 'Sin fecha estimada';
@@ -2701,6 +2496,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                     child: Container(
                       width: double.infinity,
                       height: double.infinity,
+                      alignment: Alignment.topLeft,
                       decoration: BoxDecoration(
                         color: _surfaceColor,
                         borderRadius: BorderRadius.vertical(
@@ -2732,6 +2528,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                         Expanded(
                           child: Container(
                             height: double.infinity,
+                            alignment: Alignment.topLeft,
                             decoration: BoxDecoration(
                               color: _surfaceColor,
                               borderRadius: BorderRadius.vertical(
