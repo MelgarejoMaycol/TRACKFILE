@@ -94,8 +94,8 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
   bool _isLoading = true;
   List<_Vehicle> _vehicles = const [];
   Map<String, List<Map<String, dynamic>>> _vehicleDocumentsByPlate = {};
-  Map<int, Map<String, dynamic>> _propietariosMap = {};
-  Map<int, Map<String, dynamic>> _conductoresMap = {};
+  final Map<int, Map<String, dynamic>> _propietariosMap = {};
+  final Map<int, Map<String, dynamic>> _conductoresMap = {};
   String? _statusFilter;
   String _searchTerm = '';
   final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
@@ -955,7 +955,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                                 const SizedBox(width: 4),
                                 Expanded(
                                   child: Text(
-                                    '${_dateFormat.format(payment)}',
+                                    _dateFormat.format(payment),
                                     style: const TextStyle(color: Colors.white70, fontSize: 11),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -1319,55 +1319,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     );
   }
 
-  void _showDocumentsModal(_Vehicle vehicle, bool isCompact) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: const Color(0xFF151B47),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: Container(
-            constraints: BoxConstraints(maxWidth: isCompact ? 400 : 600, maxHeight: 600),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Documentos del Vehículo',
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            vehicle.placa,
-                            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
-                          ),
-                        ],
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close, color: Colors.white),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildVehicleDocumentsList(vehicle.placa, isCompact),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   void _showVehicleModal(_Vehicle vehicle, bool isCompact) {
     showDialog(
       context: context,
@@ -1634,7 +1585,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
             ],
             
             // Color y Documentos
-            if ((vehicle.color != null && vehicle.color!.isNotEmpty) || (vehicle.documentosVehiculo?.isNotEmpty ?? false)) ...[
+            if ((vehicle.color != null && vehicle.color!.isNotEmpty) || (vehicle.documentosVehiculo != null && vehicle.documentosVehiculo!.isNotEmpty)) ...[
               Row(
                 children: [
                   if (vehicle.color != null && vehicle.color!.isNotEmpty) ...[
