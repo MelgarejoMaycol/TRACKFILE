@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:frontendproyecto/utils/api_config.dart';
 import 'package:frontendproyecto/widgets/inicio.dart';
@@ -242,6 +243,160 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   }
 
   Future<void> _loadDashboardData() async {
+    try {
+      // Si tenemos userId, cargar del backend
+      if (widget.userId != null && widget.userId!.isNotEmpty) {
+        await _loadDashboardDataFromBackend(widget.userId!);
+      } else {
+        // Fallback al JSON estático
+        await _loadDashboardDataFromJson();
+      }
+    } catch (e) {
+      debugPrint('Error cargando dashboard: $e');
+      // Fallback al JSON como último recurso
+      await _loadDashboardDataFromJson();
+    }
+  }
+
+  Future<void> _loadDashboardDataFromBackend(String propietarioId) async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? token = prefs.getString('auth_token');
+      
+      if (token == null) {
+        throw Exception('No hay sesión activa');
+      }
+
+      // Cargar vehículos del propietario
+      final vehiculosUri = ApiConfig.resolve(_baseUrl, '/api/propietarios/$propietarioId/vehiculos');
+      final vehiculosResponse = await http.get(
+        vehiculosUri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      final List<Map<String, dynamic>> vehicles = [];
+      if (vehiculosResponse.statusCode == 200) {
+        final List<dynamic> data = json.decode(vehiculosResponse.body) as List<dynamic>;
+        for (final veh in data.whereType<Map<String, dynamic>>()) {
+          final String placa = veh['placa']?.toString() ?? '';
+          final String marca = veh['marca']?.toString() ?? '';
+          final String modelo = veh['modelo']?.toString() ?? '';
+          final String estado = veh['estadoVehiculo']?.toString() ?? 'DESCONOCIDO';
+          
+          vehicles.add({
+            'plate': placa,
+            'model': '$marca $modelo',
+            'driver': veh['nombreConductor']?.toString() ?? 'Sin asignar',
+            'status': estado,
+            'nextExpiry': null, // Se obtendría de documentos si es necesario
+          });
+        }
+        debugPrint('✅ ${vehicles.length} vehículos cargados del backend para propietario $propietarioId');
+      } else if (vehiculosResponse.statusCode == 404) {
+        debugPrint('⚠️ No encontrado endpoint de vehículos por propietario, intentando cargar general');
+        // Intentar desde endpoint general
+        final generalUri = ApiConfig.resolve(_baseUrl, '/api/vehiculos');
+        final generalResponse = await http.get(
+          generalUri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+        ).timeout(const Duration(seconds: 10));
+
+        if (generalResponse.statusCode == 200) {
+          final List<dynamic> data = json.decode(generalResponse.body) as List<dynamic>;
+          for (final veh in data.whereType<Map<String, dynamic>>()) {
+            final int idProp = veh['idPropietario'] ?? 0;
+            if (idProp.toString() == propietarioId) {
+              final String placa = veh['placa']?.toString() ?? '';
+              final String marca = veh['marca']?.toString() ?? '';
+              final String modelo = veh['modelo']?.toString() ?? '';
+              final String estado = veh['estadoVehiculo']?.toString() ?? 'DESCONOCIDO';
+              
+              vehicles.add({
+                'plate': placa,
+                'model': '$marca $modelo',
+                'driver': veh['nombreConductor']?.toString() ?? 'Sin asignar',
+                'status': estado,
+                'nextExpiry': null,
+              });
+            }
+          }
+          debugPrint('✅ ${vehicles.length} vehículos filtrados del endpoint general');
+        }
+      }
+
+      // Cargar documentos
+      final documentosUri = ApiConfig.resolve(_baseUrl, '/api/documentos/tabla');
+      final documentosResponse = await http.get(
+        documentosUri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      final List<Map<String, dynamic>> documents = [];
+      if (documentosResponse.statusCode == 200) {
+        final List<dynamic> data = json.decode(documentosResponse.body) as List<dynamic>;
+        for (final doc in data.whereType<Map<String, dynamic>>()) {
+          final idUsuario = doc['idUsuario'];
+          if (idUsuario == null) { // Solo documentos de vehículos
+            final DateTime? expiry = DateTime.tryParse(doc['fechaVencimiento']?.toString() ?? '');
+            final DateTime? payment = DateTime.tryParse(doc['fechaPago']?.toString() ?? '');
+            
+            documents.add({
+              'name': doc['nombre']?.toString() ?? 'Documento',
+              'vehicle': doc['vehiculoPlaca']?.toString() ?? '', 
+              'expiryDate': expiry,
+              'paymentDate': payment,
+            });
+          }
+        }
+        debugPrint('✅ ${documents.length} documentos de vehículos cargados');
+      }
+
+      // Crear alertas basadas en documentos próximos a vencer
+      final List<Map<String, dynamic>> alerts = [];
+      for (final doc in documents) {
+        if (doc['expiryDate'] != null) {
+          final DateTime expiry = doc['expiryDate'] as DateTime;
+          final Duration difference = expiry.difference(DateTime.now());
+          if (difference.inDays <= 30) {
+            alerts.add({
+              'title': '${doc['name']} próximo a vencer',
+              'message': 'El documento ${doc['name']} vence el ${expiry.day}/${expiry.month}/${expiry.year}',
+              'severity': difference.inDays <= 7 ? 'high' : 'medium',
+              'tag': 'Documentos',
+            });
+          }
+        }
+      }
+
+      final int notificationsCount = alerts.where((alert) {
+        final String severity = alert['severity']?.toString().toLowerCase() ?? '';
+        return severity == 'high' || severity == 'alta';
+      }).length;
+
+      if (!mounted) return;
+      setState(() {
+        _ownerDocuments = documents;
+        _ownerVehicles = vehicles;
+        _alerts = alerts;
+        _notificationsCount = notificationsCount;
+      });
+      debugPrint('✅ Dashboard cargado del backend para propietario $propietarioId');
+    } catch (e) {
+      debugPrint('❌ Error cargando dashboard del backend: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _loadDashboardDataFromJson() async {
     try {
       final String jsonString = await rootBundle.loadString(_ownerDashboardAsset);
       final Map<String, dynamic> jsonData = json.decode(jsonString);
