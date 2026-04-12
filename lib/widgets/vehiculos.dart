@@ -1361,7 +1361,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
             ],
             
             // Color y Documentos
-            if ((vehicle.color != null && vehicle.color!.isNotEmpty) || (vehicle.documentosVehiculo != null && vehicle.documentosVehiculo!.isNotEmpty)) ...[
+            if ((vehicle.color != null && vehicle.color!.isNotEmpty) || vehicle.documentosVehiculo.isNotEmpty) ...[
               Row(
                 children: [
                   if (vehicle.color != null && vehicle.color!.isNotEmpty) ...[
@@ -1376,11 +1376,11 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                     ),
                     const SizedBox(width: 12),
                   ],
-                  if (vehicle.documentosVehiculo != null && vehicle.documentosVehiculo!.isNotEmpty) ...[
+                  if (vehicle.documentosVehiculo.isNotEmpty) ...[
                     Icon(Icons.description, color: _warningColor, size: 18),
                     const SizedBox(width: 4),
                     Text(
-                      '${vehicle.documentosVehiculo!.length} docs',
+                      '${vehicle.documentosVehiculo.length} docs',
                       style: const TextStyle(color: Colors.white70, fontSize: 13),
                     ),
                   ],

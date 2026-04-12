@@ -187,22 +187,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
         };
       }).toList();
 
-      final List<Map<String, dynamic>> drivers =
-          (data['drivers'] as List<dynamic>? ?? [])
-              .whereType<Map<String, dynamic>>()
-              .map((entry) {
-        final DateTime? lastCheck =
-            DateTime.tryParse(entry['lastCheckIn']?.toString() ?? '');
-        return {
-          'name': entry['name']?.toString() ?? 'Conductor',
-          'assignedVehicle':
-              entry['assignedVehicle']?.toString() ?? 'Sin vehículo',
-          'status': entry['status']?.toString() ?? 'Sin estado',
-          'lastCheckIn': lastCheck,
-          'phone': entry['phone']?.toString() ?? '',
-        };
-      }).toList();
-
       final List<Map<String, dynamic>> operations =
           (data['operations'] as List<dynamic>? ?? [])
               .whereType<Map<String, dynamic>>()
