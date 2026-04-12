@@ -798,29 +798,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     return DateTime.tryParse(trimmed);
   }
 
-  void _openVehicleDocument(Map<String, dynamic> doc, String plate) {
-    final String name = doc['name']?.toString() ?? 'Documento';
-    final DateTime? expiry = _parseDocDate(doc['expiryDate']?.toString());
-    final DateTime? payment = _parseDocDate(doc['paymentDate']?.toString());
-
-    if (expiry == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No hay fecha de vencimiento disponible para este documento.'),
-          backgroundColor: Color(0xFFE66B6B),
-        ),
-      );
-      return;
-    }
-
-    DocumentModal.show(
-      context: context,
-      documentName: '$name • $plate',
-      creationDate: payment,
-      expiryDate: expiry,
-    );
-  }
-
   String _statusLabel(String status) {
     if (status.isEmpty) {
       return 'Desconocido';
@@ -1411,7 +1388,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                     ),
                     const SizedBox(width: 12),
                   ],
-                  if (vehicle.documentosVehiculo?.isNotEmpty ?? false) ...[
+                  if (vehicle.documentosVehiculo != null && vehicle.documentosVehiculo!.isNotEmpty) ...[
                     Icon(Icons.description, color: _warningColor, size: 18),
                     const SizedBox(width: 4),
                     Text(

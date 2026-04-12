@@ -61,7 +61,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   bool _isLoading = true;
 
   Map<String, dynamic> _summary = {};
-  List<Map<String, dynamic>> _drivers = [];
   List<Map<String, dynamic>> _documents = [];
   List<Map<String, dynamic>> _fleetVehicles = [];
   // ignore: unused_field
