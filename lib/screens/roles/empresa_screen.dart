@@ -275,7 +275,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
         _summary = summary;
         _documents = documents;
         _fleetVehicles = vehicles;
-        _drivers = drivers;
         _operations = operations;
         _alerts = alerts;
         _certificaciones = certificaciones;
@@ -289,7 +288,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
         _summary = {};
         _documents = [];
         _fleetVehicles = [];
-        _drivers = [];
         _operations = [];
         _alerts = [];
         _certificaciones = [];

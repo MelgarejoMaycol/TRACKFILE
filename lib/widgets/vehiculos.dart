@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontendproyecto/utils/api_config.dart';
 import 'package:frontendproyecto/widgets/shimmer_skeleton.dart';
-import 'document_modal.dart';
 
 /// Visualiza los registros de la tabla vehiculos con filtros basados en estado y busqueda.
 class VehiculosWidget extends StatefulWidget {
@@ -787,17 +786,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     return _accentColor;
   }
 
-  DateTime? _parseDocDate(String? raw) {
-    if (raw == null) {
-      return null;
-    }
-    final String trimmed = raw.trim();
-    if (trimmed.isEmpty || trimmed.toLowerCase() == 'null') {
-      return null;
-    }
-    return DateTime.tryParse(trimmed);
-  }
-
   String _statusLabel(String status) {
     if (status.isEmpty) {
       return 'Desconocido';
@@ -1392,7 +1380,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                     Icon(Icons.description, color: _warningColor, size: 18),
                     const SizedBox(width: 4),
                     Text(
-                      '${vehicle.documentosVehiculo?.length ?? 0} docs',
+                      '${vehicle.documentosVehiculo!.length} docs',
                       style: const TextStyle(color: Colors.white70, fontSize: 13),
                     ),
                   ],
