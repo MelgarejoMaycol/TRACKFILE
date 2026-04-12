@@ -127,20 +127,6 @@ class _ConductoresWidgetState extends State<ConductoresWidget> {
     }
   }
 
-  Color _driverStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'en ruta':
-        return const Color(0xFF16C79A);
-      case 'disponible':
-        return const Color(0xFF4F4CE8);
-      case 'relevo':
-      case 'en relevo':
-        return const Color(0xFFEFB549);
-      default:
-        return Colors.white70;
-    }
-  }
-
   Widget _buildEmptyState(String title, String message) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),

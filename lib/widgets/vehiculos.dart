@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -86,14 +85,13 @@ class _Vehicle {
 
 class _VehiculosWidgetState extends State<VehiculosWidget> {
   static const Color _accentColor = Color(0xFF4F4CE8);
-  static const Color _cardColor = Color(0xFF1B1F6B);
   static const Color _successColor = Color(0xFF16C79A);
   static const Color _warningColor = Color(0xFFEFB549);
   static const Color _dangerColor = Color(0xFFE66B6B);
 
   bool _isLoading = true;
   List<_Vehicle> _vehicles = const [];
-  Map<String, List<Map<String, dynamic>>> _vehicleDocumentsByPlate = {};
+  final Map<String, List<Map<String, dynamic>>> _vehicleDocumentsByPlate = {};
   final Map<int, Map<String, dynamic>> _propietariosMap = {};
   final Map<int, Map<String, dynamic>> _conductoresMap = {};
   String? _statusFilter;
@@ -820,193 +818,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       documentName: '$name • $plate',
       creationDate: payment,
       expiryDate: expiry,
-    );
-  }
-
-  Widget _buildVehicleDocumentsList(String plate, bool isCompact) {
-    final List<Map<String, dynamic>> docs = _vehicleDocumentsByPlate[plate] ?? [];
-
-    if (docs.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.02),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text('No hay documentos para $plate', style: const TextStyle(color: Colors.white70)),
-      );
-    }
-
-    return Column(
-      children: docs.map((d) {
-        // Extraer información del documento
-        final String name = d['nombre']?.toString() ?? d['name']?.toString() ?? 'Documento';
-        final String estado = d['estado']?.toString() ?? d['status']?.toString() ?? 'DESCONOCIDO';
-        final String numero = d['numero']?.toString() ?? d['numeroDocumento']?.toString() ?? '';
-        final DateTime? expiry = _parseDocDate(d['fechaVencimiento']?.toString() ?? d['expiryDate']?.toString());
-        final DateTime? payment = _parseDocDate(d['fechaPago']?.toString() ?? d['paymentDate']?.toString());
-        final DateTime? createdAt = _parseDocDate(d['fechaCreacion']?.toString() ?? d['createdAt']?.toString());
-        final String descripcion = d['descripcion']?.toString() ?? '';
-        
-        // Determinar el color del estado
-        Color estadoColor = Colors.white70;
-        if (estado.toUpperCase().contains('VIGENTE')) {
-          estadoColor = Color(0xFF16C79A); // Verde
-        } else if (estado.toUpperCase().contains('VENCIDO')) {
-          estadoColor = Color(0xFFEF476F); // Rojo
-        } else if (estado.toUpperCase().contains('PROXIMO')) {
-          estadoColor = Color(0xFFEFB549); // Amarillo
-        }
-        
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => _openVehicleDocument(d, plate),
-            child: Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.02),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Nombre y estado en la misma fila
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          name,
-                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: estadoColor.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: estadoColor, width: 0.5),
-                        ),
-                        child: Text(
-                          estado,
-                          style: TextStyle(color: estadoColor, fontSize: 10, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  // Información detallada
-                  if (numero.isNotEmpty) ...[
-                    Row(
-                      children: [
-                        Icon(Icons.numbers, color: Colors.white54, size: 13),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'Número: $numero',
-                            style: const TextStyle(color: Colors.white70, fontSize: 11),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                  ],
-                  
-                  // Fechas importantes
-                  if (expiry != null || payment != null) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Icon(Icons.calendar_today, color: Colors.white54, size: 13),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  'Venc: ${_dateFormat.format(expiry ?? DateTime.now())}',
-                                  style: TextStyle(
-                                    color: expiry != null && expiry.isBefore(DateTime.now().add(Duration(days: 30)))
-                                        ? Color(0xFFEFB549)
-                                        : Colors.white70,
-                                    fontSize: 11,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (payment != null) ...[
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Icon(Icons.check_circle_outline, color: Color(0xFF16C79A), size: 13),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    _dateFormat.format(payment),
-                                    style: const TextStyle(color: Colors.white70, fontSize: 11),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                  ],
-                  
-                  // Descripción si existe
-                  if (descripcion.isNotEmpty) ...[
-                    Text(
-                      descripcion,
-                      style: TextStyle(color: Colors.white54, fontSize: 10, fontStyle: FontStyle.italic),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                  ],
-                  
-                  // Fecha de creación
-                  if (createdAt != null) ...[
-                    Text(
-                      'Cargado: ${_dateFormat.format(createdAt)}',
-                      style: const TextStyle(color: Colors.white54, fontSize: 10),
-                    ),
-                    const SizedBox(height: 4),
-                  ],
-                  
-                  // Link para ver detalle
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text('Ver detalle y descargar', style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 11)),
-                        const SizedBox(width: 4),
-                        Icon(Icons.arrow_forward, color: Colors.white54, size: 13),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 

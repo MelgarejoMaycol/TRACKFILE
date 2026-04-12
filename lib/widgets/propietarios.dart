@@ -127,25 +127,6 @@ class _PropietariosWidgetState extends State<PropietariosWidget> {
     }
   }
 
-  Widget _buildQuickBadge(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: Colors.white70),
-          const SizedBox(width: 5),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
-        ],
-      ),
-    );
-  }
-
   Widget _buildEmptyState(String title, String message) {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
@@ -619,7 +600,6 @@ class _PropietariosWidgetState extends State<PropietariosWidget> {
     final String telefono = propietario['telefono']?.toString() ?? '';
     final String correo = propietario['correo']?.toString() ?? '';
     final String numeroDocumento = propietario['numeroDocumento']?.toString() ?? '';
-    final String documentoPropietario = propietario['extra']?.toString() ?? '';
 
     return GestureDetector(
       onTap: () => _showOwnerDetails(propietario),
