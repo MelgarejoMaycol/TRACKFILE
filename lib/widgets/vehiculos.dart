@@ -208,6 +208,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
 
       // Construir URL según el rol y el ownerId
       String endpoint = '/api/vehiculos';
+      debugPrint('🔍 VehiculosWidget - role: ${widget.role}, ownerId: ${widget.ownerId}');
       
       // Si es propietario y hay ownerId, usar endpoint específico del propietario
       if (widget.role.toLowerCase() == 'propietario' && widget.ownerId != null && widget.ownerId!.isNotEmpty) {

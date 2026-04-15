@@ -67,6 +67,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   String? _userPhone;
   String? _userAddress;
   String? _userDocument;
+  String? _propietarioId; // ID del propietario obtenido del backend
   int _notificationsCount = 0;
   List<Map<String, dynamic>> _alerts = [];
   static const List<String> _monthLabels = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
@@ -198,8 +199,9 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           _userPhone = userData['telefono']?.toString();
           _userAddress = userData['direccion']?.toString();
           _userDocument = userData['numeroDocumento']?.toString();
+          _propietarioId = userData['idPropietario']?.toString() ?? userData['id']?.toString();
           _userProfileImage = null; // El backend no proporciona imagen actualmente
-          debugPrint('\u2705 Datos de propietario cargados del backend: $_userName | $_userCompany');
+          debugPrint('✅ Datos de propietario cargados del backend: $_userName | $_userCompany | idPropietario: $_propietarioId');
         });
       } else {
         debugPrint('\u26a0\ufe0f Error al obtener perfil del backend: ${response.statusCode}');
@@ -1027,7 +1029,12 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       case 'Mensajes':
         return _buildMessagesContent();
       case 'Vehículo':
-        return VehiculosWidget(role: 'Propietario', ownerId: widget.userId, jsonPath: 'assets/vehicles_data.json');
+        debugPrint('📍 PropietarioScreen.Vehículo - userId: ${widget.userId}, propietarioId: $_propietarioId');
+        return VehiculosWidget(
+          role: 'Propietario', 
+          ownerId: _propietarioId ?? widget.userId, 
+          jsonPath: 'assets/vehicles_data.json'
+        );
       case 'Empresa':
         return EmpresaWidget(userId: widget.userId, jsonPath: 'assets/companies_data.json');
       case 'Mantenimientos':
