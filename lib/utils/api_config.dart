@@ -7,7 +7,7 @@ class ApiConfig {
   ApiConfig._();
 
   static const String _prefKey = 'api_base_url';
-  static const String _compiledBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+  static const String _compiledBaseUrl = 'https://trackfile-backend.onrender.com';
 
   static String fallbackBaseUrl() {
     if (_compiledBaseUrl.isNotEmpty) {
