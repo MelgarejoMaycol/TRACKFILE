@@ -1,56 +1,36 @@
-import 'dart:io' as io;
-
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_link.dart';
 
 class ApiConfig {
   ApiConfig._();
 
-  static const String _prefKey = 'api_base_url';
-  static const String _compiledBaseUrl = 'https://trackfile-backend.onrender.com';
+  // URL de la API traida de api_link.dart desde la función getApiLink()
+  static final String _apiBaseUrl = getApiLink();
 
   static String fallbackBaseUrl() {
-    if (_compiledBaseUrl.isNotEmpty) {
-      return _compiledBaseUrl;
-    }
-    if (kIsWeb) {
-      return 'http://localhost:8080';
-    }
-    if (io.Platform.isAndroid) {
-      return 'http://10.0.2.2:8080';
-    }
-    return 'http://localhost:8080';
+    // SIEMPRE devolver la URL remota
+    return _apiBaseUrl;
   }
 
   static Future<String> loadBaseUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(_prefKey);
-    if (saved != null) {
-      final normalized = _normalize(saved);
-      if (normalized != null) {
-        return normalized;
-      }
-    }
-    final normalizedFallback = _normalize(fallbackBaseUrl());
-    return normalizedFallback ?? 'http://localhost:8080';
+    // SIEMPRE usar la URL remota compilada
+    return _apiBaseUrl;
   }
 
   static Future<void> saveBaseUrl(String value) async {
-    final normalized = _normalize(value);
-    if (normalized == null) {
-      throw ArgumentError('Invalid base URL');
-    }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefKey, normalized);
+    // Ya no es necesario guardar en SharedPreferences
+    // SIEMPRE usamos la URL remota compilada
+    debugPrint('ℹ️ saveBaseUrl() no hace nada - usando URL remota: $_apiBaseUrl');
   }
 
   static Future<void> clearBaseUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_prefKey);
+    // Ya no es necesario
+    debugPrint('ℹ️ clearBaseUrl() no hace nada - usando URL remota: $_apiBaseUrl');
   }
 
   static Uri resolve(String baseUrl, String path) {
-    final safeBase = _normalize(baseUrl) ?? _normalize(fallbackBaseUrl()) ?? 'http://localhost:8080';
+    // SIEMPRE usar la URL remota compilada, ignorar parámetro baseUrl
+    final safeBase = _apiBaseUrl;
     final trimmedPath = path.startsWith('/') ? path.substring(1) : path;
     return Uri.parse(safeBase).resolve(trimmedPath);
   }

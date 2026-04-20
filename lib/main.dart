@@ -10,7 +10,7 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Obtener URL del API desde variables de entorno
-  const String apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8080');
+  const String apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'https://trackfile-backend.onrender.com');
   debugPrint('🌐 API Base URL configurada: $apiBaseUrl');
   
   // Inicializar DocumentService con la URL correcta

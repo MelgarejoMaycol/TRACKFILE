@@ -3,11 +3,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import './api_link.dart';
 
 class ApiService {
   // URL base del servidor
   static String get _baseUrl {
-    return _customBaseUrl ?? 'http://localhost:8080';
+    return _customBaseUrl ?? getApiLink(); // Siempre usar la URL remota compilada por ApiConfig
   }
 
   static String? _customBaseUrl;

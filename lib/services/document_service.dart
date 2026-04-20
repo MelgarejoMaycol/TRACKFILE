@@ -4,12 +4,13 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import './api_link.dart';
 
 class DocumentService {
   // Usar variable dinámica en lugar de constante
   static String get _baseUrl {
-    // Por defecto usa localhost, pero puede ser sobrescrito
-    return _customBaseUrl ?? 'http://localhost:8080';
+    // url de Render que esta en api_config.dart
+    return _customBaseUrl ?? getApiLink(); // Siempre usar la URL remota compilada por ApiConfig
   }
 
   static String? _customBaseUrl;
