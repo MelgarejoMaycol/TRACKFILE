@@ -7,19 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import './api_link.dart';
 
 class DocumentService {
-  // Usar variable dinámica en lugar de constante
-  static String get _baseUrl {
-    // url de Render que esta en api_config.dart
-    return getApiLink(); // Siempre usar la URL remota compilada por ApiConfig
-  }
-
-  static String? _customBaseUrl;
-
-  /// Establece una URL base personalizada (ej: para IP en lugar de localhost)
-  static void setBaseUrl(String url) {
-    _customBaseUrl = url;
-    debugPrint('🌐 BaseURL establecida a: $url');
-  }
+  // URL base - siempre usa Onrender
+  static String get _baseUrl => getApiLink();
 
   /// Obtiene los documentos del usuario desde el backend
   static Future<List<Map<String, dynamic>>> getDocuments({

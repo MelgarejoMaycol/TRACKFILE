@@ -3,8 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:frontendproyecto/utils/role_router.dart';
-import 'package:frontendproyecto/services/document_service.dart';
-import 'package:frontendproyecto/services/api_service.dart';
 import 'package:frontendproyecto/services/api_link.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/login_screen.dart';
@@ -22,14 +20,6 @@ void main() async {
   debugPrint('🔴 URL vieja en SharedPreferences: $oldUrl');
   await prefs.remove('api_base_url');
   debugPrint('✅ URL vieja ELIMINADA de SharedPreferences');
-  
-  // Usar siempre la URL remota de Onrender (sin variables de entorno)
-  final String apiBaseUrl = getApiLink();
-  debugPrint('🌐 API Base URL configurada: $apiBaseUrl');
-  
-  // Inicializar AMBOS servicios con la URL correcta
-  DocumentService.setBaseUrl(apiBaseUrl);
-  ApiService.setBaseUrl(apiBaseUrl);
   
   debugPrint('═══════════════════════════════════════════════════════');
   debugPrint('✅ Servicios inicializados correctamente');

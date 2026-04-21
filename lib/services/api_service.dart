@@ -6,19 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import './api_link.dart';
 
 class ApiService {
-  // URL base del servidor
-  static String get _baseUrl {
-    //return _customBaseUrl ?? getApiLink(); // Siempre usar la URL remota compilada por ApiConfig
-    return getApiLink(); // Siempre usar la URL remota compilada por ApiConfig
-  }
-
-  static String? _customBaseUrl;
-
-  /// Establece una URL base personalizada
-  static void setBaseUrl(String url) {
-    _customBaseUrl = url;
-    debugPrint('🌐 BaseURL configurada a: $url');
-  }
+  // URL base del servidor - siempre usa Onrender
+  static String get _baseUrl => getApiLink();
 
   /// Obtiene el token desde SharedPreferences
   static Future<String?> _getToken() async {
