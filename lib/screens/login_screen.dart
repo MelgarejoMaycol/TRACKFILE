@@ -1280,11 +1280,21 @@ class _LoginScreenState extends State<LoginScreen>
         const SizedBox(height: 12),
         TextField(
           controller: _userCtrl,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF333333),
+          ),
           decoration: _inputDecoration('Correo electrónico'),
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _passCtrl,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF333333),
+          ),
           obscureText: _loginPassObscure,
           decoration: _inputDecoration('Contraseña').copyWith(
             prefixIcon: IconButton(
@@ -1404,11 +1414,37 @@ class _LoginScreenState extends State<LoginScreen>
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
+      labelStyle: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: Color(0xFF06135E),
+      ),
       filled: true,
       fillColor: const Color(0xFFF5F7FA),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
+        borderSide: const BorderSide(
+          color: Color(0xFFE0E0E0),
+          width: 1.5,
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(
+          color: Color(0xFFD0D0D0),
+          width: 1.5,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(
+          color: Color(0xFF06135E),
+          width: 2,
+        ),
+      ),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 14,
       ),
     );
   }
