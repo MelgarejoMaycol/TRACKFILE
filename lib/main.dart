@@ -3,14 +3,15 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:frontendproyecto/utils/role_router.dart';
 import 'package:frontendproyecto/services/document_service.dart';
+import 'package:frontendproyecto/services/api_link.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/login_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Obtener URL del API desde variables de entorno
-  const String apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'https://trackfile-backend.onrender.com');
+  // Usar siempre la URL remota de Onrender (sin variables de entorno)
+  final String apiBaseUrl = getApiLink();
   debugPrint('🌐 API Base URL configurada: $apiBaseUrl');
   
   // Inicializar DocumentService con la URL correcta
