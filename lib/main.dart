@@ -12,9 +12,16 @@ import 'screens/login_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  debugPrint('═══════════════════════════════════════════════════════');
+  debugPrint('🚀 VERSIÓN: v3.2 - Limpieza de SharedPreferences');
+  debugPrint('═══════════════════════════════════════════════════════');
+  
   // Limpiar URL vieja de SharedPreferences que podría tener localhost
   final prefs = await SharedPreferences.getInstance();
+  final oldUrl = prefs.getString('api_base_url');
+  debugPrint('🔴 URL vieja en SharedPreferences: $oldUrl');
   await prefs.remove('api_base_url');
+  debugPrint('✅ URL vieja ELIMINADA de SharedPreferences');
   
   // Usar siempre la URL remota de Onrender (sin variables de entorno)
   final String apiBaseUrl = getApiLink();
@@ -23,6 +30,10 @@ void main() async {
   // Inicializar AMBOS servicios con la URL correcta
   DocumentService.setBaseUrl(apiBaseUrl);
   ApiService.setBaseUrl(apiBaseUrl);
+  
+  debugPrint('═══════════════════════════════════════════════════════');
+  debugPrint('✅ Servicios inicializados correctamente');
+  debugPrint('═══════════════════════════════════════════════════════');
   
   runApp(const TrackFileApp());
 }
