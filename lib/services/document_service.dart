@@ -10,7 +10,7 @@ class DocumentService {
   // Usar variable dinámica en lugar de constante
   static String get _baseUrl {
     // url de Render que esta en api_config.dart
-    return _customBaseUrl ?? getApiLink(); // Siempre usar la URL remota compilada por ApiConfig
+    return getApiLink(); // Siempre usar la URL remota compilada por ApiConfig
   }
 
   static String? _customBaseUrl;
