@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:frontendproyecto/utils/role_router.dart';
 import 'package:frontendproyecto/services/document_service.dart';
@@ -8,8 +9,12 @@ import 'package:frontendproyecto/services/api_link.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/login_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Limpiar URL vieja de SharedPreferences que podría tener localhost
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.remove('api_base_url');
   
   // Usar siempre la URL remota de Onrender (sin variables de entorno)
   final String apiBaseUrl = getApiLink();
