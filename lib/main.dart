@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:frontendproyecto/utils/role_router.dart';
-import 'package:frontendproyecto/services/api_link.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/login_screen.dart';
 
