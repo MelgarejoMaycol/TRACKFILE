@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:frontendproyecto/utils/api_config.dart';
 import 'package:frontendproyecto/utils/role_router.dart';
+import 'package:frontendproyecto/services/api_link.dart';
 
 class LoginScreen extends StatefulWidget {
   static const route = '/login';
@@ -39,13 +40,15 @@ class _LoginScreenState extends State<LoginScreen>
   bool _confirmPassObscure = true;
   bool _loginPassObscure = true;
   PlatformFile? _rutPdfFile;
-  String _baseUrl = ApiConfig.fallbackBaseUrl();
+  String _baseUrl = '';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _initBaseUrl();
+    // Usar directamente getApiLink() en lugar de cargar desde SharedPreferences
+    _baseUrl = getApiLink();
+    debugPrint('🌐 [LoginScreen] Base URL: $_baseUrl');
     // Listen to inputs to update button states
     _nameCtrl.addListener(_validateForms);
     _nitCtrl.addListener(_validateForms);
@@ -93,12 +96,6 @@ class _LoginScreenState extends State<LoginScreen>
         _isLoginValid = newLogin;
       });
     }
-  }
-
-  Future<void> _initBaseUrl() async {
-    final resolved = await ApiConfig.loadBaseUrl();
-    if (!mounted) return;
-    setState(() => _baseUrl = resolved);
   }
 
   Uri _endpoint(String path) => ApiConfig.resolve(_baseUrl, path);
