@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:frontendproyecto/utils/role_router.dart';
 import 'package:frontendproyecto/services/document_service.dart';
+import 'package:frontendproyecto/services/api_service.dart';
 import 'package:frontendproyecto/services/api_link.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/login_screen.dart';
@@ -14,8 +15,9 @@ void main() {
   final String apiBaseUrl = getApiLink();
   debugPrint('🌐 API Base URL configurada: $apiBaseUrl');
   
-  // Inicializar DocumentService con la URL correcta
+  // Inicializar AMBOS servicios con la URL correcta
   DocumentService.setBaseUrl(apiBaseUrl);
+  ApiService.setBaseUrl(apiBaseUrl);
   
   runApp(const TrackFileApp());
 }
