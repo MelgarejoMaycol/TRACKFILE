@@ -257,7 +257,7 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
       // Enviar idVehiculo SOLO para documentos de vehículo
       // Para documentos de usuario: enviar idUsuario (propietario del documento)
       int? idVehiculo = widget.isVehicleDocument ? int.tryParse(widget.vehicleId) : null;
-      int? responsableUsuarioId = null; // Nunca enviar responsableUsuarioId
+      int? responsableUsuarioId; // Nunca enviar responsableUsuarioId/
       int? idUsuario = !widget.isVehicleDocument ? int.tryParse(widget.ownerUserId) : null;
 
       debugPrint('🔐 [_updateDocument] idVehiculo: $idVehiculo, responsableUsuarioId: $responsableUsuarioId, idUsuario: $idUsuario, isVehicleDocument: ${widget.isVehicleDocument}');
