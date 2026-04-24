@@ -204,6 +204,7 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
   }
 
   /// Obtiene documentos filtrados según si es de usuario o vehículo
+  /// No diferencia entre conductor y propietario para documentos personales
   List<Map<String, dynamic>> _getFilteredDocumentTypes() {
     if (widget.tiposDocumento.isEmpty) return [];
 
@@ -215,7 +216,8 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
         // Si es vehículo: mostrar VEHICULO o FLEXIBLE
         return category == 'VEHICULO' || category == 'FLEXIBLE';
       } else {
-        // Si es usuario: mostrar AMBOS_PERSONA, CONDUCTOR, PROPIETARIO o FLEXIBLE
+        // Si es usuario: mostrar todo excepto VEHICULO
+        // Esto incluye: CONDUCTOR, PROPIETARIO, AMBOS_PERSONA, FLEXIBLE
         return category != 'VEHICULO';
       }
     }).toList();

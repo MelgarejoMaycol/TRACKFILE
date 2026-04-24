@@ -219,50 +219,48 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     return const ['TECNICA', 'LEGAL', 'ADMINISTRATIVO'];
   }
 
-  /// Obtiene los documentos filtrados según contexto (persona/vehículo)
+  /// Obtiene los documentos filtrados según contexto (usuario/vehículo)
+  /// No diferencia entre conductor y propietario para documentos personales
   List<Map<String, dynamic>> _getFilteredDocumentTypes() {
     if (documentTypes.isEmpty) return [];
 
     final bool hasVehicle = selectedVehicleId != null && selectedVehicleId! > 0;
-    final String personaType = selectedPersonaTipo?.toLowerCase() ?? '';
 
     final filtered = documentTypes.where((doc) {
       final docName = doc['nombre']?.toString() ?? '';
       final category = _categorizeDocumentType(docName);
 
       if (hasVehicle) {
-        // Si hay vehículo: mostrar documentos de VEHICULO o FLEXIBLE
+        // Si hay vehículo: mostrar VEHICULO o FLEXIBLE
         return category == 'VEHICULO' || category == 'FLEXIBLE';
       } else {
-        // Si NO hay vehículo: mostrar documentos personales según tipo de persona
-        if (personaType == 'conductor') {
-          // Conductor puede ver: LICENCIA + AMBOS_PERSONA + FLEXIBLE
-          return category == 'CONDUCTOR' || 
-                 category == 'AMBOS_PERSONA' || 
-                 category == 'FLEXIBLE';
-        } else if (personaType == 'propietario') {
-          // Propietario puede ver: RUT + CERTIFICADO_PROPIEDAD + AMBOS_PERSONA + FLEXIBLE
-          return category == 'PROPIETARIO' || 
-                 category == 'AMBOS_PERSONA' || 
-                 category == 'FLEXIBLE';
-        }
-        // Si no se especifica persona, mostrar todo excepto vehículos
+        // Si NO hay vehículo: mostrar todo excepto VEHICULO
+        // Esto incluye: CONDUCTOR, PROPIETARIO, AMBOS_PERSONA, FLEXIBLE
         return category != 'VEHICULO';
       }
     }).toList();
 
+    // Remover duplicados por ID
+    final Map<int, Map<String, dynamic>> uniqueById = {};
+    for (final doc in filtered) {
+      final id = int.tryParse(doc['id'].toString()) ?? 0;
+      if (id > 0 && !uniqueById.containsKey(id)) {
+        uniqueById[id] = doc;
+      }
+    }
+    final uniqueFiltered = uniqueById.values.toList();
+
     // Debug: mostrar resultado del filtrado
     debugPrint('📋 Filtrado de documentos:');
-    debugPrint('   - Persona: $personaType');
     debugPrint('   - Vehículo seleccionado: $hasVehicle');
     debugPrint('   - Total documentos disponibles: ${documentTypes.length}');
-    debugPrint('   - Documentos después de filtrar: ${filtered.length}');
-    for (var doc in filtered) {
+    debugPrint('   - Documentos después de filtrar: ${uniqueFiltered.length}');
+    for (var doc in uniqueFiltered) {
       final cat = _categorizeDocumentType(doc['nombre']?.toString() ?? '');
       debugPrint('      ✓ ${doc['nombre']} (categoría: $cat)');
     }
 
-    return filtered;
+    return uniqueFiltered;
   }
 
   /// Valida si se requiere observación obligatoria
@@ -1291,17 +1289,12 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
 
     final filteredDocs = _getFilteredDocumentTypes();
     final bool hasVehicle = selectedVehicleId != null && selectedVehicleId! > 0;
-    final String personaType = selectedPersonaTipo?.toLowerCase() ?? '';
     
     String docTypeInfo = '';
     if (hasVehicle) {
       docTypeInfo = '🚗 Documentos del vehículo';
-    } else if (personaType == 'conductor') {
-      docTypeInfo = '👤 Documentos del conductor';
-    } else if (personaType == 'propietario') {
-      docTypeInfo = '👤 Documentos del propietario';
     } else {
-      docTypeInfo = '📋 Selecciona documentos';
+      docTypeInfo = '👤 Documentos del usuario';
     }
 
     // Validar si el tipo actualmente seleccionado está en la lista filtrada
@@ -1738,17 +1731,12 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     
     if (!selectedDocIsValid) {
       final bool hasVehicle = selectedVehicleId != null && selectedVehicleId! > 0;
-      final String personaType = selectedPersonaTipo?.toLowerCase() ?? '';
       
       String errorMsg = '';
       if (hasVehicle) {
         errorMsg = 'Este documento no puede asignarse a un vehículo.';
-      } else if (personaType == 'conductor') {
-        errorMsg = 'Este documento no puede asignarse a un conductor.';
-      } else if (personaType == 'propietario') {
-        errorMsg = 'Este documento no puede asignarse a un propietario.';
       } else {
-        errorMsg = 'Tipo de documento no válido para este contexto.';
+        errorMsg = 'Este documento no puede asignarse a un usuario.';
       }
       
       _showErrorSnackBar('⚠️ $errorMsg');
