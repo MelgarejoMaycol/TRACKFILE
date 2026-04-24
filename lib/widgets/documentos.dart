@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/document_service.dart';
@@ -75,7 +76,12 @@ class _DocumentInfo {
     this.observaciones = '',
   });
 
-  int get daysRemaining => expiryDate.difference(DateTime.now()).inDays;
+  int get daysRemaining {
+    // Calcular días usando solo fechas, sin considerar horas
+    final DateTime todayOnly = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final DateTime expiryOnly = DateTime(expiryDate.year, expiryDate.month, expiryDate.day);
+    return expiryOnly.difference(todayOnly).inDays;
+  }
 
   bool get isNearExpiry => daysRemaining <= 30 && daysRemaining >= 0;
   bool get isExpired => daysRemaining < 0;
@@ -233,8 +239,10 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
         final userLastName = doc['apellidoUsuario'] ?? '';
         final String ownerName = '$userFirstName $userLastName'.trim();
         
-        // Obtener datos del responsable
-        final responsableUserId = doc['responsable_usuario']?.toString() ?? doc['responsableUsuario']?.toString() ?? '';
+        // Para documentos de usuario: el responsable es el mismo usuario
+        // El API devuelve idUsuario que es el dueño del documento personal
+        final String responsableUserId = !vehicleId.isNotEmpty ? (doc['idUsuario']?.toString() ?? '') : '';
+        debugPrint('📋 Documento ${doc['idDocumento']}: responsableUserId = "$responsableUserId" (usuario dueño: ${doc['idUsuario']})');
         final responsableFirstName = doc['nombreResponsable'] ?? doc['nombre_responsable'] ?? '';
         final responsableLastName = doc['apellidoResponsable'] ?? doc['apellido_responsable'] ?? '';
         final String responsableName = '$responsableFirstName $responsableLastName'.trim();
@@ -520,12 +528,22 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
         final List<_DocumentInfo> personalDocs = _documents.where((d) => d.vehicleId.isEmpty).toList();
         final List<_DocumentInfo> vehicleDocs = _documents.where((d) => d.vehicleId.isNotEmpty).toList();
 
-        // Próximos documentos a vencer (todos)
+        // Próximos documentos a vencer (todos, incluyendo vencidos)
+        final int upcomingLimit = 3;
         final List<_DocumentInfo> upcomingDocs = _documents
-            .where((d) => !d.isExpired)
             .toList()
-          ..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-        final int upcomingLimit = isCompact ? 1 : 3;
+          ..sort((a, b) {
+              // Orden personalizado: vencidos primero (más tiempo vencido primero), luego próximos (menos días primero)
+              if (a.daysRemaining < 0 && b.daysRemaining < 0) {
+                return a.daysRemaining.compareTo(b.daysRemaining); // Más negativo primero
+              } else if (a.daysRemaining < 0 && b.daysRemaining >= 0) {
+                return -1; // Vencidos primero
+              } else if (a.daysRemaining >= 0 && b.daysRemaining < 0) {
+                return 1; // Vencidos primero
+              } else {
+                return a.daysRemaining.compareTo(b.daysRemaining); // Menos días primero
+              }
+            });
         final List<_DocumentInfo> topUpcoming = upcomingDocs.take(upcomingLimit).toList();
 
         // Aplicar búsqueda
@@ -634,45 +652,46 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
 
   /// Build circular progress indicators for upcoming documents
   Widget _buildUpcomingDocumentCircularGrid({
-    required bool isCompact,
-    required List<_DocumentInfo> docs,
-  }) {
-    if (docs.isEmpty) {
-      return const SizedBox.shrink();
-    }
+  required bool isCompact,
+  required List<_DocumentInfo> docs,
+}) {
+  if (docs.isEmpty) {
+    return const SizedBox.shrink();
+  }
 
-    // Limit to 1 for mobile, 3 for desktop
-    final int displayCount = isCompact ? 1 : 3;
-    final List<_DocumentInfo> displayDocs = docs.take(displayCount).toList();
+  final List<_DocumentInfo> displayDocs = docs.take(3).toList();
 
-    if (isCompact) {
-      // Mobile: horizontal scroll with 1 visible
-      return SizedBox(
-        height: 230,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: displayDocs.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
-          itemBuilder: (context, index) => _buildCircularDocumentCard(
-            doc: displayDocs[index],
-            isCompact: true,
-          ),
+  if (isCompact) {
+    return SizedBox(
+      height: 230,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: displayDocs.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          return SizedBox(
+            width: 220,
+            child: _buildCircularDocumentCard(
+              doc: displayDocs[index],
+              isCompact: true,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  return Row(
+    children: displayDocs.map((doc) {
+      return Expanded(
+        child: _buildCircularDocumentCard(
+          doc: doc,
+          isCompact: false,
         ),
       );
-    } else {
-      // Desktop: 3 in a row
-      return Row(
-        children: displayDocs
-            .map((doc) => Expanded(
-                  child: _buildCircularDocumentCard(
-                    doc: doc,
-                    isCompact: false,
-                  ),
-                ))
-            .toList(),
-      );
-    }
-  }
+    }).toList(),
+  );
+}
 
   /// Build individual circular progress card for a document
   Widget _buildCircularDocumentCard({
@@ -726,7 +745,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        '${doc.daysRemaining.clamp(0, 999)}',
+                        doc.daysRemaining < 0 ? '${doc.daysRemaining}' : '${doc.daysRemaining}',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: isCompact ? 24 : 28,
@@ -734,7 +753,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                         ),
                       ),
                       Text(
-                        'días',
+                        doc.daysRemaining == 1 ? 'día' : 'días',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: isCompact ? 10 : 11,
@@ -1316,8 +1335,8 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
   // Obtener color basado en días restantes para vencimiento
   Map<String, Color> _getColorForDaysRemaining(int daysRemaining) {
     if (daysRemaining < 0) {
-      // Vencido: gris
-      return {'start': const Color(0xFF6B7280), 'end': const Color(0xFF4B5563)};
+      // Vencido: rojo
+      return {'start': const Color(0xFFEF4444), 'end': const Color(0xFFDC2626)};
     } else if (daysRemaining <= 7) {
       // Rojo urgente (0-7 días)
       return {'start': const Color(0xFFEF4444), 'end': const Color(0xFFDC2626)};
@@ -1502,12 +1521,23 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
           );
         }
 
-        // Calcular documentos próximos a vencer (todos)
+        // Calcular documentos próximos a vencer (todos, incluyendo vencidos)
+        final int upcomingLimit = 3;
         final List<_DocumentInfo> upcomingAll = _documents
-            .where((d) => !d.isExpired)
             .toList()
-          ..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-        final int upcomingLimit = isCompact ? 1 : 3;
+          ..sort((a, b) {
+              // Orden personalizado: vencidos primero (más tiempo vencido primero), luego próximos (menos días primero)
+              if (a.daysRemaining < 0 && b.daysRemaining < 0) {
+                return a.daysRemaining.compareTo(b.daysRemaining); // Más negativo primero
+              } else if (a.daysRemaining < 0 && b.daysRemaining >= 0) {
+                return -1; // Vencidos primero
+              } else if (a.daysRemaining >= 0 && b.daysRemaining < 0) {
+                return 1; // Vencidos primero
+              } else {
+                return a.daysRemaining.compareTo(b.daysRemaining); // Menos días primero
+              }
+            });
+        final List<_DocumentInfo> upcomingAllLimited = upcomingAll.take(upcomingLimit).toList();
 
         return SingleChildScrollView(
           padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 24, vertical: 24),
@@ -1532,13 +1562,16 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
               const SizedBox(height: 16),
 
               // Documentos próximos a vencer
-              if (upcomingAll.isNotEmpty) ...[
+              if (upcomingAllLimited.isNotEmpty) ...[
                 Text(
                   'Próximos a vencer',
                   style: TextStyle(color: Colors.white, fontSize: isCompact ? 14 : 16, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 10),
-                _buildUpcomingDocumentCircularGrid(isCompact: isCompact, docs: upcomingAll.take(upcomingLimit).toList()),
+                _buildUpcomingDocumentCircularGrid(
+  isCompact: isCompact,
+  docs: upcomingAllLimited,
+),
                 const SizedBox(height: 24),
               ],
 
@@ -1642,12 +1675,22 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
         final List<_DocumentInfo> personalDocs = _documents.where((d) => d.vehicleId.isEmpty).toList();
         final List<_DocumentInfo> vehicleDocs = _documents.where((d) => d.vehicleId.isNotEmpty).toList();
 
-        // Próximos documentos a vencer (todos)
+        // Próximos documentos a vencer (todos, incluyendo vencidos - propietario)
         final List<_DocumentInfo> upcomingDocs = _documents
-            .where((d) => !d.isExpired)
             .toList()
-          ..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-        final int upcomingLimit = isCompact ? 1 : 3;
+          ..sort((a, b) {
+              // Orden personalizado: vencidos primero (más tiempo vencido primero), luego próximos (menos días primero)
+              if (a.daysRemaining < 0 && b.daysRemaining < 0) {
+                return a.daysRemaining.compareTo(b.daysRemaining); // Más negativo primero
+              } else if (a.daysRemaining < 0 && b.daysRemaining >= 0) {
+                return -1; // Vencidos primero
+              } else if (a.daysRemaining >= 0 && b.daysRemaining < 0) {
+                return 1; // Vencidos primero
+              } else {
+                return a.daysRemaining.compareTo(b.daysRemaining); // Menos días primero
+              }
+            });
+        final int upcomingLimit = 3;
         final List<_DocumentInfo> topUpcoming = upcomingDocs.take(upcomingLimit).toList();
 
         // Aplicar búsqueda
@@ -1840,6 +1883,20 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
       responsableDisplay = doc.responsableName.isNotEmpty ? doc.responsableName : doc.empresaNombre;
     }
     
+    // Obtener el ID del usuario actual (quien está editando)
+    String currentUserId = '';
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final authUserJson = prefs.getString('auth_user');
+      if (authUserJson != null && authUserJson.isNotEmpty) {
+        final authUser = jsonDecode(authUserJson) as Map<String, dynamic>;
+        currentUserId = authUser['id']?.toString() ?? '';
+        debugPrint('👤 Usuario actual editando: $currentUserId');
+      }
+    } catch (e) {
+      debugPrint('❌ Error obteniendo usuario actual: $e');
+    }
+    
     // Cargar tipos de documento
     final tiposDocumento = await DocumentService.getDocumentTypes(token: widget.token);
     
@@ -1856,9 +1913,12 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
         area: doc.area,
         isVehicleDocument: doc.isVehicleDocument,
         vehicleId: doc.vehicleId,
+        // ownerId contiene: vehicleId para vehículos, o idUsuario para usuarios
         ownerUserId: doc.ownerId,
+        empresaNombre: doc.empresaNombre,
+        vehiclePlate: doc.vehiclePlate,
+        responsableUserId: currentUserId, // Usar el ID del usuario actual que está editando
         tiposDocumento: tiposDocumento,
-        usuarios: [],
         onSuccess: () {
           // Recargar documentos después de editar
           _loadDocuments();

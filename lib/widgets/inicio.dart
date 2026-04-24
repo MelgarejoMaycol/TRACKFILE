@@ -128,11 +128,14 @@ class _InicioWidgetState extends State<InicioWidget> {
           }
           
           // Calcular resumen
+          final DateTime todayOnlyCond = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
           final vencidosCond = backendDocs.where((doc) {
             final fecha = doc['fechaVencimiento'];
             if (fecha == null) return false;
             final vencimiento = DateTime.tryParse(fecha.toString());
-            return vencimiento != null && vencimiento.isBefore(DateTime.now());
+            if (vencimiento == null) return false;
+            final vencimientoOnly = DateTime(vencimiento.year, vencimiento.month, vencimiento.day);
+            return vencimientoOnly.isBefore(todayOnlyCond);
           }).length;
           
           final proximosCond = backendDocs.where((doc) {
@@ -140,7 +143,8 @@ class _InicioWidgetState extends State<InicioWidget> {
             if (fecha == null) return false;
             final vencimiento = DateTime.tryParse(fecha.toString());
             if (vencimiento == null) return false;
-            final diff = vencimiento.difference(DateTime.now()).inDays;
+            final vencimientoOnly = DateTime(vencimiento.year, vencimiento.month, vencimiento.day);
+            final diff = vencimientoOnly.difference(todayOnlyCond).inDays;
             return diff > 0 && diff <= 30;
           }).length;
           
@@ -170,11 +174,14 @@ class _InicioWidgetState extends State<InicioWidget> {
           }
           
           // Calcular resumen
+          final DateTime todayOnlyProp = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
           final vencidosProp = backendDocsP.where((doc) {
             final fecha = doc['fechaVencimiento'];
             if (fecha == null) return false;
             final vencimiento = DateTime.tryParse(fecha.toString());
-            return vencimiento != null && vencimiento.isBefore(DateTime.now());
+            if (vencimiento == null) return false;
+            final vencimientoOnly = DateTime(vencimiento.year, vencimiento.month, vencimiento.day);
+            return vencimientoOnly.isBefore(todayOnlyProp);
           }).length;
           
           final proximosAvencerProp = backendDocsP.where((doc) {
@@ -182,7 +189,8 @@ class _InicioWidgetState extends State<InicioWidget> {
             if (fecha == null) return false;
             final vencimiento = DateTime.tryParse(fecha.toString());
             if (vencimiento == null) return false;
-            final diff = vencimiento.difference(DateTime.now()).inDays;
+            final vencimientoOnly = DateTime(vencimiento.year, vencimiento.month, vencimiento.day);
+            final diff = vencimientoOnly.difference(todayOnlyProp).inDays;
             return diff > 0 && diff <= 30;
           }).length;
           
@@ -255,8 +263,8 @@ class _InicioWidgetState extends State<InicioWidget> {
           ?? 'Documento';
       final displayName = nombre ?? tipoNombre;
 
-      // Crear una clave única combinando tipo + nombre + id
-      final String uniqueKey = '$tipoNombre - $displayName (#$docId)';
+      // Crear una clave única combinando tipo + nombre (sin ID)
+      final String uniqueKey = '$tipoNombre - $displayName';
 
       // Parsear fecha de vencimiento
       final String? vencimientoStr = doc['fechaVencimiento']?.toString();
@@ -490,7 +498,22 @@ class _InicioWidgetState extends State<InicioWidget> {
   /// Return list of entries sorted by soonest expiry
   List<MapEntry<String, DateTime>> _upcomingDocs({int limit = 3}) {
     final entries = _documents.entries.toList();
-    entries.sort((a, b) => a.value.compareTo(b.value));
+    entries.sort((a, b) {
+      final DateTime today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+      final int daysA = a.value.difference(today).inDays;
+      final int daysB = b.value.difference(today).inDays;
+      
+      // Orden personalizado: vencidos primero (más tiempo vencido primero), luego próximos (menos días primero)
+      if (daysA < 0 && daysB < 0) {
+        return daysA.compareTo(daysB); // Más negativo primero
+      } else if (daysA < 0 && daysB >= 0) {
+        return -1; // Vencidos primero
+      } else if (daysA >= 0 && daysB < 0) {
+        return 1; // Vencidos primero
+      } else {
+        return daysA.compareTo(daysB); // Menos días primero
+      }
+    });
     return entries.take(limit).toList();
   }
 
@@ -640,15 +663,22 @@ class _InicioWidgetState extends State<InicioWidget> {
   Widget _conductorInicio() {
     final int totalVehicles = _fleetVehicles.length;
     final int myDocuments = _documents.length;
+    final DateTime todayOnly = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
     final int docsExpired = _documents.entries
-        .where((entry) => entry.value.isBefore(DateTime.now()))
+        .where((entry) {
+          final DateTime expiryOnly = DateTime(entry.value.year, entry.value.month, entry.value.day);
+          return expiryOnly.isBefore(todayOnly);
+        })
         .length;
     final int docsExpiringSoon = _documents.entries
-        .where((entry) => entry.value.isBefore(DateTime.now().add(const Duration(days: 30))) && 
-                           entry.value.isAfter(DateTime.now()))
+        .where((entry) {
+          final DateTime expiryOnly = DateTime(entry.value.year, entry.value.month, entry.value.day);
+          return expiryOnly.isBefore(todayOnly.add(const Duration(days: 30))) && 
+                 expiryOnly.isAfter(todayOnly);
+        })
         .length;
     final List<Map<String, dynamic>> vehiclesToShow = _fleetVehicles.take(3).toList();
-    final List<MapEntry<String, DateTime>> upcomingDocs = _upcomingDocs(limit: 5);
+    final List<MapEntry<String, DateTime>> upcomingDocs = _upcomingDocs(limit: 3);
 
     // Debug
     debugPrint('📊 CONDUCTOR PANEL: Documents=${_documents.length}, Vehicles=${_fleetVehicles.length}, Summary=$_summaryMetrics');
@@ -1058,7 +1088,10 @@ class _InicioWidgetState extends State<InicioWidget> {
         final entry = entries[i];
         final expiry = entry.value;
         final payment = _paymentDates?[entry.key];
-        final days = expiry.difference(DateTime.now()).inDays;
+        // Calcular días usando solo fechas, sin considerar horas
+        final DateTime todayOnly = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+        final DateTime expiryOnly = DateTime(expiry.year, expiry.month, expiry.day);
+        final int days = expiryOnly.difference(todayOnly).inDays;
         final details = <String>['Vence: ${_formatDate(expiry)}'];
         if (payment != null) details.add('Pago: ${_formatDate(payment)}');
 
@@ -1075,8 +1108,11 @@ class _InicioWidgetState extends State<InicioWidget> {
             ),
             title: Text(entry.key, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
             subtitle: Text(
-              '${details.join(' • ')}\n${days.clamp(0, 999)} días restantes',
-              style: const TextStyle(color: Colors.white70, height: 1.2),
+              '${details.join(' • ')}\n${days < 0 ? 'Vencido' : days == 0 ? 'Se vence hoy' : '$days días restantes'}',
+              style: TextStyle(
+                color: days < 0 ? Colors.red[300] : days == 0 ? Colors.amber[300] : Colors.white70,
+                height: 1.2,
+              ),
             ),
             isThreeLine: true,
             onTap: () {
@@ -1216,11 +1252,15 @@ class _InicioWidgetState extends State<InicioWidget> {
   }
 
   Widget _empresaInicio() {
-    final DateTime now = DateTime.now();
+    final DateTime todayOnly = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
     final int totalDrivers = (_summaryMetrics['activeDrivers'] as num?)?.toInt() ?? 0;
     final int fleetSize = (_summaryMetrics['fleetSize'] as num?)?.toInt() ?? _fleetVehicles.length;
-    final int documentsExpired = (_summaryMetrics['documentsExpired'] as num?)?.toInt()
-      ?? _documents.entries.where((entry) => entry.value.isBefore(now)).length;
+    final int documentsExpired = _documents.entries
+        .where((entry) {
+          final DateTime expiryOnly = DateTime(entry.value.year, entry.value.month, entry.value.day);
+          return expiryOnly.isBefore(todayOnly);
+        })
+        .length;
     final int maintenanceScheduled = (_summaryMetrics['maintenanceScheduled'] as num?)?.toInt() ?? 0;
     final int certificateRequests = (_summaryMetrics['certificateRequests'] as num?)?.toInt() ?? _alerts.length;
     final int totalPropietarios = _propietarios.length;
@@ -1308,15 +1348,22 @@ class _InicioWidgetState extends State<InicioWidget> {
   Widget _propietarioInicio() {
     final totalVehicles = _fleetVehicles.length;
     final int myDocuments = _documents.length;
+    final DateTime todayOnly = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
     final int docsExpired = _documents.entries
-        .where((entry) => entry.value.isBefore(DateTime.now()))
+        .where((entry) {
+          final DateTime expiryOnly = DateTime(entry.value.year, entry.value.month, entry.value.day);
+          return expiryOnly.isBefore(todayOnly);
+        })
         .length;
     final int docsExpiringSoon = _documents.entries
-        .where((entry) => entry.value.isBefore(DateTime.now().add(const Duration(days: 30))) && 
-                           entry.value.isAfter(DateTime.now()))
+        .where((entry) {
+          final DateTime expiryOnly = DateTime(entry.value.year, entry.value.month, entry.value.day);
+          return expiryOnly.isBefore(todayOnly.add(const Duration(days: 30))) && 
+                 expiryOnly.isAfter(todayOnly);
+        })
         .length;
     final vehiclesToShow = _fleetVehicles.take(3).toList();
-    final List<MapEntry<String, DateTime>> upcomingDocs = _upcomingDocs(limit: 5);
+    final List<MapEntry<String, DateTime>> upcomingDocs = _upcomingDocs(limit: 3);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(vertical: 20),
@@ -1449,28 +1496,121 @@ class _InicioWidgetState extends State<InicioWidget> {
   }
 
   Widget _secretariaInicio() {
+    final List<MapEntry<String, DateTime>> upcomingDocs = _upcomingDocs(limit: 3);
+    
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Panel Secretaría', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        const Text('Tareas administrativas y solicitudes.', style: TextStyle(color: Colors.white70)),
-        const SizedBox(height: 20),
-        _infoCard(Icons.request_page, 'Solicitudes nuevas', '8'),
-      ]),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 820),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Panel Secretaría',
+                style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Tareas administrativas y solicitudes.',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 20),
+              _infoCard(Icons.request_page, 'Solicitudes nuevas', '8'),
+              const SizedBox(height: 26),
+              // Documentos próximos a vencer
+              if (upcomingDocs.isNotEmpty) ...[
+                const Text(
+                  'Documentos próximos a vencer',
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                _buildDocumentCountdownGrid(upcomingDocs),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.center,
+                  child: TextButton.icon(
+                    onPressed: () => _showNavigationFallback('Documentos'),
+                    icon: const Icon(Icons.folder_copy_rounded, color: Color(0xFF16C79A)),
+                    label: const Text('Ir al módulo de documentos', style: TextStyle(color: Color(0xFF16C79A))),
+                  ),
+                ),
+              ] else ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: Text(
+                      'No hay documentos registrados',
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   Widget _adminInicio() {
+    final List<MapEntry<String, DateTime>> upcomingDocs = _upcomingDocs(limit: 3);
+    
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Panel Admin', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        const Text('Vista global del sistema.', style: TextStyle(color: Colors.white70)),
-        const SizedBox(height: 20),
-        _infoCard(Icons.settings, 'Configuraciones', ''),
-      ]),
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 820),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Panel Admin',
+                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Vista global del sistema.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 20),
+                _infoCard(Icons.settings, 'Configuraciones', ''),
+                const SizedBox(height: 26),
+                // Documentos próximos a vencer
+                if (upcomingDocs.isNotEmpty) ...[
+                  const Text(
+                    'Documentos próximos a vencer en el sistema',
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDocumentCountdownGrid(upcomingDocs),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.center,
+                    child: TextButton.icon(
+                      onPressed: () => _showNavigationFallback('Documentos'),
+                      icon: const Icon(Icons.folder_copy_rounded, color: Color(0xFF16C79A)),
+                      label: const Text('Ir al módulo de documentos', style: TextStyle(color: Color(0xFF16C79A))),
+                    ),
+                  ),
+                ] else ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Center(
+                      child: Text(
+                        'No hay documentos registrados',
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1575,8 +1715,11 @@ class _InicioWidgetState extends State<InicioWidget> {
             alignment: WrapAlignment.center,
             children: docs.map((entry) {
               final DateTime expiry = entry.value;
-              final int daysRemaining = expiry.difference(DateTime.now()).inDays;
-              final int totalDays = daysRemaining <= 90 ? 90 : daysRemaining;
+              // Calcular días usando solo fechas, sin considerar horas
+              final DateTime todayOnly = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+              final DateTime expiryOnly = DateTime(expiry.year, expiry.month, expiry.day);
+              final int daysRemaining = expiryOnly.difference(todayOnly).inDays;
+              final int totalDays = daysRemaining.abs() <= 90 ? 90 : daysRemaining.abs();
               final DateTime? paymentDate = _paymentDates?[entry.key];
               final String detailLabel = _documentVehicle[entry.key] ?? 'Sin detalle';
 
@@ -1594,7 +1737,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                     paymentDate: paymentDate,
                     totalDuration: Duration(days: totalDays),
                     title: entry.key,
-                    subtitle: '$detailLabel\n${daysRemaining.clamp(0, 999)} días',
+                    subtitle: '$detailLabel\n${_formatDate(expiry)}\n${daysRemaining < 0 ? '$daysRemaining días' : daysRemaining == 0 ? 'Hoy' : '$daysRemaining días'}',
                     size: countdownSize,
                   ),
                 ),
@@ -1760,9 +1903,10 @@ class _DocumentCountdownState extends State<DocumentCountdown> {
   }
 
   void _updateRemaining() {
-    final now = DateTime.now();
-    _remaining = widget.expiry.difference(now);
-    if (_remaining.isNegative) _remaining = Duration.zero;
+    final DateTime todayOnly = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final DateTime expiryOnly = DateTime(widget.expiry.year, widget.expiry.month, widget.expiry.day);
+    _remaining = expiryOnly.difference(todayOnly);
+    // No clamp to zero for expired documents
   }
 
   void _tick() {
@@ -1780,6 +1924,9 @@ class _DocumentCountdownState extends State<DocumentCountdown> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isExpired = _remaining.isNegative;
+    final Color progressColor = isExpired ? const Color(0xFFEF4444) : const Color(0xFF16C79A);
+
     final total = widget.totalDuration.inSeconds > 0 ? widget.totalDuration.inSeconds : 1;
     final remain = _remaining.inSeconds.clamp(0, total);
     final percent = total > 0 ? (remain / total) : 0.0;
@@ -1800,7 +1947,7 @@ class _DocumentCountdownState extends State<DocumentCountdown> {
                 child: CircularProgressIndicator(
                   value: percent,
                   strokeWidth: stroke,
-                  color: const Color(0xFF16C79A),
+                  color: progressColor,
                   backgroundColor: Colors.white24,
                 ),
               ),
@@ -1824,18 +1971,10 @@ class _DocumentCountdownState extends State<DocumentCountdown> {
   }
 
   String _formatRemaining(Duration d) {
-    if (d == Duration.zero) return '0';
-    if (d.inDays >= 1) return '${d.inDays}';
-    if (d.inHours >= 1) return '${d.inHours}';
-    if (d.inMinutes >= 1) return '${d.inMinutes}';
-    return '${d.inSeconds}';
+    return '${d.inDays}';
   }
 
   String _humanUnit(Duration d) {
-    if (d == Duration.zero) return 'expirado';
-    if (d.inDays >= 1) return '/ días';
-    if (d.inHours >= 1) return '/ horas';
-    if (d.inMinutes >= 1) return '/ minutos';
-    return '/ segundos';
+    return 'días';
   }
 }

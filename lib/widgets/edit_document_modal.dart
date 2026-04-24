@@ -12,305 +12,150 @@ class EditDocumentModal {
     required String? responsable,
     required String? observaciones,
     required String? area,
-    bool isVehicleDocument = false,
-    String vehicleId = '',
-    String ownerUserId = '', // ID del usuario propietario del documento
+    required bool isVehicleDocument,
+    required String vehicleId,
+    required String ownerUserId,
+    required String responsableUserId,
+    required String empresaNombre,
+    required String vehiclePlate,
     required List<Map<String, dynamic>> tiposDocumento,
-    required List<Map<String, dynamic>> usuarios,
     required VoidCallback onSuccess,
   }) async {
-    final TextEditingController observacionesController =
-        TextEditingController(text: observaciones ?? '');
-    DateTime selectedDate = fechaVencimiento;
-    int? selectedTipoId = idTipo;
-    String? selectedArea = area;
-
     return showDialog(
       context: context,
       builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            // Obtener áreas permitidas según el tipo actual
-            final permittedAreas = _getPermittedAreas(selectedTipoId, tiposDocumento);
-            
-            return Dialog(
-              backgroundColor: Colors.transparent,
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 500),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF11698E), Color(0xFF19456B)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: const EdgeInsets.all(24),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Editar Documento',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white),
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Responsable (solo lectura)
-                      _buildReadOnlyField('Responsable', responsable ?? 'No asignado'),
-                      const SizedBox(height: 16),
-
-                      // Titular (solo lectura)
-                      _buildReadOnlyField('Titular', titular ?? 'No asignado'),
-                      const SizedBox(height: 16),
-
-                      // Tipo de documento (dropdown editable)
-                      Text(
-                        'Tipo de Documento',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white24),
-                        ),
-                        child: DropdownButton<int>(
-                          value: selectedTipoId,
-                          isExpanded: true,
-                          underline: const SizedBox.shrink(),
-                          dropdownColor: const Color(0xFF19456B),
-                          items: tiposDocumento
-                              .map((e) => DropdownMenuItem(
-                                    value: int.tryParse(e['id'].toString()) ?? 0,
-                                    child: Text(
-                                      e['nombre'].toString(),
-                                      style: const TextStyle(color: Colors.white),
-                                    ),
-                                  ))
-                              .toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              selectedTipoId = value;
-                              // Validar el área actual contra las nuevas permitidas
-                              final newPermittedAreas =
-                                  _getPermittedAreas(value, tiposDocumento);
-                              if (selectedArea == null ||
-                                  selectedArea!.isEmpty ||
-                                  !newPermittedAreas.contains(selectedArea)) {
-                                // Si el área no es válida, asignar la primera permitida
-                                selectedArea =
-                                    newPermittedAreas.isNotEmpty ? newPermittedAreas[0] : null;
-                              }
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Área (dropdown dinámico según tipo de documento)
-                      Text(
-                        'Área',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      _buildAreaDropdown(
-                        selectedTipoId: selectedTipoId ?? 0,
-                        tiposDocumento: tiposDocumento,
-                        currentArea: selectedArea ?? '',
-                        permittedAreas: permittedAreas,
-                        onAreaChanged: (newArea) {
-                          setState(() {
-                            selectedArea = newArea;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Fecha de vencimiento
-                      Text(
-                        'Fecha de Vencimiento',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      GestureDetector(
-                        onTap: () async {
-                          final DateTime? picked = await showDatePicker(
-                            context: context,
-                            initialDate: selectedDate,
-                            firstDate: DateTime.now(),
-                            lastDate: DateTime(2100),
-                            builder: (context, child) {
-                              return Theme(
-                                data: ThemeData.light().copyWith(
-                                  primaryColor: const Color(0xFF4F4CE8),
-                                  scaffoldBackgroundColor: Colors.white,
-                                ),
-                                child: child!,
-                              );
-                            },
-                          );
-                          if (picked != null) {
-                            setState(() => selectedDate = picked);
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.white24),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.year}',
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                              const Icon(Icons.calendar_today, color: Colors.white70, size: 18),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Observaciones
-                      Text(
-                        'Observaciones',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      TextField(
-                        controller: observacionesController,
-                        style: const TextStyle(color: Colors.white),
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          hintText: 'Notas adicionales...',
-                          hintStyle: const TextStyle(color: Colors.white54),
-                          filled: true,
-                          fillColor: Colors.white.withValues(alpha: 0.04),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding:
-                              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Botones
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: const Text(
-                              'Cancelar',
-                              style: TextStyle(color: Colors.white70),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          ElevatedButton.icon(
-                            onPressed: () async {
-                              try {
-                                // Convertir vehicleId a int si existe y es documento de vehículo
-                                int? idVehiculo = (isVehicleDocument && vehicleId.isNotEmpty)
-                                    ? int.tryParse(vehicleId)
-                                    : null;
-                                
-                                // Convertir ownerUserId a int si existe y es documento personal
-                                int? idUsuario = (!isVehicleDocument && ownerUserId.isNotEmpty)
-                                    ? int.tryParse(ownerUserId)
-                                    : null;
-                                
-                                await DocumentService.updateDocument(
-                                  documentoId: documentoId,
-                                  idTipo: selectedTipoId ?? idTipo,
-                                  area: selectedArea ?? area ?? '',
-                                  fechaVencimiento: selectedDate,
-                                  observaciones: observacionesController.text,
-                                  idVehiculo: idVehiculo,
-                                  idUsuario: idUsuario,
-                                );
-
-                                if (context.mounted) {
-                                  Navigator.of(context).pop();
-                                  onSuccess();
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Error al guardar: $e'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                            icon: const Icon(Icons.save, color: Colors.white),
-                            label: const Text(
-                              'Guardar Cambios',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF16C79A),
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
+        return _EditDocumentDialog(
+          documentoId: documentoId,
+          idTipo: idTipo,
+          tipoDocumento: tipoDocumento,
+          fechaVencimiento: fechaVencimiento,
+          titular: titular,
+          responsable: responsable,
+          observaciones: observaciones,
+          area: area,
+          isVehicleDocument: isVehicleDocument,
+          vehicleId: vehicleId,
+          ownerUserId: ownerUserId,
+          responsableUserId: responsableUserId,
+          empresaNombre: empresaNombre,
+          vehiclePlate: vehiclePlate,
+          tiposDocumento: tiposDocumento,
+          onSuccess: onSuccess,
         );
       },
     );
   }
+}
 
-  // Obtiene las áreas permitidas para un tipo de documento
-  static List<String> _getPermittedAreas(int? documentTypeId, List<Map<String, dynamic>> tiposDocumento) {
+class _EditDocumentDialog extends StatefulWidget {
+  final int documentoId;
+  final int idTipo;
+  final String tipoDocumento;
+  final DateTime fechaVencimiento;
+  final String? titular;
+  final String? responsable;
+  final String? observaciones;
+  final String? area;
+  final bool isVehicleDocument;
+  final String vehicleId;
+  final String ownerUserId;
+  final String responsableUserId;
+  final String empresaNombre;
+  final String vehiclePlate;
+  final List<Map<String, dynamic>> tiposDocumento;
+  final VoidCallback onSuccess;
+
+  const _EditDocumentDialog({
+    required this.documentoId,
+    required this.idTipo,
+    required this.tipoDocumento,
+    required this.fechaVencimiento,
+    required this.titular,
+    required this.responsable,
+    required this.observaciones,
+    required this.area,
+    required this.isVehicleDocument,
+    required this.vehicleId,
+    required this.ownerUserId,
+    required this.responsableUserId,
+    required this.empresaNombre,
+    required this.vehiclePlate,
+    required this.tiposDocumento,
+    required this.onSuccess,
+  });
+
+  @override
+  State<_EditDocumentDialog> createState() => _EditDocumentDialogState();
+}
+
+class _EditDocumentDialogState extends State<_EditDocumentDialog> {
+  late int selectedDocumentTypeId;
+  late String? selectedArea;
+  late DateTime selectedExpiryDate;
+  late TextEditingController observationsController;
+  bool isUpdating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedArea = widget.area;
+    selectedExpiryDate = widget.fechaVencimiento;
+    observationsController = TextEditingController(text: widget.observaciones ?? '');
+
+    // Verificar que el documento inicial esté en la lista filtrada
+    final filteredDocs = _getFilteredDocumentTypes();
+    final idTipoExists = filteredDocs.any((doc) => doc['id'] == widget.idTipo);
+    
+    if (idTipoExists) {
+      selectedDocumentTypeId = widget.idTipo;
+    } else if (filteredDocs.isNotEmpty) {
+      // Si el ID original no está disponible, usar el primero de la lista filtrada
+      selectedDocumentTypeId = int.tryParse(filteredDocs[0]['id'].toString()) ?? 0;
+    } else {
+      selectedDocumentTypeId = 0;
+    }
+
+    // Validar que el área inicial sea válida
+    final initialPermittedAreas = _getPermittedAreas(selectedDocumentTypeId);
+    if (selectedArea == null || 
+        selectedArea!.isEmpty || 
+        !initialPermittedAreas.contains(selectedArea)) {
+      selectedArea = initialPermittedAreas.isNotEmpty ? initialPermittedAreas[0] : null;
+    }
+  }
+
+  @override
+  void dispose() {
+    observationsController.dispose();
+    super.dispose();
+  }
+
+  /// Categoriza documentos según su aplicabilidad
+  String _categorizeDocumentType(String nombreDocumento) {
+    final nombre = nombreDocumento.toUpperCase().trim();
+    if (nombre == 'LICENCIA') return 'CONDUCTOR';
+    if (nombre == 'RUT' || nombre == 'CERTIFICADO_PROPIEDAD') return 'PROPIETARIO';
+    if (nombre == 'SOAT' ||
+        nombre == 'TECNOMECANICA' ||
+        nombre == 'TARJETA_OPERACION' ||
+        nombre == 'SEGURO' ||
+        nombre == 'CONTRACTUAL' ||
+        nombre == 'EXTRACONTRACTUAL' ||
+        nombre == 'POLIZA_TODO_RIESGO' ||
+        nombre == 'PERMISO_CIRCULACION') {
+      return 'VEHICULO';
+    }
+    if (nombre == 'CEDULA' || nombre == 'PASAPORTE') return 'AMBOS_PERSONA';
+    return 'FLEXIBLE';
+  }
+
+  /// Obtiene las áreas permitidas para un tipo de documento
+  List<String> _getPermittedAreas(int? documentTypeId) {
     if (documentTypeId == null) {
       return const ['TECNICA', 'LEGAL', 'ADMINISTRATIVO'];
     }
 
-    final docType = tiposDocumento.firstWhere(
+    final docType = widget.tiposDocumento.firstWhere(
       (d) => d['id'] == documentTypeId,
       orElse: () => <String, dynamic>{},
     );
@@ -321,26 +166,19 @@ class EditDocumentModal {
 
     final nombre = docType['nombre']?.toString().toUpperCase() ?? '';
 
-    // ===== DOCUMENTOS PERSONALES (CONDUCTOR / PROPIETARIO) =====
-
     // LICENCIA, CEDULA, PASAPORTE → Legal
     if (nombre == 'LICENCIA' || nombre == 'CEDULA' || nombre == 'PASAPORTE') {
       return const ['LEGAL'];
     }
-
     // RUT → Administrativa
     if (nombre == 'RUT') {
       return const ['ADMINISTRATIVO'];
     }
-
     // CERTIFICADO_PROPIEDAD → Legal
     if (nombre == 'CERTIFICADO_PROPIEDAD') {
       return const ['LEGAL'];
     }
-
-    // ===== DOCUMENTOS DE VEHÍCULO =====
-
-    // SOAT, SEGURO, CONTRACTUAL, EXTRACONTRACTUAL, POLIZA_TODO_RIESGO, PERMISO_CIRCULACION → Legal
+    // SOAT, SEGURO, etc → Legal
     if (nombre == 'SOAT' ||
         nombre == 'SEGURO' ||
         nombre == 'CONTRACTUAL' ||
@@ -349,96 +187,411 @@ class EditDocumentModal {
         nombre == 'PERMISO_CIRCULACION') {
       return const ['LEGAL'];
     }
-
     // TECNOMECANICA → Técnica
     if (nombre == 'TECNOMECANICA') {
       return const ['TECNICA'];
     }
-
     // TARJETA_OPERACION → Administrativa
     if (nombre == 'TARJETA_OPERACION') {
       return const ['ADMINISTRATIVO'];
     }
-
     // OTRO → Administrativa
     if (nombre == 'OTRO') {
       return const ['ADMINISTRATIVO'];
     }
 
-    // Por defecto, todas las áreas
     return const ['TECNICA', 'LEGAL', 'ADMINISTRATIVO'];
   }
 
-  // Widget para el dropdown de área
-  static Widget _buildAreaDropdown({
-    required int selectedTipoId,
-    required List<Map<String, dynamic>> tiposDocumento,
-    required String currentArea,
-    required List<String> permittedAreas,
-    required Function(String?) onAreaChanged,
-  }) {
-    final areaOptions = {
-      'TECNICA': ('🔧 Técnica', Icons.build),
-      'LEGAL': ('⚖️ Legal', Icons.balance),
-      'ADMINISTRATIVO': ('📋 Administrativo', Icons.description),
-    };
+  /// Obtiene documentos filtrados según si es de usuario o vehículo
+  List<Map<String, dynamic>> _getFilteredDocumentTypes() {
+    if (widget.tiposDocumento.isEmpty) return [];
 
-    // Validar que el área actual esté en las permitidas
-    bool currentAreaIsValid = currentArea.isNotEmpty && permittedAreas.contains(currentArea);
+    final filtered = widget.tiposDocumento.where((doc) {
+      final docName = doc['nombre']?.toString() ?? '';
+      final category = _categorizeDocumentType(docName);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: DropdownButton<String>(
-        value: currentAreaIsValid ? currentArea : null,
-        isExpanded: true,
-        underline: const SizedBox.shrink(),
-        dropdownColor: const Color(0xFF19456B),
-        hint: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-          child: Row(
+      if (widget.isVehicleDocument) {
+        // Si es vehículo: mostrar VEHICULO o FLEXIBLE
+        return category == 'VEHICULO' || category == 'FLEXIBLE';
+      } else {
+        // Si es usuario: mostrar AMBOS_PERSONA, CONDUCTOR, PROPIETARIO o FLEXIBLE
+        return category != 'VEHICULO';
+      }
+    }).toList();
+
+    // Remover duplicados por ID
+    final Map<int, Map<String, dynamic>> uniqueById = {};
+    for (final doc in filtered) {
+      final id = int.tryParse(doc['id'].toString()) ?? 0;
+      if (id > 0 && !uniqueById.containsKey(id)) {
+        uniqueById[id] = doc;
+      }
+    }
+
+    return uniqueById.values.toList();
+  }
+
+  Future<void> _updateDocument() async {
+    setState(() {
+      isUpdating = true;
+    });
+
+    try {
+      // Validar datos
+      if (selectedDocumentTypeId == 0 || selectedArea == null || selectedArea!.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Por favor completa todos los campos'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() => isUpdating = false);
+        return;
+      }
+
+      // Enviar idVehiculo SOLO para documentos de vehículo
+      // Para documentos de usuario: enviar idUsuario (propietario del documento)
+      int? idVehiculo = widget.isVehicleDocument ? int.tryParse(widget.vehicleId) : null;
+      int? responsableUsuarioId = null; // Nunca enviar responsableUsuarioId
+      int? idUsuario = !widget.isVehicleDocument ? int.tryParse(widget.ownerUserId) : null;
+
+      debugPrint('🔐 [_updateDocument] idVehiculo: $idVehiculo, responsableUsuarioId: $responsableUsuarioId, idUsuario: $idUsuario, isVehicleDocument: ${widget.isVehicleDocument}');
+
+      await DocumentService.updateDocument(
+        documentoId: widget.documentoId,
+        idTipo: selectedDocumentTypeId,
+        area: selectedArea!,
+        fechaVencimiento: selectedExpiryDate,
+        observaciones: observationsController.text,
+        idVehiculo: idVehiculo,
+        responsableUsuarioId: responsableUsuarioId,
+        idUsuario: idUsuario,
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        widget.onSuccess();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Documento actualizado exitosamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al actualizar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isUpdating = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filteredDocuments = _getFilteredDocumentTypes();
+    final permittedAreas = _getPermittedAreas(selectedDocumentTypeId);
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 600),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF11698E), Color(0xFF19456B)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.category, color: Colors.white70, size: 16),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  'Selecciona el área',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  overflow: TextOverflow.ellipsis,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Editar Documento',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: isUpdating ? null : () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Información de referencia (solo lectura)
+              _buildReadOnlyField(
+                'Responsable',
+                widget.responsable ?? 'No asignado',
+              ),
+              const SizedBox(height: 16),
+
+              if (!widget.isVehicleDocument)
+                _buildReadOnlyField(
+                  'Titular',
+                  widget.titular ?? 'No asignado',
+                )
+              else
+                _buildReadOnlyField(
+                  'Vehículo',
+                  widget.vehiclePlate,
                 ),
+              const SizedBox(height: 16),
+
+              // Tipo de documento (editable, filtrado)
+              Text(
+                'Tipo de Documento',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: DropdownButton<int>(
+                  value: (filteredDocuments.any((d) => int.tryParse(d['id'].toString()) == selectedDocumentTypeId))
+                      ? selectedDocumentTypeId
+                      : null,
+                  isExpanded: true,
+                  underline: const SizedBox.shrink(),
+                  dropdownColor: const Color(0xFF19456B),
+                  items: filteredDocuments
+                      .map((e) {
+                        final id = int.tryParse(e['id'].toString()) ?? 0;
+                        return DropdownMenuItem(
+                          value: id,
+                          child: Text(
+                            e['nombre'].toString(),
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        );
+                      })
+                      .toList(),
+                  onChanged: isUpdating
+                      ? null
+                      : (value) {
+                          setState(() {
+                            selectedDocumentTypeId = value ?? selectedDocumentTypeId;
+                            // Revalidar área
+                            final newPermittedAreas = _getPermittedAreas(selectedDocumentTypeId);
+                            if (selectedArea == null ||
+                                selectedArea!.isEmpty ||
+                                !newPermittedAreas.contains(selectedArea)) {
+                              selectedArea = newPermittedAreas.isNotEmpty
+                                  ? newPermittedAreas[0]
+                                  : null;
+                            }
+                          });
+                        },
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Área (editable)
+              Text(
+                'Área',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: DropdownButton<String>(
+                  value: (selectedArea != null && permittedAreas.contains(selectedArea))
+                      ? selectedArea
+                      : null,
+                  isExpanded: true,
+                  underline: const SizedBox.shrink(),
+                  dropdownColor: const Color(0xFF19456B),
+                  items: permittedAreas
+                      .map((area) => DropdownMenuItem(
+                            value: area,
+                            child: Text(
+                              area,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ))
+                      .toList(),
+                  onChanged: isUpdating
+                      ? null
+                      : (value) {
+                          setState(() {
+                            selectedArea = value;
+                          });
+                        },
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Fecha de vencimiento (editable)
+              Text(
+                'Fecha de Vencimiento',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              GestureDetector(
+                onTap: isUpdating
+                    ? null
+                    : () async {
+                        final DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedExpiryDate,
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime(2100),
+                          builder: (context, child) {
+                            return Theme(
+                              data: ThemeData.light().copyWith(
+                                primaryColor: const Color(0xFF4F4CE8),
+                                scaffoldBackgroundColor: Colors.white,
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (picked != null) {
+                          setState(() => selectedExpiryDate = picked);
+                        }
+                      },
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${selectedExpiryDate.day.toString().padLeft(2, '0')}/${selectedExpiryDate.month.toString().padLeft(2, '0')}/${selectedExpiryDate.year}',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      const Icon(Icons.calendar_today,
+                          color: Colors.white70, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Observaciones (editable)
+              Text(
+                'Observaciones',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              TextField(
+                controller: observationsController,
+                enabled: !isUpdating,
+                style: const TextStyle(color: Colors.white),
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Notas adicionales...',
+                  hintStyle: const TextStyle(color: Colors.white54),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.04),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Botones
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: isUpdating ? null : () => Navigator.of(context).pop(),
+                    child: const Text(
+                      'Cancelar',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: isUpdating ? null : _updateDocument,
+                    icon: isUpdating
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          )
+                        : const Icon(Icons.save, color: Colors.white),
+                    label: Text(
+                      isUpdating ? 'Guardando...' : 'Guardar Cambios',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF16C79A),
+                      disabledBackgroundColor: Colors.grey,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        items: permittedAreas.map((area) {
-          final displayInfo = areaOptions[area] ?? (area, Icons.category);
-          return DropdownMenuItem<String>(
-            value: area,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              child: Row(
-                children: [
-                  Icon(displayInfo.$2, color: Colors.white70, size: 14),
-                  const SizedBox(width: 8),
-                  Text(
-                    displayInfo.$1,
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-        onChanged: onAreaChanged,
       ),
     );
   }
 
-  static Widget _buildReadOnlyField(String label, String value) {
+  Widget _buildReadOnlyField(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -457,12 +610,20 @@ class EditDocumentModal {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.white24),
           ),
-          child: Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Icon(Icons.lock_outline, color: Colors.white54, size: 16),
+            ],
           ),
         ),
       ],

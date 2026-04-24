@@ -730,7 +730,8 @@ class DocumentService {
     required DateTime fechaVencimiento,
     required String? observaciones,
     int? idVehiculo, // ID del vehículo si el documento es de vehículo
-    int? idUsuario, // ID del usuario si el documento es personal
+    int? responsableUsuarioId, // ID del usuario responsable (quien edita)
+    int? idUsuario, // ID del usuario propietario para documentos de usuario
   }) async {
     try {
       final token = await getToken();
@@ -741,14 +742,15 @@ class DocumentService {
       final headers = _buildHeaders(token);
       headers['Content-Type'] = 'application/json';
 
-      // Enviar todos los campos necesarios para la validación de permisos
+      // Enviar solo los campos permitidos
       final Map<String, dynamic> bodyMap = {
         'idTipo': idTipo,
         'area': area ?? '',
         'fechaVencimiento': fechaVencimiento.toString().split(' ')[0], // formato YYYY-MM-DD
         'observaciones': observaciones ?? '',
-        // Incluir referencia al vehículo o usuario si aplica
+        // Incluir vehículo o responsable según tipo de documento
         if (idVehiculo != null) 'idVehiculo': idVehiculo,
+        if (responsableUsuarioId != null) 'responsableUsuarioId': responsableUsuarioId,
         if (idUsuario != null) 'idUsuario': idUsuario,
       };
 

@@ -137,8 +137,13 @@ class DocumentModal {
                     Icons.timer,
                     'Días Restantes',
                     daysRemaining != null 
-                      ? '$daysRemaining días' 
-                      : '${expiryDate.difference(DateTime.now()).inDays.clamp(0, 999)} días',
+                      ? (daysRemaining < 0 ? 'Vencido' : daysRemaining == 0 ? 'Se vence hoy' : '$daysRemaining días')
+                      : () {
+                          final DateTime todayOnly = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+                          final DateTime expiryOnly = DateTime(expiryDate.year, expiryDate.month, expiryDate.day);
+                          final int days = expiryOnly.difference(todayOnly).inDays;
+                          return days < 0 ? 'Vencido' : days == 0 ? 'Se vence hoy' : '$days días';
+                        }(),
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
