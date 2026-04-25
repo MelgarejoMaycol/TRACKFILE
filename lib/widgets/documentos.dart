@@ -1861,7 +1861,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                 ),
               ],
 
-              const SizedBox(height: 40),
+              const SizedBox(height: 70),
             ],
           ),
         );
