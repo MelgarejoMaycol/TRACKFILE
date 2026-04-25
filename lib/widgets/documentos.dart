@@ -119,7 +119,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
   late String _role;
   String? _authToken; // Token obtenido de SharedPreferences si es necesario
   List<_DocumentInfo> _documents = const [];
-  List<_DocumentInfo> _allDocuments = const [];
   bool _showHistory = false;
   // Quick search UI state
   final TextEditingController _empresaSearchController =
@@ -197,7 +196,6 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
             documents,
             vehicles,
           );
-          _allDocuments = allParsed;
 
           parsed = _showHistory
               ? allParsed.where((d) => d.estadoDocumento == false).toList()
@@ -1863,7 +1861,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                 ),
               ],
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 40),
             ],
           ),
         );

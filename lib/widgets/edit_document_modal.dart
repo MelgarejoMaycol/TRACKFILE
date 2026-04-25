@@ -144,8 +144,9 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
   String _categorizeDocumentType(String nombreDocumento) {
     final nombre = nombreDocumento.toUpperCase().trim();
     if (nombre == 'LICENCIA') return 'CONDUCTOR';
-    if (nombre == 'RUT' || nombre == 'CERTIFICADO_PROPIEDAD')
+    if (nombre == 'RUT' || nombre == 'CERTIFICADO_PROPIEDAD'){
       return 'PROPIETARIO';
+    }
     if (nombre == 'SOAT' ||
         nombre == 'TECNOMECANICA' ||
         nombre == 'TARJETA_OPERACION' ||
@@ -394,8 +395,8 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredDocuments = _getFilteredDocumentTypes();
-    final permittedAreas = _getPermittedAreas(selectedDocumentTypeId);
+    //final filteredDocuments = _getFilteredDocumentTypes();
+    //final permittedAreas = _getPermittedAreas(selectedDocumentTypeId);
 
     return Dialog(
       backgroundColor: Colors.transparent,
