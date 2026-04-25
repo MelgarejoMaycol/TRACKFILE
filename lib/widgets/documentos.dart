@@ -50,6 +50,7 @@ class _DocumentInfo {
   final String empresaNombre; // nombre de la empresa
   final String area; // área del documento (TECNICA, LEGAL, ADMINISTRATIVO)
   final String observaciones; // observaciones del documento
+  final bool estadoDocumento; // true = activo, false = histórico
 
   const _DocumentInfo({
     required this.name,
@@ -74,6 +75,7 @@ class _DocumentInfo {
     this.empresaNombre = '',
     this.area = '',
     this.observaciones = '',
+    this.estadoDocumento = true,
   });
 
   int get daysRemaining {
@@ -98,6 +100,8 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
   late String _role;
   String? _authToken; // Token obtenido de SharedPreferences si es necesario
   List<_DocumentInfo> _documents = const [];
+  List<_DocumentInfo> _allDocuments = const [];
+  bool _showHistory = false;
   // Quick search UI state
   final TextEditingController _empresaSearchController = TextEditingController();
 
@@ -168,6 +172,10 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
           for (final doc in parsed) {
             debugPrint('  - Tipo: ${doc.ownerType}, Usuario: ${doc.ownerName}, Vehículo: ${doc.vehiclePlate}, Prop: ${doc.propietarioName}, Cond: ${doc.conductorName}');
           }
+          
+          // Filtrar solo documentos activos (estadoDocumento == true)
+          parsed = parsed.where((d) => d.estadoDocumento == true).toList();
+          debugPrint('📋 Documentos filtrados por estado activo: ${parsed.length}');
           
           // Filtrar documentos según el rol
           if (_role != 'empresa' && widget.userId != null && widget.userId!.isNotEmpty) {
@@ -320,6 +328,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
           empresaNombre: empresaNombre,
           area: area,
           observaciones: observaciones,
+          estadoDocumento: doc['estadoDocumento'] ?? true,
         );
       }
       return null;
@@ -1117,7 +1126,10 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    _buildDocumentList(isCompact: isCompact, docs: userVehicleDocs),
+                    _buildVehicleDocumentsSection(
+                      isCompact: isCompact,
+                      docs: userVehicleDocs,
+                    ),
                   ],
                 ],
               ),
@@ -1177,7 +1189,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Vehículo: $placa',
+                                'A partir de aquí: documentos del vehículo $placa',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: isCompact ? 14 : 15,
@@ -1185,7 +1197,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                                 ),
                               ),
                               Text(
-                                '${vehicleDocs.length} documento${vehicleDocs.length == 1 ? '' : 's'}',
+                                'Estos documentos pertenecen únicamente a este vehículo',
                                 style: TextStyle(
                                   color: Colors.white70,
                                   fontSize: isCompact ? 11 : 12,
@@ -1901,6 +1913,15 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
     final tiposDocumento = await DocumentService.getDocumentTypes(token: widget.token);
     
     if (mounted) {
+      // Convertir documentos a formato para el modal
+      final documentosParaModal = _documents.map((d) => {
+        'documentoId': d.documentId,
+        'idTipo': d.idTipo,
+        'vehicleId': d.vehicleId,
+        'ownerId': d.ownerId,
+        'estadoDocumento': d.estadoDocumento,
+      }).toList();
+
       EditDocumentModal.show(
         context: context,
         documentoId: doc.documentId,
@@ -1919,6 +1940,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
         vehiclePlate: doc.vehiclePlate,
         responsableUserId: currentUserId, // Usar el ID del usuario actual que está editando
         tiposDocumento: tiposDocumento,
+        documentosActuales: documentosParaModal,
         onSuccess: () {
           // Recargar documentos después de editar
           _loadDocuments();

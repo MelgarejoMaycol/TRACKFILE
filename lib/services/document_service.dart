@@ -889,6 +889,54 @@ class DocumentService {
       return null;
     }
   }
+
+  /// Actualiza el estado (activo/inactivo) de un documento
+  /// Usualmente para deactivar un documento duplicado cuando se activa otro
+  static Future<void> updateDocumentStatus({
+    required int documentoId,
+    required bool estado,
+    String? token,
+  }) async {
+    try {
+      final headers = _buildHeaders(token);
+      headers['Content-Type'] = 'application/json';
+
+      final Map<String, dynamic> bodyMap = {
+        'estadoDocumento': estado,
+      };
+
+      final requestBody = jsonEncode(bodyMap);
+
+      debugPrint('📝 Actualizando estado de documento $documentoId a $estado');
+      debugPrint('   Body: $requestBody');
+
+      final response = await http
+          .put(
+            Uri.parse('$_baseUrl/api/documentos/$documentoId/status'),
+            headers: headers,
+            body: requestBody,
+          )
+          .timeout(const Duration(seconds: 20));
+
+      debugPrint('   Response: ${response.statusCode}');
+      
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        debugPrint('✅ Estado de documento $documentoId actualizado exitosamente a $estado');
+      } else if (response.statusCode == 401) {
+        debugPrint('❌ 401: No autorizado - Token inválido');
+        throw Exception('No autorizado - Token inválido');
+      } else if (response.statusCode == 404) {
+        debugPrint('❌ 404: Documento no encontrado');
+        throw Exception('Documento no encontrado');
+      } else {
+        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
+        throw Exception('Error ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error actualizando estado del documento: $e');
+      rethrow;
+    }
+  }
 }
 
 Future<dynamic> import(String libName) async {

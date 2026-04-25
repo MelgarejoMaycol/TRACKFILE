@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/document_service.dart';
 
 class EditDocumentModal {
@@ -20,6 +21,7 @@ class EditDocumentModal {
     required String vehiclePlate,
     required List<Map<String, dynamic>> tiposDocumento,
     required VoidCallback onSuccess,
+    List<Map<String, dynamic>>? documentosActuales,
   }) async {
     return showDialog(
       context: context,
@@ -41,6 +43,7 @@ class EditDocumentModal {
           vehiclePlate: vehiclePlate,
           tiposDocumento: tiposDocumento,
           onSuccess: onSuccess,
+          documentosActuales: documentosActuales ?? [],
         );
       },
     );
@@ -64,6 +67,7 @@ class _EditDocumentDialog extends StatefulWidget {
   final String vehiclePlate;
   final List<Map<String, dynamic>> tiposDocumento;
   final VoidCallback onSuccess;
+  final List<Map<String, dynamic>> documentosActuales;
 
   const _EditDocumentDialog({
     required this.documentoId,
@@ -82,6 +86,7 @@ class _EditDocumentDialog extends StatefulWidget {
     required this.vehiclePlate,
     required this.tiposDocumento,
     required this.onSuccess,
+    required this.documentosActuales,
   });
 
   @override
@@ -100,27 +105,32 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
     super.initState();
     selectedArea = widget.area;
     selectedExpiryDate = widget.fechaVencimiento;
-    observationsController = TextEditingController(text: widget.observaciones ?? '');
+    observationsController = TextEditingController(
+      text: widget.observaciones ?? '',
+    );
 
     // Verificar que el documento inicial esté en la lista filtrada
     final filteredDocs = _getFilteredDocumentTypes();
     final idTipoExists = filteredDocs.any((doc) => doc['id'] == widget.idTipo);
-    
+
     if (idTipoExists) {
       selectedDocumentTypeId = widget.idTipo;
     } else if (filteredDocs.isNotEmpty) {
       // Si el ID original no está disponible, usar el primero de la lista filtrada
-      selectedDocumentTypeId = int.tryParse(filteredDocs[0]['id'].toString()) ?? 0;
+      selectedDocumentTypeId =
+          int.tryParse(filteredDocs[0]['id'].toString()) ?? 0;
     } else {
       selectedDocumentTypeId = 0;
     }
 
     // Validar que el área inicial sea válida
     final initialPermittedAreas = _getPermittedAreas(selectedDocumentTypeId);
-    if (selectedArea == null || 
-        selectedArea!.isEmpty || 
+    if (selectedArea == null ||
+        selectedArea!.isEmpty ||
         !initialPermittedAreas.contains(selectedArea)) {
-      selectedArea = initialPermittedAreas.isNotEmpty ? initialPermittedAreas[0] : null;
+      selectedArea = initialPermittedAreas.isNotEmpty
+          ? initialPermittedAreas[0]
+          : null;
     }
   }
 
@@ -134,7 +144,8 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
   String _categorizeDocumentType(String nombreDocumento) {
     final nombre = nombreDocumento.toUpperCase().trim();
     if (nombre == 'LICENCIA') return 'CONDUCTOR';
-    if (nombre == 'RUT' || nombre == 'CERTIFICADO_PROPIEDAD') return 'PROPIETARIO';
+    if (nombre == 'RUT' || nombre == 'CERTIFICADO_PROPIEDAD')
+      return 'PROPIETARIO';
     if (nombre == 'SOAT' ||
         nombre == 'TECNOMECANICA' ||
         nombre == 'TARJETA_OPERACION' ||
@@ -241,7 +252,9 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
 
     try {
       // Validar datos
-      if (selectedDocumentTypeId == 0 || selectedArea == null || selectedArea!.isEmpty) {
+      if (selectedDocumentTypeId == 0 ||
+          selectedArea == null ||
+          selectedArea!.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -256,11 +269,20 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
 
       // Enviar idVehiculo SOLO para documentos de vehículo
       // Para documentos de usuario: enviar idUsuario (propietario del documento)
-      int? idVehiculo = widget.isVehicleDocument ? int.tryParse(widget.vehicleId) : null;
+      int? idVehiculo = widget.isVehicleDocument
+          ? int.tryParse(widget.vehicleId)
+          : null;
       int? responsableUsuarioId; // Nunca enviar responsableUsuarioId/
-      int? idUsuario = !widget.isVehicleDocument ? int.tryParse(widget.ownerUserId) : null;
+      int? idUsuario = !widget.isVehicleDocument
+          ? int.tryParse(widget.ownerUserId)
+          : null;
 
-      debugPrint('🔐 [_updateDocument] idVehiculo: $idVehiculo, responsableUsuarioId: $responsableUsuarioId, idUsuario: $idUsuario, isVehicleDocument: ${widget.isVehicleDocument}');
+      debugPrint(
+        '🔐 [_updateDocument] idVehiculo: $idVehiculo, responsableUsuarioId: $responsableUsuarioId, idUsuario: $idUsuario, isVehicleDocument: ${widget.isVehicleDocument}',
+      );
+
+      // Desactivar y Buscar documentos duplicados (mismo tipo pero documento diferente)
+      await _deactivateDuplicateDocuments();
 
       await DocumentService.updateDocument(
         documentoId: widget.documentoId,
@@ -301,6 +323,75 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
     }
   }
 
+  /// Busca y deactiva documentos duplicados del mismo tipo
+  /// Cuando se edita un documento a un tipo que ya existe activo
+  /// el anterior debe deactivarse
+  Future<void> _deactivateDuplicateDocuments() async {
+    try {
+      if (widget.documentosActuales.isEmpty) {
+        debugPrint('ℹ️ No hay documentos para comparar');
+        return;
+      }
+
+      // Buscar documentos activos del mismo tipo
+      final duplicates = widget.documentosActuales.where((doc) {
+        final int docId =
+            int.tryParse(doc['documentoId']?.toString() ?? '0') ?? 0;
+        final int docIdTipo =
+            int.tryParse(doc['idTipo']?.toString() ?? '0') ?? 0;
+        final bool docEstado =
+            doc['estadoDocumento'] == true ||
+            doc['estadoDocumento'].toString().toLowerCase() == 'true';
+        final String docVehicleId = doc['vehicleId']?.toString() ?? '';
+        final String docOwnerId = doc['ownerId']?.toString() ?? '';
+
+        // Condición: documento DIFERENTE, MISMO TIPO, ACTIVO
+        if (docId == widget.documentoId) {
+          return false; // No es el documento que estamos editando
+        }
+
+        if (docIdTipo != selectedDocumentTypeId) {
+          return false; // No es del mismo tipo
+        }
+
+        if (!docEstado) {
+          return false; // Ya está inactivo
+        }
+
+        // Si es documento de vehículo: comparar vehicleId
+        if (widget.isVehicleDocument) {
+          return docVehicleId == widget.vehicleId;
+        }
+
+        // Si es documento de usuario: comparar ownerId (idUsuario)
+        return docOwnerId == widget.ownerUserId;
+      }).toList();
+      debugPrint('🔎 Duplicados encontrados: ${duplicates.length}');
+      // Deactivar cada documento duplicado encontrado
+      for (final duplicate in duplicates) {
+        final int duplicateId =
+            int.tryParse(duplicate['documentoId']?.toString() ?? '0') ?? 0;
+        if (duplicateId > 0) {
+          debugPrint('🔴 Deactivando documento duplicado $duplicateId');
+          await DocumentService.updateDocumentStatus(
+            documentoId: duplicateId,
+            estado: false,
+          );
+          debugPrint('✅ Documento $duplicateId desactivado exitosamente');
+        }
+      }
+
+      if (duplicates.isNotEmpty) {
+        debugPrint(
+          '📋 Se deactivaron ${duplicates.length} documento(s) duplicado(s)',
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error en _deactivateDuplicateDocuments: $e');
+      // No fallar la operación principal
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final filteredDocuments = _getFilteredDocumentTypes();
@@ -337,7 +428,9 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: isUpdating ? null : () => Navigator.of(context).pop(),
+                    onPressed: isUpdating
+                        ? null
+                        : () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
@@ -351,122 +444,21 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
               const SizedBox(height: 16),
 
               if (!widget.isVehicleDocument)
-                _buildReadOnlyField(
-                  'Titular',
-                  widget.titular ?? 'No asignado',
-                )
+                _buildReadOnlyField('Titular', widget.titular ?? 'No asignado')
               else
-                _buildReadOnlyField(
-                  'Vehículo',
-                  widget.vehiclePlate,
-                ),
+                _buildReadOnlyField('Vehículo', widget.vehiclePlate),
               const SizedBox(height: 16),
 
-              // Tipo de documento (editable, filtrado)
-              Text(
-                'Tipo de Documento',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                ),
-              ),
+              // Tipo de documento (solo lectura)
+              _buildReadOnlyField('Tipo de Documento', widget.tipoDocumento),
               const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white24),
-                ),
-                child: DropdownButton<int>(
-                  value: (filteredDocuments.any((d) => int.tryParse(d['id'].toString()) == selectedDocumentTypeId))
-                      ? selectedDocumentTypeId
-                      : null,
-                  isExpanded: true,
-                  underline: const SizedBox.shrink(),
-                  dropdownColor: const Color(0xFF19456B),
-                  items: filteredDocuments
-                      .map((e) {
-                        final id = int.tryParse(e['id'].toString()) ?? 0;
-                        return DropdownMenuItem(
-                          value: id,
-                          child: Text(
-                            e['nombre'].toString(),
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        );
-                      })
-                      .toList(),
-                  onChanged: isUpdating
-                      ? null
-                      : (value) {
-                          setState(() {
-                            selectedDocumentTypeId = value ?? selectedDocumentTypeId;
-                            // Revalidar área
-                            final newPermittedAreas = _getPermittedAreas(selectedDocumentTypeId);
-                            if (selectedArea == null ||
-                                selectedArea!.isEmpty ||
-                                !newPermittedAreas.contains(selectedArea)) {
-                              selectedArea = newPermittedAreas.isNotEmpty
-                                  ? newPermittedAreas[0]
-                                  : null;
-                            }
-                          });
-                        },
-                ),
-              ),
+              // Área (solo lectura)
+              _buildReadOnlyField('Área', selectedArea ?? 'No asignada'),
               const SizedBox(height: 16),
-
-              // Área (editable)
-              Text(
-                'Área',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white24),
-                ),
-                child: DropdownButton<String>(
-                  value: (selectedArea != null && permittedAreas.contains(selectedArea))
-                      ? selectedArea
-                      : null,
-                  isExpanded: true,
-                  underline: const SizedBox.shrink(),
-                  dropdownColor: const Color(0xFF19456B),
-                  items: permittedAreas
-                      .map((area) => DropdownMenuItem(
-                            value: area,
-                            child: Text(
-                              area,
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ))
-                      .toList(),
-                  onChanged: isUpdating
-                      ? null
-                      : (value) {
-                          setState(() {
-                            selectedArea = value;
-                          });
-                        },
-                ),
-              ),
-              const SizedBox(height: 16),
-
               // Fecha de vencimiento (editable)
               Text(
                 'Fecha de Vencimiento',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: Colors.white70, fontSize: 12),
               ),
               const SizedBox(height: 4),
               GestureDetector(
@@ -506,8 +498,11 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
                         '${selectedExpiryDate.day.toString().padLeft(2, '0')}/${selectedExpiryDate.month.toString().padLeft(2, '0')}/${selectedExpiryDate.year}',
                         style: const TextStyle(color: Colors.white),
                       ),
-                      const Icon(Icons.calendar_today,
-                          color: Colors.white70, size: 18),
+                      const Icon(
+                        Icons.calendar_today,
+                        color: Colors.white70,
+                        size: 18,
+                      ),
                     ],
                   ),
                 ),
@@ -517,10 +512,7 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
               // Observaciones (editable)
               Text(
                 'Observaciones',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: Colors.white70, fontSize: 12),
               ),
               const SizedBox(height: 4),
               TextField(
@@ -537,8 +529,10 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -548,7 +542,9 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: isUpdating ? null : () => Navigator.of(context).pop(),
+                    onPressed: isUpdating
+                        ? null
+                        : () => Navigator.of(context).pop(),
                     child: const Text(
                       'Cancelar',
                       style: TextStyle(color: Colors.white70),
@@ -563,8 +559,7 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation(Colors.white),
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
                             ),
                           )
                         : const Icon(Icons.save, color: Colors.white),
@@ -597,13 +592,7 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 12,
-          ),
-        ),
+        Text(label, style: TextStyle(color: Colors.white70, fontSize: 12)),
         const SizedBox(height: 4),
         Container(
           padding: const EdgeInsets.all(12),
@@ -617,10 +606,7 @@ class _EditDocumentDialogState extends State<_EditDocumentDialog> {
               Expanded(
                 child: Text(
                   value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
