@@ -1,0 +1,93 @@
+{
+  "tipos": [
+    {
+      "id_tipo_mantenimiento": 1,
+      "nombre": "Cambio de aceite",
+      "descripcion": "Sustitucion de aceite y filtros."
+    },
+    {
+      "id_tipo_mantenimiento": 2,
+      "nombre": "Alineacion y balanceo",
+      "descripcion": "Ajuste de direccion y balance de ruedas."
+    },
+    {
+      "id_tipo_mantenimiento": 3,
+      "nombre": "Revision de frenos",
+      "descripcion": "Inspeccion de discos, pastillas y liquidos."
+    }
+  ],
+  "mantenimientos": [
+    {
+      "id_mantenimiento": 5001,
+      "id_vehiculo": 501,
+      "id_usuario": "1",
+      "id_tipo_mantenimiento": 1,
+      "fecha_sugerida": "2025-01-25T08:00:00Z",
+      "fecha_programada": "2025-01-28T09:30:00Z",
+      "fecha_realizado": null,
+      "kilometraje": 75200,
+      "costo": 180000,
+      "taller": "Taller Central",
+      "estado": "PROGRAMADO",
+      "observaciones": "Se recomienda revisar filtro de aire."
+    },
+    {
+      "id_mantenimiento": 5002,
+      "id_vehiculo": 501,
+      "id_usuario": "1",
+      "id_tipo_mantenimiento": 3,
+      "fecha_sugerida": "2024-12-01T10:00:00Z",
+      "fecha_programada": "2024-12-03T14:00:00Z",
+      "fecha_realizado": "2024-12-03T16:15:00Z",
+      "kilometraje": 73050,
+      "costo": 240000,
+      "taller": "ServiFrenos Norte",
+      "estado": "COMPLETADO",
+      "observaciones": "Pastillas delanteras reemplazadas."
+    },
+    {
+      "id_mantenimiento": 5003,
+      "id_vehiculo": 608,
+      "id_usuario": "12",
+      "id_tipo_mantenimiento": 2,
+      "fecha_sugerida": "2025-02-05T10:30:00Z",
+      "fecha_programada": null,
+      "fecha_realizado": null,
+      "kilometraje": 84210,
+      "costo": 0,
+      "taller": "Alineaciones Express",
+      "estado": "SUGERIDO",
+      "observaciones": "Pendiente confirmacion del conductor."
+    }
+  ],
+  "historial": [
+    {
+      "id_historial": 9001,
+      "id_mantenimiento": 5001,
+      "accion": "PROGRAMADO",
+      "fecha": "2025-01-18T11:05:00Z",
+      "comentario": "Empresa asigno fecha en Taller Central."
+    },
+    {
+      "id_historial": 9002,
+      "id_mantenimiento": 5001,
+      "accion": "SUGERIDO",
+      "fecha": "2025-01-15T10:00:00Z",
+      "comentario": "Sistema detecto kilometraje para cambio de aceite."
+    },
+    {
+      "id_historial": 9003,
+      "id_mantenimiento": 5002,
+      "accion": "COMPLETADO",
+      "fecha": "2024-12-03T16:20:00Z",
+      "comentario": "Conductor confirma entrega del vehiculo."
+    },
+    {
+      "id_historial": 9004,
+      "id_mantenimiento": 5002,
+      "accion": "PROGRAMADO",
+      "fecha": "2024-11-30T09:10:00Z",
+      "comentario": "Coordinado con ServiFrenos Norte."
+    }
+  ]
+}

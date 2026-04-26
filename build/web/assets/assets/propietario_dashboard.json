@@ -1,0 +1,58 @@
+{
+  "documents": [
+    {
+      "name": "SOAT",
+      "vehicle": "ABC-123",
+      "paymentDate": "2025-01-15",
+      "expiryDate": "2025-12-10"
+    },
+    {
+      "name": "Tecno",
+      "vehicle": "JKL-456",
+      "paymentDate": "2025-02-01",
+      "expiryDate": "2025-11-22"
+    },
+    {
+      "name": "Seguro contractual",
+      "vehicle": "MNO-789",
+      "paymentDate": "2025-03-05",
+      "expiryDate": "2025-10-18"
+    },
+    {
+      "name": "Póliza todo riesgo",
+      "vehicle": "ABC-123",
+      "paymentDate": "2025-04-10",
+      "expiryDate": "2026-01-05"
+    }
+  ],
+  "vehicles": [
+    {
+      "plate": "ABC-123",
+      "model": "Chevrolet NHR 2023",
+      "driver": "Donal Glover",
+      "status": "Al día",
+      "nextExpiry": "2025-12-10"
+    },
+    {
+      "plate": "JKL-456",
+      "model": "Hino Dutro 2021",
+      "driver": "María González",
+      "status": "Documentos pendientes",
+      "nextExpiry": "2025-11-22"
+    },
+    {
+      "plate": "MNO-789",
+      "model": "Foton BJ 2020",
+      "driver": "Disponible",
+      "status": "En mantenimiento",
+      "nextExpiry": "2025-10-18"
+    },
+    {
+      "plate": "STU-555",
+      "model": "Mercedes-Benz Atego 2019",
+      "driver": "Carlos Sánchez",
+      "status": "Al día",
+      "nextExpiry": "2026-02-14"
+    }
+  ]
+}
