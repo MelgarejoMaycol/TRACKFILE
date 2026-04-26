@@ -120,6 +120,8 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
   String? _authToken; // Token obtenido de SharedPreferences si es necesario
   List<_DocumentInfo> _documents = const [];
   bool _showHistory = false;
+  String? _openVehicleSection;
+  String? _openUserSection;
   // Quick search UI state
   final TextEditingController _empresaSearchController =
       TextEditingController();
@@ -553,7 +555,31 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                         letterSpacing: 0.3,
                       ),
                     ),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 20),
+
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showHistory = !_showHistory;
+                        });
+                        _loadDocuments();
+                      },
+                      icon: Icon(
+                        _showHistory ? Icons.visibility : Icons.history,
+                        color: Colors.white,
+                      ),
+                      label: Text(
+                        _showHistory ? 'Ver activos' : 'Ver historial',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _showHistory
+                            ? Colors.orange
+                            : _accentColor,
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
                     // Empty state
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -682,9 +708,29 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                 ),
               ),
               const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _showHistory = !_showHistory;
+                  });
+                  _loadDocuments();
+                },
+                icon: Icon(
+                  _showHistory ? Icons.visibility : Icons.history,
+                  color: Colors.white,
+                ),
+                label: Text(
+                  _showHistory ? 'Ver activos' : 'Ver historial',
+                  style: const TextStyle(color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _showHistory ? Colors.orange : _accentColor,
+                ),
+              ),
+              const SizedBox(height: 12),
 
               // Próximos vencimientos
-              if (topUpcoming.isNotEmpty) ...[
+              if (!_showHistory && topUpcoming.isNotEmpty) ...[
                 Text(
                   'Próximos vencimientos',
                   style: TextStyle(
@@ -1105,18 +1151,18 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                     highlight: isNearExpiry,
                   ),
 
-                  // Fecha de creación
-                  if (doc.creationDate != null)
-                    _buildChip(
-                      label: 'Creado el ${_formatDate(doc.creationDate!)}',
-                      highlight: false,
-                    ),
+                  // // Fecha de creación
+                  // if (doc.creationDate != null)
+                  //   _buildChip(
+                  //     label: 'Creado el ${_formatDate(doc.creationDate!)}',
+                  //     highlight: false,
+                  //   ),
 
-                  // Tipo de documento
-                  _buildChip(
-                    label: doc.estadoDocumento ? 'Activo' : 'Histórico',
-                    highlight: !doc.estadoDocumento,
-                  ),
+                  // // Tipo de documento
+                  // _buildChip(
+                  //   label: doc.estadoDocumento ? 'Activo' : 'Histórico',
+                  //   highlight: !doc.estadoDocumento,
+                  // ),
                 ],
               ),
             ),
@@ -1142,16 +1188,18 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                     ],
                   ),
                 ),
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, color: Colors.white70, size: 20),
-                      SizedBox(width: 8),
-                      Text('Editar', style: TextStyle(color: Colors.white)),
-                    ],
+
+                if (_role == 'empresa')
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, color: Colors.white70, size: 20),
+                        SizedBox(width: 8),
+                        Text('Editar', style: TextStyle(color: Colors.white)),
+                      ],
+                    ),
                   ),
-                ),
               ],
               color: const Color(0xFF1B1F6B),
               shape: RoundedRectangleBorder(
@@ -1192,8 +1240,17 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
 
         // Total de documentos (personales + vehículos)
         final int totalDocs = personalItems.length + userVehicleDocs.length;
+        final String sectionId = 'usuario_$userName';
+        final bool isOpen = _openUserSection == sectionId;
 
         return ExpansionTile(
+          key: ValueKey('$sectionId-$isOpen'),
+          initiallyExpanded: isOpen,
+          onExpansionChanged: (expanded) {
+            setState(() {
+              _openUserSection = expanded ? sectionId : null;
+            });
+          },
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1327,154 +1384,52 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
             ? firstDoc.vehiclePlate
             : 'Placa desconocida';
 
+        final String sectionId = 'vehiculo_${firstDoc.vehicleId}';
+        final bool isOpen = _openVehicleSection == sectionId;
+
         return Container(
-          margin: const EdgeInsets.only(bottom: 20),
+          margin: const EdgeInsets.only(bottom: 14),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
-          child: Column(
+          child: ExpansionTile(
+            key: ValueKey('$sectionId-$isOpen'),
+            initiallyExpanded: isOpen,
+            onExpansionChanged: (expanded) {
+              setState(() {
+                _openVehicleSection = expanded ? sectionId : null;
+              });
+            },
+            iconColor: Colors.white,
+            collapsedIconColor: Colors.white70,
+            title: Row(
+              children: [
+                const Icon(Icons.directions_car, color: Colors.cyan, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Documentos del vehículo $placa',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: isCompact ? 14 : 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            subtitle: Text(
+              'Propietario: ${firstDoc.propietarioName.isNotEmpty ? firstDoc.propietarioName : '-'}  •  Conductor: ${firstDoc.conductorName.isNotEmpty ? firstDoc.conductorName : '-'}',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: isCompact ? 11 : 12,
+              ),
+            ),
+            childrenPadding: const EdgeInsets.all(12),
             children: [
-              // Encabezado con info del vehículo
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3330BE).withValues(alpha: 0.2),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                  ),
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.1),
-                    ),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Placa del vehículo
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.directions_car,
-                          color: Colors.cyan,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'A partir de aquí: documentos del vehículo $placa',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: isCompact ? 14 : 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                'Estos documentos pertenecen únicamente a este vehículo',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: isCompact ? 11 : 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    // Info de Propietario y Conductor
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.06),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Propietario',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: isCompact ? 10 : 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  firstDoc.propietarioName.isNotEmpty
-                                      ? firstDoc.propietarioName
-                                      : '-',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: isCompact ? 12 : 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.06),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Conductor',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: isCompact ? 10 : 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  firstDoc.conductorName.isNotEmpty
-                                      ? firstDoc.conductorName
-                                      : 'Info disponible',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: isCompact ? 12 : 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              // Lista de documentos del vehículo
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: _buildDocumentList(
-                  isCompact: isCompact,
-                  docs: vehicleDocs,
-                ),
-              ),
+              _buildDocumentList(isCompact: isCompact, docs: vehicleDocs),
             ],
           ),
         );
@@ -1897,7 +1852,32 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                         letterSpacing: 0.3,
                       ),
                     ),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 20),
+
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showHistory = !_showHistory;
+                        });
+                        _loadDocuments();
+                      },
+                      icon: Icon(
+                        _showHistory ? Icons.visibility : Icons.history,
+                        color: Colors.white,
+                      ),
+                      label: Text(
+                        _showHistory ? 'Ver activos' : 'Ver historial',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _showHistory
+                            ? Colors.orange
+                            : _accentColor,
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1997,9 +1977,28 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                 ),
               ),
               const SizedBox(height: 12),
-
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _showHistory = !_showHistory;
+                  });
+                  _loadDocuments();
+                },
+                icon: Icon(
+                  _showHistory ? Icons.visibility : Icons.history,
+                  color: Colors.white,
+                ),
+                label: Text(
+                  _showHistory ? 'Ver activos' : 'Ver historial',
+                  style: const TextStyle(color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _showHistory ? Colors.orange : _accentColor,
+                ),
+              ),
+              const SizedBox(height: 12),
               // Próximos vencimientos
-              if (topUpcoming.isNotEmpty) ...[
+              if (!_showHistory && topUpcoming.isNotEmpty) ...[
                 Text(
                   'Próximos vencimientos',
                   style: TextStyle(
@@ -2049,6 +2048,7 @@ class _DocumentosWidgetState extends State<DocumentosWidget> {
                   ),
                 ),
                 const SizedBox(height: 12),
+
                 _buildDocumentList(
                   isCompact: isCompact,
                   docs: filteredPersonalDocs,
