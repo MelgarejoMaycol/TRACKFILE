@@ -772,7 +772,6 @@ class _ConductorScreenState extends State<ConductorScreen> {
         return MantenimientosWidget(
           role: 'Conductor',
           userId: widget.userId ?? '1',
-          jsonPath: 'assets/mantenimientos_data.json',
         );
       case 'Calendario':
         return _buildPlaceholderSection('Calendario de actividades');

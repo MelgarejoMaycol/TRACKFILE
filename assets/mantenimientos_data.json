@@ -42,7 +42,7 @@
       "kilometraje": 73050,
       "costo": 240000,
       "taller": "ServiFrenos Norte",
-      "estado": "COMPLETADO",
+      "estado": "REALIZADO",
       "observaciones": "Pastillas delanteras reemplazadas."
     },
     {
@@ -78,7 +78,7 @@
     {
       "id_historial": 9003,
       "id_mantenimiento": 5002,
-      "accion": "COMPLETADO",
+      "accion": "REALIZADO",
       "fecha": "2024-12-03T16:20:00Z",
       "comentario": "Conductor confirma entrega del vehiculo."
     },

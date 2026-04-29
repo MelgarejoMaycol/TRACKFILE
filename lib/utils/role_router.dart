@@ -11,20 +11,17 @@ import '../screens/roles/secretaria_screen.dart';
 
 Widget? screenForRole(Map<String, dynamic> userData) {
   final String role = (userData['rol'] as String? ?? '').toUpperCase();
-    final dynamic rawCompany = userData['empresa'];
-    final Map<String, dynamic>? company = rawCompany is Map<String, dynamic>
+  final dynamic rawCompany = userData['empresa'];
+  final Map<String, dynamic>? company = rawCompany is Map<String, dynamic>
       ? Map<String, dynamic>.from(rawCompany)
       : rawCompany is Map
-        ? Map<String, dynamic>.from(rawCompany.cast<String, dynamic>())
-        : null;
+      ? Map<String, dynamic>.from(rawCompany.cast<String, dynamic>())
+      : null;
   switch (role) {
     case 'ADMIN':
       return const AdminScreen();
     case 'EMPRESA':
-      return EmpresaScreen(
-        usuario: userData,
-        empresa: company,
-      );
+      return EmpresaScreen(usuario: userData, empresa: company);
     case 'PROPIETARIO':
       return PropietarioScreen(
         userId: userData['id']?.toString(),
@@ -54,7 +51,14 @@ Future<void> persistSession(Map<String, dynamic> userData) async {
   final prefs = await SharedPreferences.getInstance();
   final rawUser = jsonEncode(userData);
   await prefs.setString('auth_user', rawUser);
-  
+
+  // Guardar el user_id
+  final userId = userData['id']?.toString();
+  if (userId != null && userId.isNotEmpty) {
+    await prefs.setString('user_id', userId);
+    debugPrint('👤 User ID guardado: $userId');
+  }
+
   // Obtener el JWT token (que viene en el campo 'token' de la respuesta del backend)
   final tokenValue = userData['token'];
   if (tokenValue != null && tokenValue.isNotEmpty) {
@@ -85,4 +89,5 @@ Future<void> clearSession() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.remove('auth_user');
   await prefs.remove('auth_token');
+  await prefs.remove('user_id');
 }

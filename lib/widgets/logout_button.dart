@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:frontendproyecto/screens/login_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LogoutButton extends StatefulWidget {
   const LogoutButton({super.key, this.expand = true});
@@ -22,12 +21,12 @@ class _LogoutButtonState extends State<LogoutButton> {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.remove('auth_user');
       await prefs.remove('auth_token');
+      await prefs.remove('user_id');
 
       if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        LoginScreen.route,
-        (route) => false,
-      );
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(LoginScreen.route, (route) => false);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

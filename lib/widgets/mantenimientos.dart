@@ -1,19 +1,16 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../services/api_service.dart';
+import 'shimmer_skeleton.dart';
 
 class MantenimientosWidget extends StatefulWidget {
   final String role;
   final String? userId;
-  final String? jsonPath;
 
-  const MantenimientosWidget({
-    super.key,
-    required this.role,
-    this.userId,
-    this.jsonPath,
-  });
+  const MantenimientosWidget({super.key, required this.role, this.userId});
 
   @override
   State<MantenimientosWidget> createState() => _MantenimientosWidgetState();
@@ -32,8 +29,18 @@ class _TipoMantenimiento {
 
   factory _TipoMantenimiento.fromMap(Map<String, dynamic> map) {
     return _TipoMantenimiento(
-      id: int.tryParse(map['id_tipo_mantenimiento']?.toString() ?? '') ?? 0,
-      nombre: map['nombre']?.toString() ?? 'Tipo sin nombre',
+      id:
+          int.tryParse(
+            map['id']?.toString() ??
+                map['id_tipo_mantenimiento']?.toString() ??
+                map['idTipoMantenimiento']?.toString() ??
+                '',
+          ) ??
+          0,
+      nombre:
+          map['nombre']?.toString() ??
+          map['tipoMantenimiento']?.toString() ??
+          'Tipo sin nombre',
       descripcion: map['descripcion']?.toString() ?? '',
     );
   }
@@ -52,6 +59,10 @@ class _Mantenimiento {
   final String taller;
   final String estado;
   final String observaciones;
+  final String prioridad;
+  final String vehiculoLabel;
+  final String propietarioNombre;
+  final String conductorNombre;
 
   const _Mantenimiento({
     required this.id,
@@ -66,6 +77,10 @@ class _Mantenimiento {
     required this.taller,
     required this.estado,
     required this.observaciones,
+    required this.prioridad,
+    required this.vehiculoLabel,
+    required this.propietarioNombre,
+    required this.conductorNombre,
   });
 
   factory _Mantenimiento.fromMap(Map<String, dynamic> map) {
@@ -75,46 +90,110 @@ class _Mantenimiento {
       return DateTime.tryParse(raw);
     }
 
+    String buildVehiculoLabel(Map<String, dynamic> map) {
+      final vehiculo = map['vehiculo'];
+
+      if (vehiculo is Map) {
+        final marca = vehiculo['marca']?.toString() ?? '';
+        final modelo = vehiculo['modelo']?.toString() ?? '';
+        final placa = vehiculo['placa']?.toString() ?? '';
+        final nombre = '$marca $modelo'.trim();
+
+        if (placa.isNotEmpty) {
+          return '${nombre.isEmpty ? 'Vehículo' : nombre} - $placa';
+        }
+      }
+
+      final marca =
+          map['marca']?.toString() ?? map['vehiculoMarca']?.toString() ?? '';
+      final modelo =
+          map['modelo']?.toString() ?? map['vehiculoModelo']?.toString() ?? '';
+      final placa =
+          map['placa']?.toString() ?? map['vehiculoPlaca']?.toString() ?? '';
+      final nombre = '$marca $modelo'.trim();
+
+      if (placa.isNotEmpty) {
+        return '${nombre.isEmpty ? 'Vehículo' : nombre} - $placa';
+      }
+
+      return '';
+    }
+
+    String readNombrePersona(dynamic value) {
+      if (value is! Map) return '';
+
+      final usuario = value['usuario'];
+
+      if (usuario is Map) {
+        final nombre = usuario['nombre']?.toString() ?? '';
+        final apellido = usuario['apellido']?.toString() ?? '';
+        return '$nombre $apellido'.trim();
+      }
+
+      final nombre = value['nombre']?.toString() ?? '';
+      final apellido = value['apellido']?.toString() ?? '';
+      return '$nombre $apellido'.trim();
+    }
+
+    final propietarioNombre =
+        map['propietarioNombre']?.toString() ??
+        map['nombrePropietario']?.toString() ??
+        readNombrePersona(map['propietario']);
+
+    final conductorNombre =
+        map['conductorNombre']?.toString() ??
+        map['nombreConductor']?.toString() ??
+        readNombrePersona(map['conductor']);
+
     return _Mantenimiento(
-      id: int.tryParse(map['id_mantenimiento']?.toString() ?? '') ?? 0,
-      vehiculoId: int.tryParse(map['id_vehiculo']?.toString() ?? '') ?? 0,
-      usuarioId: map['id_usuario']?.toString() ?? '',
-      tipoId: int.tryParse(map['id_tipo_mantenimiento']?.toString() ?? '') ?? 0,
-      fechaSugerida: parseDate(map['fecha_sugerida']),
-      fechaProgramada: parseDate(map['fecha_programada']),
-      fechaRealizada: parseDate(map['fecha_realizado']),
+      id:
+          int.tryParse(
+            map['id']?.toString() ?? map['id_mantenimiento']?.toString() ?? '',
+          ) ??
+          0,
+
+      vehiculoId:
+          int.tryParse(
+            map['vehiculoId']?.toString() ??
+                map['idVehiculo']?.toString() ??
+                map['id_vehiculo']?.toString() ??
+                '',
+          ) ??
+          0,
+
+      usuarioId:
+          map['usuarioId']?.toString() ?? map['id_usuario']?.toString() ?? '',
+
+      tipoId:
+          int.tryParse(
+            map['tipoMantenimientoId']?.toString() ??
+                map['idTipoMantenimiento']?.toString() ??
+                map['id_tipo_mantenimiento']?.toString() ??
+                '',
+          ) ??
+          0,
+
+      fechaSugerida: parseDate(map['fechaSugerida'] ?? map['fecha_sugerida']),
+
+      fechaProgramada: parseDate(
+        map['fechaProgramada'] ?? map['fecha_programada'],
+      ),
+
+      fechaRealizada: parseDate(
+        map['fechaRealizado'] ??
+            map['fechaRealizada'] ??
+            map['fecha_realizado'],
+      ),
+
       kilometraje: int.tryParse(map['kilometraje']?.toString() ?? '') ?? 0,
       costo: int.tryParse(map['costo']?.toString() ?? '') ?? 0,
-      taller: map['taller']?.toString() ?? 'Sin taller definido',
+      taller: map['taller']?.toString() ?? '',
       estado: map['estado']?.toString() ?? 'SUGERIDO',
       observaciones: map['observaciones']?.toString() ?? '',
-    );
-  }
-}
-
-class _HistorialMantenimiento {
-  final int id;
-  final int mantenimientoId;
-  final String accion;
-  final DateTime? fecha;
-  final String comentario;
-
-  const _HistorialMantenimiento({
-    required this.id,
-    required this.mantenimientoId,
-    required this.accion,
-    required this.fecha,
-    required this.comentario,
-  });
-
-  factory _HistorialMantenimiento.fromMap(Map<String, dynamic> map) {
-    final DateTime? fecha = DateTime.tryParse(map['fecha']?.toString() ?? '');
-    return _HistorialMantenimiento(
-      id: int.tryParse(map['id_historial']?.toString() ?? '') ?? 0,
-      mantenimientoId: int.tryParse(map['id_mantenimiento']?.toString() ?? '') ?? 0,
-      accion: map['accion']?.toString() ?? 'SUGERIDO',
-      fecha: fecha,
-      comentario: map['comentario']?.toString() ?? '',
+      prioridad: map['prioridad']?.toString() ?? 'Media',
+      vehiculoLabel: buildVehiculoLabel(map),
+      propietarioNombre: propietarioNombre,
+      conductorNombre: conductorNombre,
     );
   }
 }
@@ -122,26 +201,13 @@ class _HistorialMantenimiento {
 class _MantenimientoDetalle {
   final _Mantenimiento mantenimiento;
   final _TipoMantenimiento? tipo;
-  final List<_HistorialMantenimiento> historial;
 
   const _MantenimientoDetalle({
     required this.mantenimiento,
     required this.tipo,
-    required this.historial,
   });
 
   String get estadoActual => mantenimiento.estado.toUpperCase();
-
-  _HistorialMantenimiento? get ultimoMovimiento {
-    if (historial.isEmpty) return null;
-    final List<_HistorialMantenimiento> ordered = List<_HistorialMantenimiento>.from(historial)
-      ..sort((a, b) {
-        final DateTime aDate = a.fecha ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final DateTime bDate = b.fecha ?? DateTime.fromMillisecondsSinceEpoch(0);
-        return bDate.compareTo(aDate);
-      });
-    return ordered.first;
-  }
 }
 
 class _MantenimientosWidgetState extends State<MantenimientosWidget> {
@@ -152,23 +218,21 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
   static const Color _dangerColor = Color(0xFFE66B6B);
   static const Color _infoColor = Color(0xFF3DA9F5);
 
-  final DateFormat _dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+  final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
 
   bool _isLoading = true;
   bool _hasError = false;
   List<_MantenimientoDetalle> _detalles = const [];
-  List<_MantenimientoDetalle> _todosLosDetalles = const [];
   List<_MantenimientoDetalle> _programados = const [];
   Map<String, int> _conteoEstados = const {};
-  Map<int, List<_HistorialMantenimiento>> _historialPorMantenimiento = const {};
-  int _nextHistorialId = 1;
-  bool _isFallbackData = false;
+
+  // Datos del backend
+  List<Map<String, dynamic>> _vehiculos = const [];
+  List<Map<String, dynamic>> _tiposMantenimiento = const [];
 
   bool get _isConductor => widget.role.toLowerCase() == 'conductor';
-
+  bool get _isPropietario => widget.role.toLowerCase() == 'propietario';
   bool get _isEmpresa => widget.role.toLowerCase() == 'empresa';
-
-  bool get _shouldSplitLayout => widget.role.toLowerCase() == 'conductor' || widget.role.toLowerCase() == 'propietario';
 
   @override
   void initState() {
@@ -177,24 +241,103 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
   }
 
   Future<void> _loadData() async {
-    final String path = (widget.jsonPath != null && widget.jsonPath!.isNotEmpty)
-        ? widget.jsonPath!
-        : 'assets/mantenimientos_data.json';
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
 
     try {
-      final String raw = await rootBundle.loadString(path);
-      final dynamic decoded = json.decode(raw);
-      if (decoded is! Map<String, dynamic>) {
-        throw const FormatException('Formato inesperado');
-      }
-      final bool hydrated = _hydrateState(decoded, fromFallback: false);
-      if (!hydrated) {
-        throw const FormatException('No fue posible interpretar la informacion');
+      // Obtener token y userId
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      final userId = widget.userId ?? prefs.getString('user_id');
+
+      debugPrint('🔧 Cargando datos desde backend...');
+      debugPrint('   Role: ${widget.role}, UserId: $userId');
+
+      // Cargar datos en paralelo
+      final results = await Future.wait([
+        ApiService.getMantenimientos(
+          role: widget.role,
+          userId: userId,
+          token: token,
+        ),
+        ApiService.getTiposMantenimiento(token: token),
+        ApiService.getVehiculosPorRol(
+          role: widget.role,
+          userId: userId,
+          token: token,
+        ),
+      ]);
+
+      final mantenimientosData = results[0];
+      final tiposData = results[1];
+      final vehiculosData = results[2];
+
+      debugPrint('✅ Datos obtenidos:');
+      debugPrint('   Mantenimientos: ${mantenimientosData.length}');
+      debugPrint('   Tipos: ${tiposData.length}');
+      debugPrint('   Vehículos: ${vehiculosData.length}');
+      debugPrint('TIPOS DATA: $tiposData');
+      debugPrint('VEHICULOS DATA: $vehiculosData');
+      debugPrint('🧪 MANTENIMIENTOS RAW: $mantenimientosData');
+
+      // Convertir tipos de mantenimiento
+      final tipos = tiposData
+          .map((map) => _TipoMantenimiento.fromMap(map))
+          .toList();
+      final tiposPorId = {for (final tipo in tipos) tipo.id: tipo};
+
+      // Convertir mantenimientos
+      final mantenimientos = mantenimientosData
+          .map((map) => _Mantenimiento.fromMap(map))
+          .toList();
+
+      // Crear detalles
+      final todos = mantenimientos.map((_Mantenimiento mantenimiento) {
+        final _TipoMantenimiento? tipo = tiposPorId[mantenimiento.tipoId];
+        return _MantenimientoDetalle(mantenimiento: mantenimiento, tipo: tipo);
+      }).toList();
+
+      final filtrados = todos;
+
+      if (mounted) {
+        setState(() {
+          _vehiculos = vehiculosData;
+          _tiposMantenimiento = tiposData;
+          _detalles = filtrados;
+          _programados =
+              filtrados.where((detalle) {
+                final estado = detalle.mantenimiento.estado
+                    .toUpperCase()
+                    .trim();
+                return estado == 'SUGERIDO' || estado == 'PROGRAMADO';
+              }).toList()..sort((a, b) {
+                final prioridadA = priorityRank(a.mantenimiento.prioridad);
+                final prioridadB = priorityRank(b.mantenimiento.prioridad);
+
+                if (prioridadA != prioridadB) {
+                  return prioridadA.compareTo(prioridadB);
+                }
+
+                final fechaA =
+                    a.mantenimiento.fechaProgramada ??
+                    a.mantenimiento.fechaSugerida ??
+                    DateTime(2100);
+                final fechaB =
+                    b.mantenimiento.fechaProgramada ??
+                    b.mantenimiento.fechaSugerida ??
+                    DateTime(2100);
+
+                return fechaA.compareTo(fechaB);
+              });
+          _conteoEstados = recalcularConteo(filtrados);
+          _isLoading = false;
+        });
       }
     } catch (e) {
-      debugPrint('Error cargando mantenimientos: $e');
-      final bool fallbackLoaded = _loadFallbackData();
-      if (!fallbackLoaded && mounted) {
+      debugPrint('❌ Error cargando datos del backend: $e');
+      if (mounted) {
         setState(() {
           _isLoading = false;
           _hasError = true;
@@ -203,101 +346,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     }
   }
 
-  bool _hydrateState(Map<String, dynamic> decoded, {required bool fromFallback}) {
-    try {
-      final List<_TipoMantenimiento> tipos = (decoded['tipos'] as List<dynamic>? ?? const [])
-          .whereType<Map<String, dynamic>>()
-          .map(_TipoMantenimiento.fromMap)
-          .toList();
-      final Map<int, _TipoMantenimiento> tiposPorId = {
-        for (final _TipoMantenimiento tipo in tipos) tipo.id: tipo,
-      };
-
-      final List<_Mantenimiento> mantenimientos = (decoded['mantenimientos'] as List<dynamic>? ?? const [])
-          .whereType<Map<String, dynamic>>()
-          .map(_Mantenimiento.fromMap)
-          .toList();
-
-      final List<_HistorialMantenimiento> historial = (decoded['historial'] as List<dynamic>? ?? const [])
-          .whereType<Map<String, dynamic>>()
-          .map(_HistorialMantenimiento.fromMap)
-          .toList();
-
-      final Map<int, List<_HistorialMantenimiento>> grouped = <int, List<_HistorialMantenimiento>>{};
-      for (final _HistorialMantenimiento registro in historial) {
-        grouped.putIfAbsent(registro.mantenimientoId, () => <_HistorialMantenimiento>[]).add(registro);
-      }
-
-      int siguienteHistorial = 1;
-      for (final _HistorialMantenimiento item in historial) {
-        if (item.id >= siguienteHistorial) {
-          siguienteHistorial = item.id + 1;
-        }
-      }
-
-      final List<_MantenimientoDetalle> todos = mantenimientos.map((mantenimiento) {
-        final _TipoMantenimiento? tipo = tiposPorId[mantenimiento.tipoId];
-        final List<_HistorialMantenimiento> hist = grouped[mantenimiento.id] ?? const [];
-        return _MantenimientoDetalle(mantenimiento: mantenimiento, tipo: tipo, historial: hist);
-      }).toList();
-
-      final List<_MantenimientoDetalle> filtrados = _filtrarPorRol(todos);
-
-      if (!mounted) {
-        return true;
-      }
-
-      setState(() {
-        _todosLosDetalles = todos;
-        _detalles = filtrados;
-          _programados = filtrados
-            .where((detalle) => _normalizeStatus(detalle.estadoActual) == 'PROGRAMADO')
-            .toList();
-        _conteoEstados = _recalcularConteo(filtrados);
-        _historialPorMantenimiento = grouped;
-        _nextHistorialId = siguienteHistorial;
-        _isLoading = false;
-        _hasError = false;
-        _isFallbackData = fromFallback;
-      });
-      return true;
-    } catch (e) {
-      debugPrint('Error procesando dataset de mantenimientos: $e');
-      return false;
-    }
-  }
-
-  bool _loadFallbackData() {
-    try {
-      const String rawFallback = '{"tipos":[{"id_tipo_mantenimiento":1,"nombre":"Cambio de aceite","descripcion":"Sustitucion de aceite y filtros."},{"id_tipo_mantenimiento":2,"nombre":"Alineacion y balanceo","descripcion":"Ajuste de direccion y balance de ruedas."},{"id_tipo_mantenimiento":3,"nombre":"Revision de frenos","descripcion":"Inspeccion de discos, pastillas y liquidos."}],"mantenimientos":[{"id_mantenimiento":9001,"id_vehiculo":302,"id_usuario":"1","id_tipo_mantenimiento":1,"fecha_sugerida":"2025-01-12T08:00:00Z","fecha_programada":"2025-01-15T09:30:00Z","fecha_realizado":null,"kilometraje":65210,"costo":160000,"taller":"Taller Express","estado":"PROGRAMADO","observaciones":"Recordar confirmar disponibilidad del vehiculo."},{"id_mantenimiento":9002,"id_vehiculo":302,"id_usuario":"1","id_tipo_mantenimiento":3,"fecha_sugerida":"2024-11-20T10:00:00Z","fecha_programada":"2024-11-22T14:00:00Z","fecha_realizado":"2024-11-22T16:00:00Z","kilometraje":63000,"costo":210000,"taller":"ServiFrenos Norte","estado":"COMPLETADO","observaciones":"Cambio de pastillas delanteras."}],"historial":[{"id_historial":9801,"id_mantenimiento":9001,"accion":"PROGRAMADO","fecha":"2025-01-05T11:05:00Z","comentario":"Empresa confirma cita en Taller Express."},{"id_historial":9802,"id_mantenimiento":9001,"accion":"SUGERIDO","fecha":"2025-01-03T10:00:00Z","comentario":"Sistema sugirio mantenimiento por kilometraje."},{"id_historial":9803,"id_mantenimiento":9002,"accion":"COMPLETADO","fecha":"2024-11-22T16:10:00Z","comentario":"Conductor recibe vehiculo y verifica frenos."}]}';
-      final Map<String, dynamic> decoded = json.decode(rawFallback) as Map<String, dynamic>;
-      return _hydrateState(decoded, fromFallback: true);
-    } catch (e) {
-      debugPrint('Error cargando datos de muestra: $e');
-      return false;
-    }
-  }
-
-  List<_MantenimientoDetalle> _filtrarPorRol(List<_MantenimientoDetalle> todos) {
-    if (!_isConductor) {
-      return todos;
-    }
-    final String? userId = widget.userId?.trim();
-    if (userId != null && userId.isNotEmpty) {
-      final List<_MantenimientoDetalle> propios = todos
-          .where((detalle) => detalle.mantenimiento.usuarioId == userId)
-          .toList();
-      if (propios.isNotEmpty) {
-        return propios;
-      }
-    }
-    final List<_MantenimientoDetalle> fallback = todos
-        .where((detalle) => detalle.mantenimiento.usuarioId == '1')
-        .toList();
-    return fallback.isNotEmpty ? fallback : todos;
-  }
-
-  Map<String, int> _recalcularConteo(List<_MantenimientoDetalle> detalles) {
+  Map<String, int> recalcularConteo(List<_MantenimientoDetalle> detalles) {
     final Map<String, int> conteo = <String, int>{};
     for (final _MantenimientoDetalle detalle in detalles) {
       final String key = detalle.estadoActual;
@@ -306,30 +355,197 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     return conteo;
   }
 
+  List<String> availableVehiculos() {
+    return _vehiculos.map((vehiculo) {
+      final marca = vehiculo['marca']?.toString() ?? '';
+      final modelo = vehiculo['modelo']?.toString() ?? '';
+      final placa = vehiculo['placa']?.toString() ?? 'Sin placa';
+      final nombreVehiculo = '$marca $modelo'.trim();
+      return '${nombreVehiculo.isEmpty ? 'Vehículo' : nombreVehiculo} - $placa';
+    }).toList();
+  }
+
+  List<String> availableTipos() {
+    return _tiposMantenimiento
+        .map((tipo) {
+          return tipo['nombre']?.toString() ??
+              tipo['tipoMantenimiento']?.toString() ??
+              tipo['nombreTipo']?.toString() ??
+              'Sin nombre';
+        })
+        .where((nombre) => nombre != 'Sin nombre')
+        .toList();
+  }
+
+  int getVehiculoIdFromSelection(String? selectedVehiculo) {
+    if (selectedVehiculo == null) return 0;
+
+    final vehiculo = _vehiculos.firstWhere((v) {
+      final marca = v['marca']?.toString() ?? '';
+      final modelo = v['modelo']?.toString() ?? '';
+      final placa = v['placa']?.toString() ?? 'Sin placa';
+
+      final nombreVehiculo = '$marca $modelo'.trim();
+      final display =
+          '${nombreVehiculo.isEmpty ? 'Vehículo' : nombreVehiculo} - $placa';
+
+      return display == selectedVehiculo;
+    }, orElse: () => <String, dynamic>{});
+
+    return vehiculo['id_vehiculo'] ??
+        vehiculo['idVehiculo'] ??
+        vehiculo['id'] ??
+        0;
+  }
+
+  int getTipoIdFromSelection(String? selectedTipo) {
+    if (selectedTipo == null) return 0;
+
+    final tipo = _tiposMantenimiento.firstWhere((t) {
+      final nombre =
+          t['nombre']?.toString() ??
+          t['tipoMantenimiento']?.toString() ??
+          t['nombreTipo']?.toString() ??
+          '';
+
+      return nombre == selectedTipo;
+    }, orElse: () => <String, dynamic>{});
+
+    return tipo['id'] ??
+        tipo['id_tipo_mantenimiento'] ??
+        tipo['idTipoMantenimiento'] ??
+        tipo['tipoMantenimientoId'] ??
+        0;
+  }
+
+  bool usuarioTieneAccesoAlVehiculo(int vehiculoId) {
+    if (!(_isConductor || _isPropietario)) {
+      return true;
+    }
+
+    if (_vehiculos.isEmpty) {
+      return true;
+    }
+
+    return _vehiculos.any((vehiculo) {
+      final int id =
+          int.tryParse(
+            (vehiculo['id'] ??
+                    vehiculo['id_vehiculo'] ??
+                    vehiculo['idVehiculo'] ??
+                    0)
+                .toString(),
+          ) ??
+          0;
+
+      return id == vehiculoId;
+    });
+  }
+
+  String maintenanceSearch = '';
+
+  List<_MantenimientoDetalle> filtrarPorRol(List<_MantenimientoDetalle> todos) {
+    if (!(_isConductor || _isPropietario)) {
+      return todos;
+    }
+
+    if (_vehiculos.isEmpty) {
+      debugPrint('⚠️ No hay vehículos para filtrar mantenimientos.');
+      return todos;
+    }
+
+    final Set<int> vehiculoIds = _vehiculos.map((vehiculo) {
+      return int.tryParse(
+            (vehiculo['id'] ??
+                    vehiculo['id_vehiculo'] ??
+                    vehiculo['idVehiculo'] ??
+                    0)
+                .toString(),
+          ) ??
+          0;
+    }).toSet();
+
+    debugPrint('🚗 Vehículos del usuario: $vehiculoIds');
+
+    return todos.where((detalle) {
+      return vehiculoIds.contains(detalle.mantenimiento.vehiculoId);
+    }).toList();
+  }
+
+  List<_MantenimientoDetalle> filtrarPorRolConVehiculos(
+    List<_MantenimientoDetalle> todos,
+    List<Map<String, dynamic>> vehiculosData,
+  ) {
+    if (!(_isConductor || _isPropietario)) {
+      return todos;
+    }
+
+    if (vehiculosData.isEmpty) {
+      debugPrint('⚠️ No hay vehículos asignados al usuario.');
+      return [];
+    }
+
+    final Set<int> vehiculoIds = vehiculosData.map((vehiculo) {
+      return int.tryParse(
+            (vehiculo['id'] ??
+                    vehiculo['id_vehiculo'] ??
+                    vehiculo['idVehiculo'] ??
+                    0)
+                .toString(),
+          ) ??
+          0;
+    }).toSet();
+
+    debugPrint('🚗 Vehículos asignados: $vehiculoIds');
+
+    return todos.where((detalle) {
+      return vehiculoIds.contains(detalle.mantenimiento.vehiculoId);
+    }).toList();
+  }
+
+  String getVehiculoDisplayName(int vehiculoId, {String fallback = ''}) {
+    final vehiculo = _vehiculos.firstWhere(
+      (v) => (v['id_vehiculo'] ?? v['idVehiculo'] ?? v['id']) == vehiculoId,
+      orElse: () => <String, dynamic>{},
+    );
+
+    if (vehiculo.isNotEmpty) {
+      final marca = vehiculo['marca']?.toString() ?? '';
+      final modelo = vehiculo['modelo']?.toString() ?? '';
+      final placa = vehiculo['placa']?.toString() ?? 'Sin placa';
+      final nombreVehiculo = '$marca $modelo'.trim();
+
+      return '${nombreVehiculo.isEmpty ? 'Vehículo' : nombreVehiculo} - $placa';
+    }
+
+    if (fallback.trim().isNotEmpty) {
+      return fallback;
+    }
+
+    return 'Vehículo $vehiculoId';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return buildShimmerLoading();
     }
 
     if (_hasError) {
-      return _buildErrorState();
+      return buildErrorState();
     }
 
-    if (_detalles.isEmpty) {
-      return _buildEmptyState();
-    }
+    final Widget content = _detalles.isEmpty
+        ? buildEmptyState()
+        : LayoutBuilder(
+            builder: (context, constraints) {
+              final double width = constraints.maxWidth;
+              final bool isCompact = width < 720;
+              final bool isTableCompact = width < 1000;
+              return buildContent(isCompact, isTableCompact);
+            },
+          );
 
-    final Widget content = LayoutBuilder(
-      builder: (context, constraints) {
-        final double width = constraints.maxWidth;
-        final bool isCompact = width < 720;
-        final bool isTableCompact = width < 1000;
-        return _buildContent(isCompact, isTableCompact);
-      },
-    );
-
-    // Si es empresa, agregar FAB para crear mantenimiento
     if (_isEmpresa) {
       return Stack(
         children: [
@@ -337,10 +553,12 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           Positioned(
             bottom: 24,
             right: 24,
-            child: FloatingActionButton(
-              onPressed: _showNewMaintenanceModal,
+            child: FloatingActionButton.extended(
+              onPressed: showNewMaintenanceModal,
               backgroundColor: const Color(0xFF4F4CE8),
-              child: const Icon(Icons.build_rounded, color: Colors.white),
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text('Crear mantenimiento'),
             ),
           ),
         ],
@@ -350,7 +568,241 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     return content;
   }
 
-  Widget _buildContent(bool isCompact, bool isTableCompact) {
+  Widget buildShimmerLoading() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double width = constraints.maxWidth;
+        final bool isCompact = width < 720;
+        return SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            isCompact ? 16 : 24,
+            24,
+            isCompact ? 16 : 24,
+            isCompact ? 120 : 64,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: isCompact ? 760 : 1120),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title shimmer
+                  ShimmerSkeleton(
+                    width: isCompact ? 200 : 300,
+                    height: isCompact ? 18 : 22,
+                  ),
+                  const SizedBox(height: 6),
+                  ShimmerSkeleton(
+                    width: isCompact ? 250 : 400,
+                    height: isCompact ? 12 : 13,
+                  ),
+                  const SizedBox(height: 20),
+                  // Summary chips shimmer
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 12,
+                    children: List.generate(3, (index) => ShimmerSummaryChip()),
+                  ),
+                  const SizedBox(height: 20),
+                  // Search field shimmer
+                  ShimmerSkeleton(
+                    width: double.infinity,
+                    height: 50,
+                    borderRadius: 14,
+                  ),
+                  const SizedBox(height: 20),
+                  // Active maintenances section
+                  ShimmerSkeleton(
+                    width: isCompact ? 180 : 200,
+                    height: isCompact ? 16 : 18,
+                  ),
+                  const SizedBox(height: 12),
+                  // Expansion tiles shimmer
+                  Column(
+                    children: List.generate(
+                      2,
+                      (index) => Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 16,
+                              ),
+                              child: Row(
+                                children: [
+                                  ShimmerSkeleton(width: 80, height: 16),
+                                  const Spacer(),
+                                  ShimmerSkeleton(width: 20, height: 12),
+                                ],
+                              ),
+                            ),
+                            // Maintenance cards shimmer
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+                              child: Column(
+                                children: List.generate(
+                                  3,
+                                  (cardIndex) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.05,
+                                        ),
+                                        borderRadius: BorderRadius.circular(18),
+                                        border: Border.all(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.45,
+                                          ),
+                                        ),
+                                      ),
+                                      padding: const EdgeInsets.fromLTRB(
+                                        18,
+                                        18,
+                                        18,
+                                        12,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    ShimmerSkeleton(
+                                                      width: 150,
+                                                      height: 14,
+                                                    ),
+                                                    const SizedBox(height: 6),
+                                                    ShimmerSkeleton(
+                                                      width: 100,
+                                                      height: 13,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              ShimmerSkeleton(
+                                                width: 60,
+                                                height: 24,
+                                                borderRadius: 12,
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Wrap(
+                                            spacing: 10,
+                                            runSpacing: 8,
+                                            children: List.generate(
+                                              4,
+                                              (badgeIndex) => ShimmerSkeleton(
+                                                width: 80,
+                                                height: 24,
+                                                borderRadius: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // History section
+                  ShimmerSkeleton(
+                    width: isCompact ? 180 : 200,
+                    height: isCompact ? 16 : 18,
+                  ),
+                  const SizedBox(height: 12),
+                  // History items shimmer
+                  Column(
+                    children: List.generate(
+                      5,
+                      (index) => Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.45),
+                            ),
+                          ),
+                          padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        ShimmerSkeleton(width: 150, height: 14),
+                                        const SizedBox(height: 6),
+                                        ShimmerSkeleton(width: 100, height: 13),
+                                      ],
+                                    ),
+                                  ),
+                                  ShimmerSkeleton(
+                                    width: 60,
+                                    height: 24,
+                                    borderRadius: 12,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 8,
+                                children: List.generate(
+                                  3,
+                                  (badgeIndex) => ShimmerSkeleton(
+                                    width: 70,
+                                    height: 24,
+                                    borderRadius: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget buildContent(bool isCompact, bool isTableCompact) {
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
         isCompact ? 16 : 24,
@@ -364,23 +816,51 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
             maxWidth: isCompact
                 ? 760
                 : isTableCompact
-                    ? 900
-                    : 1120,
+                ? 900
+                : 1120,
           ),
-          child: _shouldSplitLayout && !isCompact
-              ? _buildSplitLayout(isCompact, isTableCompact)
-              : _buildVerticalLayout(isCompact, isTableCompact),
+          child: buildVerticalLayout(isCompact, isTableCompact),
         ),
       ),
     );
   }
 
-  Widget _buildVerticalLayout(bool isCompact, bool isTableCompact) {
+  Widget buildMaintenanceSearch() {
+    return TextField(
+      onChanged: (value) {
+        setState(() {
+          maintenanceSearch = value.trim().toLowerCase();
+        });
+      },
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        hintText: 'Buscar por placa, vehículo o tipo de mantenimiento',
+        hintStyle: const TextStyle(color: Colors.white54),
+        prefixIcon: const Icon(Icons.search, color: Colors.white54),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.06),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Colors.white54),
+        ),
+      ),
+    );
+  }
+
+  Widget buildVerticalLayout(bool isCompact, bool isTableCompact) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _isConductor ? 'Mantenimientos asignados' : 'Gestión de mantenimientos',
+          _isConductor
+              ? 'Mantenimientos asignados'
+              : _isPropietario
+              ? 'Mantenimientos de tus vehículos'
+              : 'Gestión de mantenimientos',
           style: TextStyle(
             color: Colors.white,
             fontSize: isCompact ? 18 : 22,
@@ -391,67 +871,52 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
         Text(
           _isConductor
               ? 'Consulta el plan de mantenimiento que la empresa programó para tus vehículos.'
+              : _isPropietario
+              ? 'Consulta los mantenimientos programados para tus vehículos.'
               : 'Monitorea el estado de los mantenimientos y coordina acciones con los conductores.',
-          style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13),
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: isCompact ? 12 : 13,
+          ),
         ),
-        if (_isFallbackData) ...[
-          const SizedBox(height: 14),
-          _buildFallbackNotice(),
-        ],
         const SizedBox(height: 20),
-        _buildSummaryChips(isCompact),
+        buildSummaryChips(isCompact),
         const SizedBox(height: 20),
-        _buildProgramadosSection(isTableCompact: isTableCompact, isCompact: isCompact),
+        buildMaintenanceSearch(),
+        const SizedBox(height: 20),
+        buildProgramadosSection(
+          isTableCompact: isTableCompact,
+          isCompact: isCompact,
+        ),
         const SizedBox(height: 24),
-        _buildHistorialSection(isCompact),
+        buildHistorialSection(isCompact),
       ],
     );
   }
 
-  Widget _buildSplitLayout(bool isCompact, bool isTableCompact) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          _isConductor ? 'Mantenimientos asignados' : 'Gestión de mantenimientos',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: isCompact ? 18 : 22,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          _isConductor
-              ? 'Consulta el plan de mantenimiento que la empresa programó para tus vehículos.'
-              : 'Monitorea el estado de los mantenimientos y coordina acciones con los conductores.',
-          style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13),
-        ),
-        if (_isFallbackData) ...[
-          const SizedBox(height: 14),
-          _buildFallbackNotice(),
-        ],
-        const SizedBox(height: 20),
-        _buildSummaryChips(isCompact),
-        const SizedBox(height: 20),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _buildProgramadosSection(isTableCompact: isTableCompact, isCompact: isCompact),
-            ),
-            const SizedBox(width: 24),
-            Expanded(
-              child: _buildHistorialSection(isCompact),
-            ),
-          ],
-        ),
-      ],
-    );
+  List<_MantenimientoDetalle> filtrarBusqueda(
+    List<_MantenimientoDetalle> lista,
+  ) {
+    if (maintenanceSearch.isEmpty) return lista;
+
+    return lista.where((detalle) {
+      final vehiculo = getVehiculoDisplayName(
+        detalle.mantenimiento.vehiculoId,
+        fallback: detalle.mantenimiento.vehiculoLabel,
+      ).toLowerCase();
+      final tipo = detalle.tipo?.nombre.toLowerCase() ?? '';
+      return vehiculo.contains(maintenanceSearch) ||
+          tipo.contains(maintenanceSearch);
+    }).toList();
   }
 
-  Widget _buildProgramadosSection({required bool isTableCompact, required bool isCompact}) {
-    if (_programados.isEmpty) {
+  Widget buildProgramadosSection({
+    required bool isTableCompact,
+    required bool isCompact,
+  }) {
+    final activos = filtrarBusqueda(_programados);
+
+    if (activos.isEmpty) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
@@ -460,27 +925,51 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.schedule, color: Colors.white54, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'No hay mantenimientos programados en este momento.',
-                style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12.5 : 13),
-              ),
-            ),
-          ],
+        child: Text(
+          'No hay mantenimientos activos en este momento.',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: isCompact ? 12.5 : 13,
+          ),
         ),
       );
     }
 
+    final sugeridos = activos
+        .where((d) => d.mantenimiento.estado.toUpperCase().trim() == 'SUGERIDO')
+        .toList();
+
+    final programados = activos
+        .where(
+          (d) => d.mantenimiento.estado.toUpperCase().trim() == 'PROGRAMADO',
+        )
+        .toList();
+
+    sugeridos.sort((a, b) {
+      final prioridadA = priorityRank(a.mantenimiento.prioridad);
+      final prioridadB = priorityRank(b.mantenimiento.prioridad);
+      if (prioridadA != prioridadB) return prioridadA.compareTo(prioridadB);
+
+      final fechaA = a.mantenimiento.fechaSugerida ?? DateTime(2100);
+      final fechaB = b.mantenimiento.fechaSugerida ?? DateTime(2100);
+      return fechaA.compareTo(fechaB);
+    });
+
+    programados.sort((a, b) {
+      final prioridadA = priorityRank(a.mantenimiento.prioridad);
+      final prioridadB = priorityRank(b.mantenimiento.prioridad);
+      if (prioridadA != prioridadB) return prioridadA.compareTo(prioridadB);
+
+      final fechaA = a.mantenimiento.fechaProgramada ?? DateTime(2100);
+      final fechaB = b.mantenimiento.fechaProgramada ?? DateTime(2100);
+      return fechaA.compareTo(fechaB);
+    });
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Mantenimientos programados',
+          'Mantenimientos activos',
           style: TextStyle(
             color: Colors.white,
             fontSize: isCompact ? 16 : 18,
@@ -488,17 +977,72 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           ),
         ),
         const SizedBox(height: 12),
-        _buildMantenimientosView(_programados, isTableCompact),
+        if (sugeridos.isNotEmpty)
+          buildEstadoExpansion(
+            titulo: 'Sugeridos',
+            detalles: sugeridos,
+            color: _warningColor,
+          ),
+        if (programados.isNotEmpty)
+          buildEstadoExpansion(
+            titulo: 'Programados',
+            detalles: programados,
+            color: _accentColor,
+          ),
       ],
     );
   }
 
-  Widget _buildHistorialSection(bool isCompact) {
+  Widget buildEstadoExpansion({
+    required String titulo,
+    required List<_MantenimientoDetalle> detalles,
+    required Color color,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: true,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+          iconColor: Colors.white70,
+          collapsedIconColor: Colors.white70,
+          title: Text(
+            titulo,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          subtitle: Text(
+            '${detalles.length} mantenimiento(s)',
+            style: const TextStyle(color: Colors.white60, fontSize: 12),
+          ),
+          children: detalles
+              .map(
+                (detalle) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: buildMantenimientoCard(detalle),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget buildHistorialSection(bool isCompact) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Historial reciente',
+          'Historial de mantenimientos',
           style: TextStyle(
             color: Colors.white,
             fontSize: isCompact ? 16 : 18,
@@ -506,92 +1050,107 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           ),
         ),
         const SizedBox(height: 12),
-        _buildHistorialReciente(isCompact),
+        buildHistorialReciente(isCompact),
       ],
     );
   }
 
-  Widget _buildMantenimientosView(List<_MantenimientoDetalle> detalles, bool isTableCompact) {
-    if (isTableCompact || _isConductor) {
+  Widget buildMantenimientosView(
+    List<_MantenimientoDetalle> detalles,
+    bool isTableCompact,
+  ) {
+    if (isTableCompact || _isConductor || _isPropietario) {
       return Column(
         children: detalles
-            .map((detalle) => Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: _buildMantenimientoCard(detalle),
-                ))
+            .map(
+              (detalle) => Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: buildMantenimientoCard(detalle),
+              ),
+            )
             .toList(),
       );
     }
-    return _buildDataTable(detalles);
+    return buildDataTable(detalles);
   }
 
-  Widget _buildSummaryChips(bool isCompact) {
-    final List<MapEntry<String, int>> orderedEntries = _conteoEstados.entries.toList()
-      ..sort((a, b) => _statusPriority(a.key).compareTo(_statusPriority(b.key)));
-
-    final List<Widget> chips = orderedEntries.map((entry) {
-      final Color color = _statusColor(entry.key);
-      return Container(
-        padding: EdgeInsets.symmetric(horizontal: isCompact ? 14 : 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: color.withValues(alpha: 0.55)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.circle, size: 10, color: color),
-            const SizedBox(width: 8),
-            Text(
-              _statusLabel(entry.key),
-              style: TextStyle(color: Colors.white, fontSize: isCompact ? 12 : 13, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              entry.value.toString(),
-              style: TextStyle(color: Colors.white, fontSize: isCompact ? 12 : 13, fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-      );
-    }).toList();
+  Widget buildSummaryChips(bool isCompact) {
+    final List<Map<String, dynamic>> chipsData = [
+      {
+        'label': 'Sugeridos',
+        'count': _conteoEstados['SUGERIDO'] ?? 0,
+        'color': _warningColor,
+      },
+      {
+        'label': 'Programados',
+        'count': _conteoEstados['PROGRAMADO'] ?? 0,
+        'color': _warningColor,
+      },
+      {
+        'label': 'Realizados',
+        'count': _conteoEstados['REALIZADO'] ?? 0,
+        'color': _infoColor,
+      },
+    ];
 
     return Wrap(
       spacing: 14,
       runSpacing: 12,
-      children: chips,
-    );
-  }
+      children: chipsData.map((item) {
+        final Color color = item['color'] as Color;
 
-  Widget _buildFallbackNotice() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.orangeAccent.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Icon(Icons.info_outline, color: Colors.orangeAccent, size: 18),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Mostramos datos de referencia porque no fue posible cargar los mantenimientos reales.',
-              style: TextStyle(color: Colors.white, fontSize: 12.5),
-            ),
+        return Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 14 : 16,
+            vertical: 10,
           ),
-        ],
-      ),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: color.withValues(alpha: 0.55)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.circle, size: 10, color: color),
+              const SizedBox(width: 8),
+              Text(
+                item['label'].toString(),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: isCompact ? 12 : 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                item['count'].toString(),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: isCompact ? 12 : 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
-  Widget _buildDataTable(List<_MantenimientoDetalle> detalles) {
-    final List<_MantenimientoDetalle> ordered = List<_MantenimientoDetalle>.from(detalles)
-      ..sort((a, b) => _statusPriority(a.estadoActual).compareTo(_statusPriority(b.estadoActual)));
+  Widget buildDataTable(List<_MantenimientoDetalle> detalles) {
+    final List<_MantenimientoDetalle> ordered =
+        List<_MantenimientoDetalle>.from(detalles)..sort((a, b) {
+          final fechaA =
+              a.mantenimiento.fechaProgramada ??
+              a.mantenimiento.fechaSugerida ??
+              DateTime(2100);
+          final fechaB =
+              b.mantenimiento.fechaProgramada ??
+              b.mantenimiento.fechaSugerida ??
+              DateTime(2100);
+          return fechaA.compareTo(fechaB);
+        });
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -601,320 +1160,255 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-          dataTextStyle: const TextStyle(color: Colors.white70),
-          columnSpacing: 28,
-          horizontalMargin: 18,
-          dataRowMinHeight: 70,
-          dataRowMaxHeight: 130,
-          columns: const [
-            DataColumn(label: Text('Mantenimiento')),
-            DataColumn(label: Text('Tipo')),
-            DataColumn(label: Text('Estado')),
-            DataColumn(label: Text('Fechas')),
-            DataColumn(label: Text('Taller')),
-            DataColumn(label: Text('Acciones')),
-          ],
-          rows: ordered.map(_buildDataRow).toList(),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 1000),
+          child: DataTable(
+            headingTextStyle: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+            dataTextStyle: const TextStyle(color: Colors.white70),
+            columnSpacing: 28,
+            horizontalMargin: 18,
+            dataRowMinHeight: 70,
+            dataRowMaxHeight: 130,
+            columns: const [
+              DataColumn(label: Text('Vehículo')),
+              DataColumn(label: Text('Tipo')),
+              DataColumn(label: Text('Estado')),
+              DataColumn(label: Text('Fecha')),
+            ],
+            rows: ordered.map(buildDataRow).toList(),
+          ),
         ),
       ),
     );
   }
 
-  DataRow _buildDataRow(_MantenimientoDetalle detalle) {
+  DataRow buildDataRow(_MantenimientoDetalle detalle) {
     return DataRow(
+      onSelectChanged: (_) => showMantenimientoDetalleModal(detalle),
       cells: [
-        DataCell(_buildMantenimientoCell(detalle.mantenimiento)),
-        DataCell(Text(detalle.tipo?.nombre ?? 'Sin tipo', style: const TextStyle(color: Colors.white))),
-        DataCell(_buildEstadoTag(detalle.estadoActual)),
-        DataCell(_buildFechasCell(detalle.mantenimiento)),
-        DataCell(Text(detalle.mantenimiento.taller, style: const TextStyle(color: Colors.white70))),
+        DataCell(buildMantenimientoCell(detalle.mantenimiento)),
         DataCell(
-          TextButton(
-            onPressed: () => _openComentarioSheet(detalle),
-            style: TextButton.styleFrom(foregroundColor: Colors.white),
-            child: const Text('Enviar comentario'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMantenimientoCell(_Mantenimiento mantenimiento) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          '#${mantenimiento.id} - Veh ${mantenimiento.vehiculoId}',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '${mantenimiento.kilometraje} km',
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
-        ),
-        if (mantenimiento.observaciones.isNotEmpty) ...[
-          const SizedBox(height: 4),
           Text(
-            mantenimiento.observaciones,
-            style: const TextStyle(color: Colors.white60, fontSize: 12),
+            detalle.tipo?.nombre ?? 'Sin tipo',
+            style: const TextStyle(color: Colors.white),
           ),
-        ],
+        ),
+        DataCell(buildEstadoTag(detalle.estadoActual)),
+        DataCell(buildFechasCell(detalle.mantenimiento)),
       ],
     );
   }
 
-  Widget _buildFechasCell(_Mantenimiento mantenimiento) {
-    final List<String> lines = <String>[];
-    lines.add('Sugerida: ${_formatDate(mantenimiento.fechaSugerida)}');
-    lines.add('Programada: ${_formatDate(mantenimiento.fechaProgramada)}');
-    lines.add('Realizada: ${_formatDate(mantenimiento.fechaRealizada)}');
-    return Text(lines.join('\n'), style: const TextStyle(color: Colors.white70));
+  Widget buildMantenimientoCell(_Mantenimiento mantenimiento) {
+    return Text(
+      getVehiculoDisplayName(
+        mantenimiento.vehiculoId,
+        fallback: mantenimiento.vehiculoLabel,
+      ),
+      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+    );
   }
 
-  Widget _buildMantenimientoCard(_MantenimientoDetalle detalle) {
+  Widget buildFechasCell(_Mantenimiento mantenimiento) {
+    DateTime? fecha;
+    String label;
+
+    if (mantenimiento.fechaRealizada != null) {
+      fecha = mantenimiento.fechaRealizada;
+      label = 'Finalizado';
+    } else {
+      fecha = mantenimiento.fechaProgramada ?? mantenimiento.fechaSugerida;
+      label = 'Programado';
+    }
+
+    return Text(
+      fecha == null ? 'Sin fecha' : '$label: ${formatDate(fecha)}',
+      style: const TextStyle(color: Colors.white70),
+    );
+  }
+
+  Widget buildMantenimientoCard(_MantenimientoDetalle detalle) {
     final _Mantenimiento mantenimiento = detalle.mantenimiento;
     final _TipoMantenimiento? tipo = detalle.tipo;
-    final _HistorialMantenimiento? ultimo = detalle.ultimoMovimiento;
+    final bool finalizado = mantenimiento.estado.toUpperCase() == 'REALIZADO';
+    final Color cardColor = finalizado
+        ? _infoColor
+        : priorityColor(mantenimiento.prioridad);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '#${mantenimiento.id} - Veh ${mantenimiento.vehiculoId}',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      tipo?.nombre ?? 'Sin tipo',
-                      style: const TextStyle(color: Colors.white70, fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-              _buildEstadoTag(detalle.estadoActual),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            children: [
-              _buildInfoBadge(Icons.calendar_month, 'Sugerida ${_formatShort(mantenimiento.fechaSugerida)}'),
-              _buildInfoBadge(Icons.event_available, 'Programada ${_formatShort(mantenimiento.fechaProgramada)}'),
-              _buildInfoBadge(Icons.done_all, 'Realizada ${_formatShort(mantenimiento.fechaRealizada)}'),
-              _buildInfoBadge(Icons.speed, '${mantenimiento.kilometraje} km'),
-              if (mantenimiento.costo > 0)
-                _buildInfoBadge(Icons.attach_money, ' 24${mantenimiento.costo}'),
-              _buildInfoBadge(Icons.store_mall_directory, mantenimiento.taller),
-            ],
-          ),
-          if (mantenimiento.observaciones.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              mantenimiento.observaciones,
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ],
-          if (ultimo != null) ...[
-            const SizedBox(height: 12),
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => showMantenimientoDetalleModal(detalle),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: cardColor.withValues(alpha: 0.45)),
+        ),
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.update, color: Colors.white60, size: 16),
-                const SizedBox(width: 6),
                 Expanded(
-                  child: Text(
-                    '${_statusLabel(ultimo.accion)} • ${_formatShort(ultimo.fecha)}',
-                    style: const TextStyle(color: Colors.white60, fontSize: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        getVehiculoDisplayName(
+                          mantenimiento.vehiculoId,
+                          fallback: mantenimiento.vehiculoLabel,
+                        ),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        tipo?.nombre ?? 'Sin tipo',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                buildEstadoTag(detalle.estadoActual),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                if (mantenimiento.fechaSugerida != null)
+                  buildInfoBadge(
+                    Icons.calendar_month,
+                    'Sugerida ${formatShort(mantenimiento.fechaSugerida)}',
+                  ),
+                if (mantenimiento.fechaProgramada != null)
+                  buildInfoBadge(
+                    Icons.event_available,
+                    'Programada ${formatShort(mantenimiento.fechaProgramada)}',
+                  ),
+                if (mantenimiento.fechaRealizada != null)
+                  buildInfoBadge(
+                    Icons.done_all,
+                    'Realizada ${formatShort(mantenimiento.fechaRealizada)}',
+                  ),
+                if (mantenimiento.costo > 0)
+                  buildInfoBadge(
+                    Icons.attach_money,
+                    NumberFormat.simpleCurrency(
+                      locale: 'es_CO',
+                    ).format(mantenimiento.costo),
+                  ),
+                if (mantenimiento.prioridad.isNotEmpty)
+                  buildInfoBadge(
+                    Icons.flag,
+                    'Prioridad ${priorityLabel(mantenimiento.prioridad)}',
+                    color: priorityColor(mantenimiento.prioridad),
+                  ),
+                if (mantenimiento.taller.trim().isNotEmpty)
+                  buildInfoBadge(
+                    Icons.store_mall_directory,
+                    mantenimiento.taller,
+                  ),
+              ],
+            ),
+            if (mantenimiento.observaciones.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                mantenimiento.observaciones,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (_isConductor || _isPropietario) ...[
+                  if ((mantenimiento.estado.toUpperCase() == 'SUGERIDO' ||
+                          mantenimiento.estado.toUpperCase() == 'PROGRAMADO') &&
+                      usuarioTieneAccesoAlVehiculo(mantenimiento.vehiculoId))
+                    TextButton(
+                      onPressed: () => showCompletarMantenimientoModal(detalle),
+                      style: TextButton.styleFrom(
+                        foregroundColor: _successColor,
+                      ),
+                      child: const Text('Completar mantenimiento'),
+                    ),
+                  const SizedBox(width: 8),
+                ],
               ],
             ),
           ],
-          const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () => _openComentarioSheet(detalle),
-              style: TextButton.styleFrom(foregroundColor: Colors.white),
-              child: const Text('Enviar comentario'),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildInfoBadge(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: Colors.white70),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-        ],
-      ),
-    );
-  }
+  Future<void> showMantenimientoDetalleModal(
+    _MantenimientoDetalle detalle,
+  ) async {
+    final mantenimiento = detalle.mantenimiento;
+    final tipo = detalle.tipo;
 
-  Widget _buildEstadoTag(String estado) {
-    final Color color = _statusColor(estado);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.circle, size: 10, color: color),
-          const SizedBox(width: 6),
-          Text(
-            _statusLabel(estado),
-            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
-  }
+    Widget detailItem(IconData icon, String label, String value) {
+      if (value.trim().isEmpty) return const SizedBox.shrink();
 
-  Widget _buildHistorialReciente(bool isCompact) {
-    final List<_HistorialMantenimiento> registros = _detalles
-        .expand((detalle) => detalle.historial)
-        .where((hist) => hist.fecha != null && _normalizeStatus(hist.accion) == 'COMPLETADO')
-        .toList()
-      ..sort((a, b) {
-        final DateTime aDate = a.fecha ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final DateTime bDate = b.fecha ?? DateTime.fromMillisecondsSinceEpoch(0);
-        return bDate.compareTo(aDate);
-      });
-
-    if (registros.isEmpty) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
-        child: const Text(
-          'Aun no hay mantenimientos completados.',
-          style: TextStyle(color: Colors.white70),
-        ),
-      );
-    }
-
-    final int maxItems = _shouldSplitLayout ? 4 : 6;
-    final List<_HistorialMantenimiento> recientes = registros.take(maxItems).toList();
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (int i = 0; i < recientes.length; i++) ...[
-            _buildHistorialItem(recientes[i]),
-            if (i != recientes.length - 1) const Divider(color: Colors.white24),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHistorialItem(_HistorialMantenimiento registro) {
-    final _MantenimientoDetalle detalle = _detalles.firstWhere(
-      (element) => element.mantenimiento.id == registro.mantenimientoId,
-      orElse: () => _todosLosDetalles.firstWhere(
-        (element) => element.mantenimiento.id == registro.mantenimientoId,
-        orElse: () => _detalles.first,
-      ),
-    );
-
-    final Color color = _statusColor(registro.accion);
-
-    return InkWell(
-      onTap: () => _showDetalleHistorial(registro, detalle),
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: color.withValues(alpha: 0.18),
-              ),
-              child: Icon(Icons.auto_fix_high, color: color, size: 18),
-            ),
+            Icon(icon, color: Colors.white70, size: 20),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '#${registro.mantenimientoId} • ${_statusLabel(registro.accion)}',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    label,
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
-                    registro.comentario.isNotEmpty ? registro.comentario : 'Sin comentarios',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    value,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 12),
-            Text(
-              _formatDate(registro.fecha),
-              style: const TextStyle(color: Colors.white60, fontSize: 12),
-            ),
           ],
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  Future<void> _openComentarioSheet(_MantenimientoDetalle detalle) async {
-    final TextEditingController controller = TextEditingController();
-    String tipoSeleccionado = 'Comentario';
-    String? errorText;
-
-    final _HistorialMantenimiento? nuevoHistorial = await showModalBottomSheet<_HistorialMantenimiento>(
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: _surfaceColor,
@@ -929,254 +1423,446 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
             top: 24,
             bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
           ),
-          child: StatefulBuilder(
-            builder: (context, setModalState) {
-              return SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 44,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white24,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(height: 18),
-                    Text(
-                      'Enviar comentario',
-                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Comparte una novedad sobre el mantenimiento #${detalle.mantenimiento.id}.',
-                      style: const TextStyle(color: Colors.white70, fontSize: 13),
-                    ),
-                    const SizedBox(height: 20),
-                    DropdownButtonFormField<String>(
-                      initialValue: tipoSeleccionado,
-                      items: const [
-                        DropdownMenuItem(value: 'Comentario', child: Text('Comentario general')),
-                        DropdownMenuItem(value: 'Solicitud de ajuste', child: Text('Solicitud de ajuste')), 
-                        DropdownMenuItem(value: 'Confirmación', child: Text('Confirmación de atención')), 
-                      ],
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setModalState(() {
-                          tipoSeleccionado = value;
-                        });
-                      },
-                      dropdownColor: _surfaceColor,
-                      iconEnabledColor: Colors.white,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Tipo de mensaje',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.white24),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.white54),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: controller,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        labelText: 'Mensaje para la empresa',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        errorText: errorText,
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.white24),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.white54),
-                        ),
-                        errorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.redAccent),
-                        ),
-                        focusedErrorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.redAccent),
-                        ),
-                        contentPadding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
-                      ),
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.of(ctx).pop(),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white70,
-                              side: const BorderSide(color: Colors.white24),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            ),
-                            child: const Text('Cancelar'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              final String mensaje = controller.text.trim();
-                              setModalState(() {
-                                errorText = mensaje.isEmpty ? 'Escribe un mensaje para enviarlo' : null;
-                              });
-                              if (mensaje.isEmpty) {
-                                return;
-                              }
-                              Navigator.of(ctx).pop(
-                                _HistorialMantenimiento(
-                                  id: _nextHistorialId,
-                                  mantenimientoId: detalle.mantenimiento.id,
-                                  accion: tipoSeleccionado.toUpperCase(),
-                                  fecha: DateTime.now().toUtc(),
-                                  comentario: mensaje,
-                                ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _accentColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            ),
-                            child: const Text('Enviar'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-
-    controller.dispose();
-
-    if (nuevoHistorial == null) {
-      return;
-    }
-
-    setState(() {
-      final List<_HistorialMantenimiento> historial = List<_HistorialMantenimiento>.from(
-        _historialPorMantenimiento[detalle.mantenimiento.id] ?? const [],
-      )
-        ..add(nuevoHistorial);
-      _historialPorMantenimiento = {
-        ..._historialPorMantenimiento,
-        detalle.mantenimiento.id: historial,
-      };
-      _nextHistorialId += 1;
-      _detalles = _detalles.map((_MantenimientoDetalle item) {
-        if (item.mantenimiento.id == detalle.mantenimiento.id) {
-          return _MantenimientoDetalle(
-            mantenimiento: item.mantenimiento,
-            tipo: item.tipo,
-            historial: historial,
-          );
-        }
-        return item;
-      }).toList();
-      _conteoEstados = _recalcularConteo(_detalles);
-    });
-
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Comentario enviado a la empresa.')),
-    );
-  }
-
-  Future<void> _showDetalleHistorial(
-    _HistorialMantenimiento registro,
-    _MantenimientoDetalle? detalle,
-  ) async {
-    final _Mantenimiento? mantenimiento = detalle?.mantenimiento;
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: _surfaceColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Detalle del mantenimiento #${registro.mantenimientoId}',
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 10),
-              if (mantenimiento != null) ...[
-                Text('Estado actual: ${_statusLabel(mantenimiento.estado)}', style: const TextStyle(color: Colors.white70)),
+                const SizedBox(height: 18),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        tipo?.nombre ?? 'Mantenimiento',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    buildEstadoTag(detalle.estadoActual),
+                  ],
+                ),
+
                 const SizedBox(height: 6),
-                Text('Taller: ${mantenimiento.taller}', style: const TextStyle(color: Colors.white70)),
+                Text(
+                  getVehiculoDisplayName(
+                    mantenimiento.vehiculoId,
+                    fallback: mantenimiento.vehiculoLabel,
+                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+
+                const SizedBox(height: 20),
+
+                detailItem(
+                  Icons.build,
+                  'Tipo de mantenimiento',
+                  tipo?.nombre ?? 'Sin tipo',
+                ),
+
+                detailItem(
+                  Icons.person,
+                  'Propietario',
+                  mantenimiento.propietarioNombre,
+                ),
+
+                if (mantenimiento.conductorNombre.isNotEmpty)
+                  detailItem(
+                    Icons.drive_eta,
+                    'Conductor',
+                    mantenimiento.conductorNombre,
+                  ),
+
+                if (mantenimiento.fechaSugerida != null)
+                  detailItem(
+                    Icons.lightbulb,
+                    'Fecha sugerida',
+                    formatShort(mantenimiento.fechaSugerida),
+                  ),
+
+                if (mantenimiento.fechaProgramada != null)
+                  detailItem(
+                    Icons.event_available,
+                    'Fecha programada',
+                    formatShort(mantenimiento.fechaProgramada),
+                  ),
+
+                if (mantenimiento.fechaRealizada != null)
+                  detailItem(
+                    Icons.done_all,
+                    'Fecha realizada',
+                    formatShort(mantenimiento.fechaRealizada),
+                  ),
+
+                if (mantenimiento.kilometraje > 0)
+                  detailItem(
+                    Icons.speed,
+                    'Kilometraje',
+                    '${mantenimiento.kilometraje} km',
+                  ),
+
+                if (mantenimiento.costo > 0)
+                  detailItem(
+                    Icons.attach_money,
+                    'Costo',
+                    NumberFormat.simpleCurrency(
+                      locale: 'es_CO',
+                    ).format(mantenimiento.costo),
+                  ),
+
+                if (mantenimiento.taller.trim().isNotEmpty)
+                  detailItem(
+                    Icons.store_mall_directory,
+                    'Taller',
+                    mantenimiento.taller,
+                  ),
+
+                detailItem(
+                  Icons.flag,
+                  'Prioridad',
+                  priorityLabel(mantenimiento.prioridad),
+                ),
+
+                detailItem(
+                  Icons.notes,
+                  'Observaciones',
+                  mantenimiento.observaciones.trim().isEmpty
+                      ? 'No tiene observaciones'
+                      : mantenimiento.observaciones.trim(),
+                ),
+
+                const SizedBox(height: 16),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white70,
+                      side: const BorderSide(color: Colors.white24),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text('Cerrar'),
+                  ),
+                ),
               ],
-              const SizedBox(height: 16),
-              Text('Movimiento', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 6),
-              Text(
-                '${_statusLabel(registro.accion)} • ${_formatDate(registro.fecha)}',
-                style: const TextStyle(color: Colors.white70),
-              ),
-              if (registro.comentario.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(registro.comentario, style: const TextStyle(color: Colors.white60)),
-              ],
-            ],
+            ),
           ),
         );
       },
     );
   }
 
-  Future<void> _showNewMaintenanceModal() async {
+  Widget buildInfoBadge(IconData icon, String label, {Color? color}) {
+    final badgeColor = color ?? Colors.white70;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: badgeColor.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: badgeColor.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: badgeColor),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildEstadoTag(String estado) {
+    final Color color = statusColor(estado);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.circle, size: 10, color: color),
+          const SizedBox(width: 6),
+          Text(
+            statusLabel(estado),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildHistorialReciente(bool isCompact) {
+    final completados =
+        filtrarBusqueda(
+          _detalles.where((detalle) {
+            return detalle.mantenimiento.estado.toUpperCase().trim() ==
+                'REALIZADO';
+          }).toList(),
+        )..sort((a, b) {
+          final fechaA = a.mantenimiento.fechaRealizada ?? DateTime(1900);
+          final fechaB = b.mantenimiento.fechaRealizada ?? DateTime(1900);
+          return fechaB.compareTo(fechaA);
+        });
+
+    if (completados.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+        child: const Text(
+          'Aún no hay mantenimientos realizados.',
+          style: TextStyle(color: Colors.white70),
+        ),
+      );
+    }
+
+    final Map<String, List<_MantenimientoDetalle>> porVehiculo = {};
+
+    for (final detalle in completados) {
+      final mantenimiento = detalle.mantenimiento;
+      final vehiculoNombre = getVehiculoDisplayName(
+        mantenimiento.vehiculoId,
+        fallback: mantenimiento.vehiculoLabel,
+      );
+
+      porVehiculo.putIfAbsent(vehiculoNombre, () => []);
+      porVehiculo[vehiculoNombre]!.add(detalle);
+    }
+
+    final entries = porVehiculo.entries.toList()
+      ..sort((a, b) {
+        final fechaA =
+            a.value.first.mantenimiento.fechaRealizada ?? DateTime(1900);
+        final fechaB =
+            b.value.first.mantenimiento.fechaRealizada ?? DateTime(1900);
+        return fechaB.compareTo(fechaA);
+      });
+
+    return Column(
+      children: entries.map((entry) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              initiallyExpanded: false,
+              tilePadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 4,
+              ),
+              childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+              iconColor: Colors.white70,
+              collapsedIconColor: Colors.white70,
+              title: Text(
+                entry.key,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              subtitle: Text(
+                '${entry.value.length} mantenimiento(s) realizado(s)',
+                style: const TextStyle(color: Colors.white60, fontSize: 12),
+              ),
+              children: [
+                for (int i = 0; i < entry.value.length; i++) ...[
+                  buildHistorialMantenimientoItem(entry.value[i]),
+                  if (i != entry.value.length - 1)
+                    const Divider(color: Colors.white24),
+                ],
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget buildHistorialMantenimientoItem(_MantenimientoDetalle detalle) {
+    final mantenimiento = detalle.mantenimiento;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => showMantenimientoDetalleModal(detalle),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.check_circle, color: Colors.green, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    detalle.tipo?.nombre ?? 'Sin tipo',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    getVehiculoDisplayName(
+                      mantenimiento.vehiculoId,
+                      fallback: mantenimiento.vehiculoLabel,
+                    ),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Toca para ver detalles',
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              formatShort(mantenimiento.fechaRealizada),
+              style: const TextStyle(color: Colors.white60, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration modalInputDecoration({
+    required String label,
+    String? errorText,
+    String? prefixText,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: Colors.white70),
+      errorText: errorText,
+      prefixText: prefixText,
+      prefixStyle: const TextStyle(color: Colors.white70),
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.06),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: _accentColor),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: _dangerColor),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: _dangerColor),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+    );
+  }
+
+  Widget modalSectionTitle(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 18, bottom: 10),
+      child: Row(
+        children: [
+          Icon(icon, color: _accentColor, size: 19),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> showNewMaintenanceModal() async {
     final TextEditingController tallerController = TextEditingController();
-    final TextEditingController observacionesController = TextEditingController();
+    final TextEditingController observacionesController =
+        TextEditingController();
     final TextEditingController costoController = TextEditingController();
-    
+    final TextEditingController kilometrajeController = TextEditingController();
+
+    DateTime? fechaSugerida;
+    DateTime? fechaProgramada;
+    DateTime? fechaRealizada;
     String? selectedVehiculo;
     String? selectedTipo;
+    String selectedPrioridad = 'Media';
+    String selectedModo = 'Sugerido';
     String? errorText;
 
-    final List<String> vehiculos = ['Veh 501', 'Veh 502', 'Veh 503'];
-    final List<String> tipos = ['Cambio de aceite', 'Alineacion y balanceo', 'Revision de frenos'];
+    final List<String> vehiculos = availableVehiculos();
+    final List<String> tipos = availableTipos();
+
+    Future<DateTime?> selectDate(BuildContext ctx, DateTime? current) async {
+      final DateTime now = DateTime.now();
+      return showDatePicker(
+        context: ctx,
+        initialDate: current ?? now,
+        firstDate: DateTime(now.year - 2),
+        lastDate: DateTime(now.year + 2),
+        builder: (context, child) {
+          if (child == null) return const SizedBox.shrink();
+          return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: const ColorScheme.dark(
+                primary: _accentColor,
+                onPrimary: Colors.white,
+                surface: Color(0xFF1C2140),
+                onSurface: Colors.white,
+              ),
+            ),
+            child: child,
+          );
+        },
+      );
+    }
 
     await showModalBottomSheet<void>(
       context: context,
@@ -1213,125 +1899,212 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                     const SizedBox(height: 18),
                     const Text(
                       'Crear mantenimiento',
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Programa un nuevo mantenimiento para los vehículos',
+                      'Sugiere o registra un mantenimiento con todos los datos requeridos.',
                       style: TextStyle(color: Colors.white70, fontSize: 13),
                     ),
                     const SizedBox(height: 20),
-                    // Vehículo selector
+                    modalSectionTitle(
+                      'Información principal',
+                      Icons.build_circle,
+                    ),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedModo,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'Sugerido',
+                          child: Text('Sugerido'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Programado',
+                          child: Text('Programado'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Realizado',
+                          child: Text('Realizado'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setModalState(() {
+                          selectedModo = value;
+                          if (selectedModo == 'Sugerido') {
+                            kilometrajeController.clear();
+                          }
+                        });
+                      },
+                      dropdownColor: _surfaceColor,
+                      iconEnabledColor: Colors.white,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: modalInputDecoration(
+                        label: 'Tipo de registro',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
                     DropdownButtonFormField<String>(
                       initialValue: selectedVehiculo,
-                      items: vehiculos.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                      items: vehiculos
+                          .map(
+                            (v) => DropdownMenuItem(value: v, child: Text(v)),
+                          )
+                          .toList(),
                       onChanged: (value) {
                         setModalState(() => selectedVehiculo = value);
                       },
                       dropdownColor: _surfaceColor,
                       iconEnabledColor: Colors.white,
                       style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Vehículo',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.white24),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.white54),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
+                      decoration: modalInputDecoration(label: 'Vehículo'),
                     ),
                     const SizedBox(height: 14),
-                    // Tipo selector
                     DropdownButtonFormField<String>(
                       initialValue: selectedTipo,
-                      items: tipos.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                      items: tipos
+                          .map(
+                            (t) => DropdownMenuItem(value: t, child: Text(t)),
+                          )
+                          .toList(),
                       onChanged: (value) {
                         setModalState(() => selectedTipo = value);
                       },
                       dropdownColor: _surfaceColor,
                       iconEnabledColor: Colors.white,
                       style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Tipo de mantenimiento',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.white24),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.white54),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: modalInputDecoration(
+                        label: 'Tipo de mantenimiento',
                       ),
                     ),
                     const SizedBox(height: 14),
-                    // Taller
-                    TextField(
-                      controller: tallerController,
-                      decoration: InputDecoration(
-                        labelText: 'Taller',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.white24),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.white54),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    const SizedBox(height: 14),
-                    // Costo
-                    TextField(
-                      controller: costoController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'Costo estimado',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        prefixText: '\$ ',
-                        prefixStyle: const TextStyle(color: Colors.white70),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.white24),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.white54),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    const SizedBox(height: 14),
-                    // Observaciones
+                    modalSectionTitle('Observaciones finales', Icons.notes),
                     TextField(
                       controller: observacionesController,
                       maxLines: 3,
-                      decoration: InputDecoration(
-                        labelText: 'Observaciones',
-                        labelStyle: const TextStyle(color: Colors.white70),
+                      decoration: modalInputDecoration(
+                        label: 'Observaciones',
                         errorText: errorText,
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.white24),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Colors.white54),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       ),
                       style: const TextStyle(color: Colors.white),
                     ),
+                    const SizedBox(height: 14),
+                    modalSectionTitle(
+                      'Fechas del mantenimiento',
+                      Icons.calendar_month,
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () async {
+                              final DateTime? picked = await selectDate(
+                                ctx,
+                                selectedModo == 'Sugerido'
+                                    ? fechaSugerida
+                                    : selectedModo == 'Programado'
+                                    ? fechaProgramada
+                                    : fechaRealizada,
+                              );
+                              if (picked != null) {
+                                setModalState(() {
+                                  if (selectedModo == 'Sugerido') {
+                                    fechaSugerida = picked;
+                                  } else if (selectedModo == 'Programado') {
+                                    fechaProgramada = picked;
+                                  } else {
+                                    fechaRealizada = picked;
+                                  }
+                                });
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white70,
+                              side: const BorderSide(color: Colors.white24),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: Text(
+                              selectedModo == 'Sugerido'
+                                  ? (fechaSugerida == null
+                                        ? 'Seleccionar fecha sugerida'
+                                        : 'Sugerida ${DateFormat('dd/MM/yyyy').format(fechaSugerida!)}')
+                                  : selectedModo == 'Programado'
+                                  ? (fechaProgramada == null
+                                        ? 'Seleccionar fecha programada'
+                                        : 'Programada ${DateFormat('dd/MM/yyyy').format(fechaProgramada!)}')
+                                  : (fechaRealizada == null
+                                        ? 'Seleccionar fecha realizada'
+                                        : 'Realizada ${DateFormat('dd/MM/yyyy').format(fechaRealizada!)}'),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    modalSectionTitle('Prioridad y detalles', Icons.flag),
+                    const SizedBox(height: 14),
+                    if (selectedModo == 'Realizado') ...[
+                      modalSectionTitle('Datos de realización', Icons.handyman),
+                      TextField(
+                        controller: kilometrajeController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: modalInputDecoration(
+                          label: 'Kilometraje *',
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedPrioridad,
+                      items: const [
+                        DropdownMenuItem(value: 'Alta', child: Text('Alta')),
+                        DropdownMenuItem(value: 'Media', child: Text('Media')),
+                        DropdownMenuItem(value: 'Baja', child: Text('Baja')),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setModalState(() {
+                          selectedPrioridad = value;
+                        });
+                      },
+                      dropdownColor: _surfaceColor,
+                      iconEnabledColor: Colors.white,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: modalInputDecoration(label: 'Prioridad'),
+                    ),
+                    const SizedBox(height: 14),
+                    if (selectedModo == 'Realizado') ...[
+                      TextField(
+                        controller: tallerController,
+                        decoration: modalInputDecoration(label: 'Taller'),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: costoController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: modalInputDecoration(
+                          label: 'Costo',
+                          prefixText: r'$ ',
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ],
                     const SizedBox(height: 24),
                     Row(
                       children: [
@@ -1342,7 +2115,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                               foregroundColor: Colors.white70,
                               side: const BorderSide(color: Colors.white24),
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                             ),
                             child: const Text('Cancelar'),
                           ),
@@ -1350,33 +2125,151 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () {
+                            onPressed: () async {
                               setModalState(() {
                                 errorText = null;
-                                if (selectedVehiculo == null || selectedVehiculo!.isEmpty) {
+                                if (selectedVehiculo == null ||
+                                    selectedVehiculo!.isEmpty) {
                                   errorText = 'Selecciona un vehículo';
-                                } else if (selectedTipo == null || selectedTipo!.isEmpty) {
-                                  errorText = 'Selecciona tipo de mantenimiento';
-                                } else if (tallerController.text.isEmpty) {
-                                  errorText = 'Especifica el taller';
+                                } else if (selectedTipo == null ||
+                                    selectedTipo!.isEmpty) {
+                                  errorText =
+                                      'Selecciona tipo de mantenimiento';
+                                } else if (selectedModo == 'Sugerido' &&
+                                    fechaSugerida == null) {
+                                  errorText = 'Selecciona la fecha sugerida';
+                                } else if (selectedModo == 'Programado' &&
+                                    fechaProgramada == null) {
+                                  errorText = 'Selecciona la fecha programada';
+                                } else if (selectedModo == 'Realizado' &&
+                                    fechaRealizada == null) {
+                                  errorText =
+                                      'Selecciona la fecha de realización';
+                                } else if (selectedModo == 'Realizado' &&
+                                    (kilometrajeController.text
+                                            .trim()
+                                            .isEmpty ||
+                                        int.tryParse(
+                                              kilometrajeController.text.trim(),
+                                            ) ==
+                                            null)) {
+                                  errorText = 'Ingresa el kilometraje válido';
                                 }
                               });
 
-                              if (errorText != null) return;
+                              if (errorText != null) {
+                                return;
+                              }
 
-                              debugPrint('Nuevo mantenimiento: Veh=$selectedVehiculo, Tipo=$selectedTipo, Taller=${tallerController.text}');
-
-                              Navigator.of(ctx).pop();
-
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('✅ Mantenimiento creado correctamente')),
+                              final int vehiculoId = getVehiculoIdFromSelection(
+                                selectedVehiculo,
                               );
+                              final int tipoId = getTipoIdFromSelection(
+                                selectedTipo,
+                              );
+                              final int costo =
+                                  int.tryParse(costoController.text.trim()) ??
+                                  0;
+                              final int kilometraje =
+                                  int.tryParse(
+                                    kilometrajeController.text.trim(),
+                                  ) ??
+                                  0;
+                              final String estado = selectedModo == 'Sugerido'
+                                  ? 'SUGERIDO'
+                                  : selectedModo == 'Programado'
+                                  ? 'PROGRAMADO'
+                                  : 'REALIZADO';
+
+                              // Usar API para crear mantenimiento
+                              final prefs =
+                                  await SharedPreferences.getInstance();
+                              final token = prefs.getString('auth_token');
+
+                              final result =
+                                  await ApiService.createMantenimiento(
+                                    vehiculoId: vehiculoId,
+                                    tipoId: tipoId,
+                                    estado: estado.trim().toUpperCase(),
+                                    fechaSugerida: selectedModo == 'Sugerido'
+                                        ? fechaSugerida
+                                        : null,
+                                    fechaProgramada:
+                                        selectedModo == 'Programado'
+                                        ? fechaProgramada
+                                        : null,
+                                    fechaRealizada: selectedModo == 'Realizado'
+                                        ? fechaRealizada
+                                        : null,
+                                    kilometraje: selectedModo == 'Realizado'
+                                        ? kilometraje
+                                        : null,
+                                    costo: selectedModo == 'Realizado'
+                                        ? costo
+                                        : null,
+                                    taller: selectedModo == 'Realizado'
+                                        ? tallerController.text.trim()
+                                        : null,
+                                    observaciones: observacionesController.text
+                                        .trim(),
+                                    prioridad: selectedPrioridad,
+                                    token: token,
+                                  );
+
+                              if (result != null) {
+                                // Si el backend lo crea como sugerido, lo marcamos inmediatamente como realizado
+                                if (selectedModo == 'Realizado') {
+                                  final int mantenimientoCreadoId =
+                                      int.tryParse(
+                                        (result['id'] ??
+                                                result['id_mantenimiento'] ??
+                                                '')
+                                            .toString(),
+                                      ) ??
+                                      0;
+
+                                  if (mantenimientoCreadoId > 0) {
+                                    await ApiService.updateMantenimiento(
+                                      mantenimientoId: mantenimientoCreadoId,
+                                      fechaRealizada: fechaRealizada,
+                                      kilometraje: kilometraje,
+                                      costo: costo,
+                                      taller: tallerController.text.trim(),
+                                      observaciones: observacionesController
+                                          .text
+                                          .trim(),
+                                      estado: 'REALIZADO',
+                                      token: token,
+                                    );
+                                  }
+                                }
+                                await _loadData();
+
+                                if (!ctx.mounted) return;
+                                Navigator.of(ctx).pop();
+
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      '✅ Mantenimiento ${selectedModo.toLowerCase()} creado correctamente',
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                setModalState(
+                                  () => errorText =
+                                      'Error al crear el mantenimiento',
+                                );
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _accentColor,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                             ),
                             child: const Text('Crear mantenimiento'),
                           ),
@@ -1395,70 +2288,387 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     tallerController.dispose();
     observacionesController.dispose();
     costoController.dispose();
+    kilometrajeController.dispose();
   }
 
-  Widget _buildErrorState() {
+  Future<void> showCompletarMantenimientoModal(
+    _MantenimientoDetalle detalle,
+  ) async {
+    final _Mantenimiento mantenimiento = detalle.mantenimiento;
+
+    // Validar que el usuario tenga acceso al vehículo
+    if (!usuarioTieneAccesoAlVehiculo(mantenimiento.vehiculoId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No tienes acceso a este vehículo'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final TextEditingController tallerController = TextEditingController(
+      text: mantenimiento.taller,
+    );
+    final TextEditingController observacionesController = TextEditingController(
+      text: mantenimiento.observaciones,
+    );
+    final TextEditingController costoController = TextEditingController(
+      text: mantenimiento.costo > 0 ? mantenimiento.costo.toString() : '',
+    );
+    final TextEditingController kilometrajeController = TextEditingController(
+      text: mantenimiento.kilometraje > 0
+          ? mantenimiento.kilometraje.toString()
+          : '',
+    );
+
+    DateTime? fechaRealizada = mantenimiento.fechaRealizada ?? DateTime.now();
+    String? errorText;
+
+    Future<DateTime?> selectDate(BuildContext ctx, DateTime? current) async {
+      final DateTime now = DateTime.now();
+      return showDatePicker(
+        context: ctx,
+        initialDate: current ?? now,
+        firstDate: DateTime(now.year - 2),
+        lastDate: DateTime(now.year + 2),
+        builder: (context, child) {
+          if (child == null) return const SizedBox.shrink();
+          return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: const ColorScheme.dark(
+                primary: _accentColor,
+                onPrimary: Colors.white,
+                surface: Color(0xFF1C2140),
+                onSurface: Colors.white,
+              ),
+            ),
+            child: child,
+          );
+        },
+      );
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 44,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Completar mantenimiento',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${detalle.tipo?.nombre ?? 'Mantenimiento'} - ${getVehiculoDisplayName(mantenimiento.vehiculoId, fallback: mantenimiento.vehiculoLabel)}',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    modalSectionTitle(
+                      'Datos de realización',
+                      Icons.check_circle,
+                    ),
+                    InputDecorator(
+                      decoration: modalInputDecoration(
+                        label: 'Fecha de realización',
+                      ),
+                      child: InkWell(
+                        onTap: () async {
+                          final DateTime? picked = await selectDate(
+                            ctx,
+                            fechaRealizada,
+                          );
+                          if (picked != null) {
+                            setModalState(() => fechaRealizada = picked);
+                          }
+                        },
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.calendar_today,
+                              color: Colors.white70,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                DateFormat(
+                                  'dd/MM/yyyy',
+                                ).format(fechaRealizada ?? DateTime.now()),
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: tallerController,
+                      decoration: modalInputDecoration(label: 'Taller'),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: kilometrajeController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: modalInputDecoration(label: 'Kilometraje'),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: costoController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: modalInputDecoration(
+                        label: 'Costo',
+                        prefixText: r'$ ',
+                      ),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    const SizedBox(height: 14),
+                    modalSectionTitle('Observaciones finales', Icons.notes),
+                    TextField(
+                      controller: observacionesController,
+                      maxLines: 3,
+                      decoration: modalInputDecoration(
+                        label: 'Observaciones',
+                        errorText: errorText,
+                      ),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white70,
+                              side: const BorderSide(color: Colors.white24),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: const Text('Cancelar'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              setModalState(() {
+                                errorText = null;
+                                if (fechaRealizada == null) {
+                                  errorText =
+                                      'Selecciona la fecha de realización';
+                                } else if (kilometrajeController.text
+                                        .trim()
+                                        .isEmpty ||
+                                    int.tryParse(
+                                          kilometrajeController.text.trim(),
+                                        ) ==
+                                        null) {
+                                  errorText = 'Ingresa el kilometraje válido';
+                                }
+                              });
+                              if (errorText != null) {
+                                return;
+                              }
+                              final int costo =
+                                  int.tryParse(costoController.text.trim()) ??
+                                  0;
+                              final int kilometraje =
+                                  int.tryParse(
+                                    kilometrajeController.text.trim(),
+                                  ) ??
+                                  0;
+
+                              // Usar API para actualizar mantenimiento
+                              final prefs =
+                                  await SharedPreferences.getInstance();
+                              final token = prefs.getString('auth_token');
+                              final userId =
+                                  widget.userId ?? prefs.getString('user_id');
+
+                              final result =
+                                  await ApiService.updateMantenimiento(
+                                    mantenimientoId: mantenimiento.id,
+                                    fechaRealizada: fechaRealizada,
+                                    kilometraje: kilometraje,
+                                    costo: costo,
+                                    taller: tallerController.text.trim(),
+                                    observaciones: observacionesController.text
+                                        .trim(),
+                                    estado: null,
+                                    userId: userId,
+                                    token: token,
+                                  );
+
+                              if (result != null) {
+                                // Recargar datos
+                                await _loadData();
+
+                                if (!ctx.mounted) return;
+                                Navigator.of(ctx).pop();
+
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      '✅ Mantenimiento completado correctamente',
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                setModalState(
+                                  () => errorText =
+                                      'Error al completar el mantenimiento',
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _successColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: const Text('Completar'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    tallerController.dispose();
+    observacionesController.dispose();
+    costoController.dispose();
+    kilometrajeController.dispose();
+  }
+
+  Widget buildErrorState() {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 40),
-          const SizedBox(height: 12),
-          const Text('No fue posible cargar la informacion.', style: TextStyle(color: Colors.white, fontSize: 16)),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: _loadData,
-            child: const Text('Reintentar'),
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: Colors.orangeAccent,
+            size: 40,
           ),
+          const SizedBox(height: 12),
+          const Text(
+            'No fue posible cargar la informacion.',
+            style: TextStyle(color: Colors.white, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          TextButton(onPressed: _loadData, child: const Text('Reintentar')),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget buildEmptyState() {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: const [
           Icon(Icons.build_circle_outlined, color: Colors.white54, size: 48),
           SizedBox(height: 14),
-          Text('No hay mantenimientos programados.', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+          Text(
+            'No hay mantenimientos registrados.',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           SizedBox(height: 6),
-          Text('Cuando la empresa te asigne un mantenimiento aparecerá aquí.', style: TextStyle(color: Colors.white70, fontSize: 13)),
+          Text(
+            'Cuando la empresa te asigne un mantenimiento aparecerá aquí.',
+            style: TextStyle(color: Colors.white70, fontSize: 13),
+          ),
         ],
       ),
     );
   }
 
-  int _statusPriority(String value) {
+  int statusPriority(String value) {
     const Map<String, int> order = {
       'SUGERIDO': 0,
       'PROGRAMADO': 1,
       'EN_PROCESO': 2,
-      'COMPLETADO': 3,
+      'REALIZADO': 3,
       'CANCELADO': 4,
     };
-    return order[_normalizeStatus(value)] ?? 9;
+    return order[normalizeStatus(value)] ?? 9;
   }
 
-  String _normalizeStatus(String value) => value.toUpperCase();
+  String normalizeStatus(String value) => value.toUpperCase();
 
-  String _formatDate(DateTime? value) {
+  String formatDate(DateTime? value) {
     if (value == null) {
       return 'Sin fecha';
     }
     return _dateFormat.format(value.toLocal());
   }
 
-  String _formatShort(DateTime? value) {
+  String formatShort(DateTime? value) {
     if (value == null) {
       return 'Sin fecha';
     }
-    return DateFormat('dd/MM').format(value.toLocal());
+    return DateFormat('dd/MM/yyyy').format(value.toLocal());
   }
 
-  String _statusLabel(String value) {
-    final String normalized = _normalizeStatus(value);
+  String statusLabel(String value) {
+    final String normalized = normalizeStatus(value);
     switch (normalized) {
       case 'SUGERIDO':
         return 'Sugerido';
@@ -1466,25 +2676,55 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
         return 'Programado';
       case 'EN_PROCESO':
         return 'En proceso';
-      case 'COMPLETADO':
-        return 'Completado';
+      case 'REALIZADO':
+        return 'Realizado';
       case 'CANCELADO':
         return 'Cancelado';
       default:
-        return normalized[0].toUpperCase() + normalized.substring(1).toLowerCase();
+        return normalized[0].toUpperCase() +
+            normalized.substring(1).toLowerCase();
     }
   }
 
-  Color _statusColor(String value) {
-    final String normalized = _normalizeStatus(value);
+  String priorityLabel(String value) {
+    final normalized = value.trim().toLowerCase();
+
+    if (normalized == 'alta') return 'Alta';
+    if (normalized == 'media') return 'Media';
+    if (normalized == 'baja') return 'Baja';
+
+    return value.trim().isEmpty ? 'Media' : value.trim();
+  }
+
+  Color priorityColor(String value) {
+    final normalized = value.trim().toLowerCase();
+
+    if (normalized == 'alta') return _dangerColor;
+    if (normalized == 'media') return _warningColor;
+    if (normalized == 'baja') return _successColor;
+
+    return _warningColor;
+  }
+
+  int priorityRank(String value) {
+    final normalized = value.trim().toLowerCase();
+
+    if (normalized == 'alta') return 0;
+    if (normalized == 'media') return 1;
+    if (normalized == 'baja') return 2;
+
+    return 1;
+  }
+
+  Color statusColor(String value) {
+    final String normalized = normalizeStatus(value);
     switch (normalized) {
-      case 'COMPLETADO':
-        return _successColor;
+      case 'REALIZADO':
+        return _infoColor; // Azul para finalizados
       case 'EN_PROCESO':
       case 'PROGRAMADO':
-        return _infoColor;
       case 'SUGERIDO':
-        return _warningColor;
+        return _warningColor; // Naranja para programados/sugeridos
       case 'CANCELADO':
         return _dangerColor;
       default:

@@ -1486,7 +1486,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     return MantenimientosWidget(
       role: 'Empresa',
       userId: widget.usuario?['id']?.toString(),
-      jsonPath: null,
     );
   }
 

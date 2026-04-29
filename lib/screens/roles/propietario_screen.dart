@@ -1038,7 +1038,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       case 'Empresa':
         return EmpresaWidget(userId: widget.userId, jsonPath: 'assets/companies_data.json');
       case 'Mantenimientos':
-        return MantenimientosWidget(role: 'Propietario', userId: widget.userId ?? '1', jsonPath: 'assets/mantenimientos_data.json');
+        return MantenimientosWidget(role: 'Propietario', userId: widget.userId ?? '1',);
       case 'Calendario':
         return _buildCalendarContent();
       case 'Solicitudes':
