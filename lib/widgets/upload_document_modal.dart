@@ -97,40 +97,50 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
   /// Intenta múltiples campos posibles para mayor compatibilidad
   String _getNombrePersona(Map<String, dynamic> persona) {
     // Intenta campos posibles en orden de preferencia
-    if (persona['nombreCompleto'] != null)
+    if (persona['nombreCompleto'] != null) {
       return persona['nombreCompleto'].toString();
+    }
+
     if (persona['nombre'] != null) return persona['nombre'].toString();
     if (persona['nomina'] != null) return persona['nomina'].toString();
     if (persona['usuario'] != null && persona['usuario'] is Map) {
-      if (persona['usuario']['nombre'] != null)
+      if (persona['usuario']['nombre'] != null) {
         return persona['usuario']['nombre'].toString();
-      if (persona['usuario']['nombreCompleto'] != null)
+      }
+
+      if (persona['usuario']['nombreCompleto'] != null) {
         return persona['usuario']['nombreCompleto'].toString();
+      }
     }
     return 'Sin nombre';
   }
 
   /// Extrae el documento de una persona
   String _getDocumentoPersona(Map<String, dynamic> persona) {
-    if (persona['numeroDocumento'] != null)
+    if (persona['numeroDocumento'] != null) {
       return persona['numeroDocumento'].toString();
+    }
     if (persona['documento'] != null) return persona['documento'].toString();
     if (persona['rut'] != null) return persona['rut'].toString();
     if (persona['usuario'] != null && persona['usuario'] is Map) {
-      if (persona['usuario']['numeroDocumento'] != null)
+      if (persona['usuario']['numeroDocumento'] != null){
         return persona['usuario']['numeroDocumento'].toString();
+      }
     }
     return 'Sin documento';
   }
 
   /// Extrae el ID de una persona
   int _getIdPersona(Map<String, dynamic> persona) {
-    if (persona['id'] != null)
+    if (persona['id'] != null){
       return int.tryParse(persona['id'].toString()) ?? 0;
-    if (persona['idConductor'] != null)
+    }
+    if (persona['idConductor'] != null){
       return int.tryParse(persona['idConductor'].toString()) ?? 0;
-    if (persona['idPropietario'] != null)
+    }
+    if (persona['idPropietario'] != null){
       return int.tryParse(persona['idPropietario'].toString()) ?? 0;
+    }
     return 0;
   }
 
@@ -143,8 +153,10 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     if (nombre == 'LICENCIA') return 'CONDUCTOR';
 
     // Documentos del PROPIETARIO (solo para propietarios)
-    if (nombre == 'RUT' || nombre == 'CERTIFICADO_PROPIEDAD')
+    if (nombre == 'RUT' || nombre == 'CERTIFICADO_PROPIEDAD'){
       return 'PROPIETARIO';
+    }
+      
 
     // Documentos del VEHÍCULO
     if (nombre == 'SOAT' ||
@@ -1458,12 +1470,13 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                         type['id_tipo_documento'])
                     .toString(),
               );
-              if (id == null)
+              if (id == null){
                 return const DropdownMenuItem<int>(
                   value: -1,
                   enabled: false,
                   child: Text('Tipo inválido'),
                 );
+              }
               final nombre =
                   type['nombre'] ?? type['nombre_tipo'] ?? 'Sin nombre';
               return DropdownMenuItem<int>(
