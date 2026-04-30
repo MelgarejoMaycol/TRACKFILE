@@ -884,12 +884,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
         const SizedBox(height: 20),
         buildMaintenanceSearch(),
         const SizedBox(height: 20),
-        buildProgramadosSection(
-          isTableCompact: isTableCompact,
-          isCompact: isCompact,
-        ),
+        buildActivosDashboard(isCompact),
         const SizedBox(height: 24),
-        buildHistorialSection(isCompact),
+        buildHistorialPorTipo(isCompact),
       ],
     );
   }
@@ -909,6 +906,334 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           tipo.contains(maintenanceSearch);
     }).toList();
   }
+
+  Map<String, List<_MantenimientoDetalle>> agruparPorTipo(
+    List<_MantenimientoDetalle> lista,
+  ) {
+    final Map<String, List<_MantenimientoDetalle>> grupos = {};
+
+    for (final item in lista) {
+      final tipo = item.tipo?.nombre ?? 'Sin tipo';
+
+      grupos.putIfAbsent(tipo, () => []);
+      grupos[tipo]!.add(item);
+    }
+
+    return grupos;
+  }
+
+  String getIconoTipo(String tipo) {
+    final t = tipo.toLowerCase();
+
+    if (t.contains('preventivo')) return '🔧';
+    if (t.contains('correctivo')) return '🚨';
+    if (t.contains('aceite')) return '🛢';
+    if (t.contains('revision') || t.contains('revisión')) return '⚙';
+
+    return '🔧';
+  }
+
+  Widget buildActivosDashboard(bool isCompact) {
+    final sugeridos =
+        filtrarBusqueda(
+          _detalles.where((d) {
+            return d.mantenimiento.estado.toUpperCase().trim() == 'SUGERIDO';
+          }).toList(),
+        )..sort((a, b) {
+          final prioridadA = priorityRank(a.mantenimiento.prioridad);
+          final prioridadB = priorityRank(b.mantenimiento.prioridad);
+
+          if (prioridadA != prioridadB) {
+            return prioridadA.compareTo(prioridadB);
+          }
+
+          final fechaA = a.mantenimiento.fechaSugerida ?? DateTime(2100);
+          final fechaB = b.mantenimiento.fechaSugerida ?? DateTime(2100);
+          return fechaA.compareTo(fechaB);
+        });
+
+    final programados =
+        filtrarBusqueda(
+          _detalles.where((d) {
+            return d.mantenimiento.estado.toUpperCase().trim() == 'PROGRAMADO';
+          }).toList(),
+        )..sort((a, b) {
+          final prioridadA = priorityRank(a.mantenimiento.prioridad);
+          final prioridadB = priorityRank(b.mantenimiento.prioridad);
+
+          if (prioridadA != prioridadB) {
+            return prioridadA.compareTo(prioridadB);
+          }
+
+          final fechaA = a.mantenimiento.fechaProgramada ?? DateTime(2100);
+          final fechaB = b.mantenimiento.fechaProgramada ?? DateTime(2100);
+          return fechaA.compareTo(fechaB);
+        });
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Mantenimientos activos',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: isCompact ? 16 : 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: buildEstadoDashboardCard(
+                titulo: 'Sugeridos',
+                icono: Icons.lightbulb,
+                cantidad: sugeridos.length,
+                color: _warningColor,
+                onTap: () => abrirListaModal('Sugeridos', sugeridos),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: buildEstadoDashboardCard(
+                titulo: 'Programados',
+                icono: Icons.event_available,
+                cantidad: programados.length,
+                color: _accentColor,
+                onTap: () => abrirListaModal('Programados', programados),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget buildEstadoDashboardCard({
+    required String titulo,
+    required IconData icono,
+    required int cantidad,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        height: 130,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: color.withValues(alpha: 0.45)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icono, color: color, size: 30),
+            const Spacer(),
+            Text(
+              titulo,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$cantidad mantenimiento(s)',
+              style: const TextStyle(color: Colors.white60, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildHistorialPorTipo(bool isCompact) {
+    final realizados =
+        filtrarBusqueda(
+          _detalles.where((d) {
+            return d.mantenimiento.estado.toUpperCase().trim() == 'REALIZADO';
+          }).toList(),
+        )..sort((a, b) {
+          final fechaA = a.mantenimiento.fechaRealizada ?? DateTime(1900);
+          final fechaB = b.mantenimiento.fechaRealizada ?? DateTime(1900);
+          return fechaB.compareTo(fechaA);
+        });
+
+    if (realizados.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+        child: const Text(
+          'Aún no hay mantenimientos realizados.',
+          style: TextStyle(color: Colors.white70),
+        ),
+      );
+    }
+
+    final agrupados = agruparPorTipo(realizados);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Historial por tipo',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: isCompact ? 16 : 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: isCompact ? 2 : 4,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 1.6,
+          children: agrupados.entries.map((entry) {
+            return buildHistorialTipoCard(
+              tipo: entry.key,
+              cantidad: entry.value.length,
+              onTap: () => abrirListaModal(entry.key, entry.value),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget buildHistorialTipoCard({
+    required String tipo,
+    required int cantidad,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(getIconoTipo(tipo), style: const TextStyle(fontSize: 30)),
+            const Spacer(),
+            Text(
+              tipo,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$cantidad realizado(s)',
+              style: const TextStyle(color: Colors.white60, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void abrirListaModal(String titulo, List<_MantenimientoDetalle> lista) {
+  final ordenados = List<_MantenimientoDetalle>.from(lista)
+    ..sort((a, b) {
+      final fechaA =
+          a.mantenimiento.fechaRealizada ??
+          a.mantenimiento.fechaProgramada ??
+          a.mantenimiento.fechaSugerida ??
+          DateTime(1900);
+
+      final fechaB =
+          b.mantenimiento.fechaRealizada ??
+          b.mantenimiento.fechaProgramada ??
+          b.mantenimiento.fechaSugerida ??
+          DateTime(1900);
+
+      return fechaB.compareTo(fechaA);
+    });
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: _surfaceColor,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (context) {
+      return DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.85,
+        minChildSize: 0.45,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  titulo,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${ordenados.length} mantenimiento(s)',
+                  style: const TextStyle(color: Colors.white60),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    children: ordenados.map((detalle) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: buildMantenimientoCard(detalle),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 
   Widget buildProgramadosSection({
     required bool isTableCompact,

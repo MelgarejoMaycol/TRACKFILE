@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:frontendproyecto/utils/api_config.dart';
 import 'package:frontendproyecto/widgets/inicio.dart';
-import 'package:frontendproyecto/widgets/documentos.dart';
+import 'package:frontendproyecto/screens/documents/documentos_screen.dart';
 import 'package:frontendproyecto/widgets/vehiculos.dart';
 import 'package:frontendproyecto/widgets/empresa.dart';
 import 'package:frontendproyecto/widgets/certificaciones.dart';
@@ -1001,11 +1001,9 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           onNavigateToMessages: _navigateToMessages,
         );
       case 'Documentos':
-        return DocumentosWidget(
+        return DocumentosScreen(
           role: 'Propietario',
-          jsonPath: _ownerDashboardAsset,
           userId: widget.userId,
-          token: null,
           canUpload: false,
         );
       case 'Certificaciones':

@@ -4,7 +4,7 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:frontendproyecto/utils/api_config.dart';
 import 'package:frontendproyecto/widgets/inicio.dart';
-import 'package:frontendproyecto/widgets/documentos.dart';
+import 'package:frontendproyecto/screens/documents/documentos_screen.dart';
 import 'package:frontendproyecto/widgets/vehiculos.dart';
 import 'package:frontendproyecto/widgets/empresa.dart';
 import 'package:frontendproyecto/widgets/certificaciones.dart';
@@ -730,11 +730,9 @@ class _ConductorScreenState extends State<ConductorScreen> {
           onNavigateToMessages: _navigateToMessages,
         );
       case 'Documentos':
-        return DocumentosWidget(
+        return DocumentosScreen(
           role: 'Conductor',
-          jsonPath: 'assets/documents_data.json',
           userId: widget.userId,
-          token: null,
           canUpload: false,
         );
       case 'Certificaciones':
