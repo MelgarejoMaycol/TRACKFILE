@@ -4,8 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../services/document_service.dart';
-import 'shimmer_skeleton.dart';
+import '../../services/document_service.dart';
+import '../utils/shimmer_skeleton.dart';
 
 class UploadDocumentModal {
   static void show({

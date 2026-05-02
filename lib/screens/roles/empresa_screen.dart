@@ -3,13 +3,12 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:frontendproyecto/screens/documents/documentos_screen.dart';
-import 'package:frontendproyecto/widgets/conductores.dart';
+import 'package:frontendproyecto/widgets/documents/documentos_screen.dart';
+import 'package:frontendproyecto/widgets/users/gestion_personas_widget.dart';
 import 'package:frontendproyecto/widgets/inicio.dart';
-import 'package:frontendproyecto/widgets/logout_button.dart';
-import 'package:frontendproyecto/widgets/mantenimientos.dart';
-import 'package:frontendproyecto/widgets/propietarios.dart';
-import 'package:frontendproyecto/widgets/vehiculos.dart';
+import 'package:frontendproyecto/widgets/utils/logout_button.dart';
+import 'package:frontendproyecto/widgets/mantenimientos/mantenimientos.dart';
+import 'package:frontendproyecto/widgets/vehiculos/vehiculos.dart';
 
 class _MenuOption {
   final String label;
@@ -357,9 +356,18 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           onNavigateToProfile: () => _activateSection('Perfil'),
         );
       case 'Conductores':
-        return const ConductoresWidget();
+        return GestionPersonasWidget(
+          tipoInicial: TipoGestionPersona.conductor,
+          permitirCambiarTipo: false,
+          nombreEmpresa: _companyName,
+        );
+
       case 'Propietarios':
-        return const PropietariosWidget();
+        return GestionPersonasWidget(
+          tipoInicial: TipoGestionPersona.propietario,
+          permitirCambiarTipo: false,
+          nombreEmpresa: _companyName,
+        );
       case 'Documentos':
         return DocumentosScreen(
           role: 'Empresa',

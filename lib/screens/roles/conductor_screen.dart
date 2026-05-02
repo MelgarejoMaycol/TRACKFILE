@@ -4,12 +4,12 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:frontendproyecto/utils/api_config.dart';
 import 'package:frontendproyecto/widgets/inicio.dart';
-import 'package:frontendproyecto/screens/documents/documentos_screen.dart';
-import 'package:frontendproyecto/widgets/vehiculos.dart';
-import 'package:frontendproyecto/widgets/empresa.dart';
-import 'package:frontendproyecto/widgets/certificaciones.dart';
-import 'package:frontendproyecto/widgets/mantenimientos.dart';
-import 'package:frontendproyecto/widgets/perfil.dart';
+import 'package:frontendproyecto/widgets/documents/documentos_screen.dart';
+import 'package:frontendproyecto/widgets/vehiculos/vehiculos.dart';
+import 'package:frontendproyecto/widgets/users/empresa.dart';
+import 'package:frontendproyecto/widgets/certificados/certificaciones.dart';
+import 'package:frontendproyecto/widgets/mantenimientos/mantenimientos.dart';
+import 'package:frontendproyecto/widgets/users/perfil.dart';
 
 class _MenuOption {
   final String label;

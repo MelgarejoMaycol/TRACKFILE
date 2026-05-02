@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../services/api_service.dart';
-import 'shimmer_skeleton.dart';
+import '../../services/api_service.dart';
+import '../utils/shimmer_skeleton.dart';
 
 class MantenimientosWidget extends StatefulWidget {
   final String role;

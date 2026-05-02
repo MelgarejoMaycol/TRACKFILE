@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontendproyecto/utils/api_config.dart';
-import 'package:frontendproyecto/widgets/shimmer_skeleton.dart';
+import 'package:frontendproyecto/widgets/utils/shimmer_skeleton.dart';
 
 /// Visualiza los registros de la tabla vehiculos con filtros basados en estado y busqueda.
 class VehiculosWidget extends StatefulWidget {

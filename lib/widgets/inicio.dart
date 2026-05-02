@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:convert';
-import 'document_modal.dart';
-import 'shimmer_skeleton.dart';
+import 'documents/document_modal.dart';
+import 'utils/shimmer_skeleton.dart';
 import '../services/api_service.dart';
 
 class InicioWidget extends StatefulWidget {

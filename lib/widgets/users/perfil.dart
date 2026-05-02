@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:frontendproyecto/widgets/logout_button.dart';
+import 'package:frontendproyecto/widgets/utils/logout_button.dart';
 
 class PerfilWidget extends StatefulWidget {
   final String? userId;

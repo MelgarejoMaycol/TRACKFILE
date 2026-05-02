@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../services/document_service.dart';
+import '../../services/document_service.dart';
 
 class EditDocumentModal {
   static Future<void> show({
