@@ -3,11 +3,12 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:frontendproyecto/services/api_service.dart';
 import 'package:frontendproyecto/widgets/documents/documentos_screen.dart';
-import 'package:frontendproyecto/widgets/users/gestion_personas_widget.dart';
 import 'package:frontendproyecto/widgets/inicio.dart';
-import 'package:frontendproyecto/widgets/utils/logout_button.dart';
 import 'package:frontendproyecto/widgets/mantenimientos/mantenimientos.dart';
+import 'package:frontendproyecto/widgets/users/gestion_personas_widget.dart';
+import 'package:frontendproyecto/widgets/users/perfil.dart';
 import 'package:frontendproyecto/widgets/vehiculos/vehiculos.dart';
 
 class _MenuOption {
@@ -57,12 +58,15 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   int? _selectedTopIndex;
   String _activeSection = 'Inicio';
   bool _isLoading = true;
+  String? _selectedDocumentsUserId;
+  String? _selectedMaintenanceUserId;
+  String? _selectedMaintenanceRole;
+  String? _selectedMaintenancePersonName;
 
   Map<String, dynamic> _summary = {};
   List<Map<String, dynamic>> _documents = [];
   List<Map<String, dynamic>> _fleetVehicles = [];
   // ignore: unused_field
-  List<Map<String, dynamic>> _operations = [];
   List<Map<String, dynamic>> _alerts = [];
   List<Map<String, dynamic>> _certificaciones = [];
   String _certificacionesSearchQuery = '';
@@ -130,6 +134,39 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     }
   }
 
+  Future<void> _refrescarEmpresaDesdeBackend() async {
+    final empresa = await ApiService.getMiEmpresa();
+
+    if (!mounted || empresa == null) return;
+
+    setState(() {
+      _companyName =
+          empresa['nombreEmpresa']?.toString() ??
+          empresa['nombre']?.toString() ??
+          _companyName;
+
+      _companyPhone =
+          empresa['telefono']?.toString() ??
+          empresa['celular']?.toString() ??
+          _companyPhone;
+
+      _companyEmail =
+          empresa['correo']?.toString() ??
+          empresa['email']?.toString() ??
+          _companyEmail;
+
+      _nit = empresa['nit']?.toString() ?? _nit;
+
+      _companyId =
+          empresa['id']?.toString() ??
+          empresa['idEmpresa']?.toString() ??
+          empresa['id_empresa']?.toString() ??
+          _companyId;
+    });
+
+    await _loadDashboard();
+  }
+
   Map<String, dynamic>? _asMap(dynamic source) {
     if (source == null) return null;
     if (source is Map<String, dynamic>) {
@@ -192,23 +229,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                   'nextExpiry': nextExpiry,
                   'lastService': lastService,
                   'utilization': utilizationRaw?.toDouble(),
-                };
-              })
-              .toList();
-
-      final List<Map<String, dynamic>> operations =
-          (data['operations'] as List<dynamic>? ?? [])
-              .whereType<Map<String, dynamic>>()
-              .map((entry) {
-                final DateTime? date = DateTime.tryParse(
-                  entry['date']?.toString() ?? '',
-                );
-                return {
-                  'title': entry['title']?.toString() ?? 'Operación',
-                  'description': entry['description']?.toString() ?? '',
-                  'status': entry['status']?.toString() ?? '',
-                  'owner': entry['owner']?.toString() ?? '',
-                  'date': date,
                 };
               })
               .toList();
@@ -284,8 +304,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       setState(() {
         _summary = summary;
         _documents = documents;
-        _fleetVehicles = vehicles;
-        _operations = operations;
+        _fleetVehicles = vehicles;    
         _alerts = alerts;
         _certificaciones = certificaciones;
         _notifications = notifications;
@@ -298,7 +317,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
         _summary = {};
         _documents = [];
         _fleetVehicles = [];
-        _operations = [];
         _alerts = [];
         _certificaciones = [];
         _notifications = 0;
@@ -312,6 +330,9 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       _selectedBottomIndex = index;
       _selectedTopIndex = null;
       _activeSection = _bottomMenuOptions[index].section;
+      if (_activeSection == 'Documentos') {
+        _selectedDocumentsUserId = null;
+      }
     });
   }
 
@@ -320,6 +341,11 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       _selectedTopIndex = index;
       _selectedBottomIndex = -1;
       _activeSection = _topMenuOptions[index].section;
+      if (_topMenuOptions[index].section == 'Mantenimientos') {
+        _selectedMaintenanceUserId = null;
+        _selectedMaintenanceRole = null;
+        _selectedMaintenancePersonName = null;
+      }
     });
   }
 
@@ -360,6 +386,34 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           tipoInicial: TipoGestionPersona.conductor,
           permitirCambiarTipo: false,
           nombreEmpresa: _companyName,
+          onVerDocumentosPersona:
+              ({
+                required int usuarioId,
+                required String tipoPersona,
+                required String nombrePersona,
+              }) {
+                setState(() {
+                  _selectedDocumentsUserId = usuarioId.toString();
+                  _selectedBottomIndex = 3;
+                  _selectedTopIndex = null;
+                  _activeSection = 'Documentos';
+                });
+              },
+          onVerMantenimientosPersona:
+              ({
+                required int usuarioId,
+                required String tipoPersona,
+                required String nombrePersona,
+              }) {
+                setState(() {
+                  _selectedMaintenanceUserId = usuarioId.toString();
+                  _selectedMaintenanceRole = tipoPersona;
+                  _selectedMaintenancePersonName = nombrePersona;
+                  _selectedBottomIndex = -1;
+                  _selectedTopIndex = 3;
+                  _activeSection = 'Mantenimientos';
+                });
+              },
         );
 
       case 'Propietarios':
@@ -367,15 +421,53 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           tipoInicial: TipoGestionPersona.propietario,
           permitirCambiarTipo: false,
           nombreEmpresa: _companyName,
+          onVerDocumentosPersona:
+              ({
+                required int usuarioId,
+                required String tipoPersona,
+                required String nombrePersona,
+              }) {
+                setState(() {
+                  _selectedDocumentsUserId = usuarioId.toString();
+                  _selectedBottomIndex = 3;
+                  _selectedTopIndex = null;
+                  _activeSection = 'Documentos';
+                });
+              },
+          onVerMantenimientosPersona:
+              ({
+                required int usuarioId,
+                required String tipoPersona,
+                required String nombrePersona,
+              }) {
+                setState(() {
+                  _selectedMaintenanceUserId = usuarioId.toString();
+                  _selectedMaintenanceRole = tipoPersona;
+                  _selectedMaintenancePersonName = nombrePersona;
+                  _selectedBottomIndex = -1;
+                  _selectedTopIndex = 3;
+                  _activeSection = 'Mantenimientos';
+                });
+              },
         );
       case 'Documentos':
         return DocumentosScreen(
           role: 'Empresa',
-          userId: widget.usuario?['id']?.toString(),
-          canUpload: true,
+          userId: _selectedDocumentsUserId,
+          canUpload: _selectedDocumentsUserId == null,
         );
       case 'Perfil':
-        return _buildProfileContent();
+        return PerfilWidget(
+          role: 'EMPRESA',
+          userId: widget.usuario?['id']?.toString(),
+          userName: _representative,
+          userCompany: _companyName,
+          userEmail: _companyEmail,
+          userPhone: _companyPhone,
+          userAddress: widget.empresa?['direccion']?.toString(),
+          userDocument: _nit,
+          onEmpresaActualizada: _refrescarEmpresaDesdeBackend,
+        );
       case 'Mensajes':
         return _buildMessagesContent();
       case 'Certificaciones':
@@ -387,289 +479,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       default:
         return const SizedBox.shrink();
     }
-  }
-
-  // ignore: unused_element
-  Widget _buildDocumentCard(Map<String, dynamic> document) {
-    final String name = document['name']?.toString() ?? 'Documento';
-    final String category = document['category']?.toString() ?? '';
-    final String responsible = document['responsible']?.toString() ?? '';
-    final String status = document['status']?.toString() ?? '';
-    final DateTime? paymentDate = document['paymentDate'] as DateTime?;
-    final DateTime? expiryDate = document['expiryDate'] as DateTime?;
-    final Color statusColor = _documentStatusColor(status);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  status.isNotEmpty ? status : 'Sin estado',
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (category.isNotEmpty) ...[
-            Row(
-              children: [
-                const Icon(
-                  Icons.category_rounded,
-                  color: Colors.white54,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Categoría: $category',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-          ],
-          if (responsible.isNotEmpty) ...[
-            Row(
-              children: [
-                const Icon(
-                  Icons.manage_accounts_rounded,
-                  color: Colors.white54,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Responsable: $responsible',
-                    style: const TextStyle(color: Colors.white70, fontSize: 13),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-          ],
-          Row(
-            children: [
-              const Icon(
-                Icons.payments_rounded,
-                color: Colors.white54,
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Pago: ${_formatDateLabel(paymentDate)}',
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Icon(Icons.event_rounded, color: Colors.white54, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                'Vencimiento: ${_formatDateLabel(expiryDate)}',
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _formatRemaining(expiryDate),
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileContent() {
-    final String description =
-        _companyDescription != null && _companyDescription!.trim().isNotEmpty
-        ? _companyDescription!
-        : 'Describe tu operación y servicios para que el equipo los consulte rápidamente.';
-    final String vision =
-        _companyVision != null && _companyVision!.trim().isNotEmpty
-        ? _companyVision!
-        : 'Agrega la visión corporativa para inspirar a tus aliados.';
-    final String mission =
-        _companyMission != null && _companyMission!.trim().isNotEmpty
-        ? _companyMission!
-        : 'Define la misión para alinear al equipo y a los propietarios.';
-
-    final List<Map<String, dynamic>> details = [
-      {
-        'icon': Icons.person_rounded,
-        'label': 'Representante',
-        'value': _representative.isNotEmpty ? _representative : 'Sin asignar',
-      },
-      {'icon': Icons.business_center_rounded, 'label': 'NIT', 'value': _nit},
-      {
-        'icon': Icons.mail_outline_rounded,
-        'label': 'Correo de contacto',
-        'value': _companyEmail ?? 'No registrado',
-      },
-      {
-        'icon': Icons.phone_rounded,
-        'label': 'Teléfono',
-        'value': _companyPhone ?? 'No registrado',
-      },
-    ];
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Perfil corporativo',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _companyName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                ...details.map(
-                  (detail) => _buildProfileDetail(
-                    detail['icon'] as IconData,
-                    detail['label']?.toString() ?? '',
-                    detail['value']?.toString() ?? '',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 22),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.04),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Descripción',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Visión',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  vision,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Misión',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  mission,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 26),
-          Align(
-            alignment: Alignment.center,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 320),
-              child: const LogoutButton(),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildMessagesContent() {
@@ -1844,6 +1653,9 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     return MantenimientosWidget(
       role: 'Empresa',
       userId: widget.usuario?['id']?.toString(),
+      personaUserId: _selectedMaintenanceUserId,
+      personaRole: _selectedMaintenanceRole,
+      personaNombre: _selectedMaintenancePersonName,
     );
   }
 
@@ -2612,43 +2424,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildProfileDetail(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: Colors.white54, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

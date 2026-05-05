@@ -190,12 +190,30 @@ class DocumentPreviewModal extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (observations != null && observations!.isNotEmpty) ...[
-            Text(
-              'Observaciones',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Observaciones',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    observations!,
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            Text(observations!, style: TextStyle(color: Colors.grey[700])),
             const SizedBox(height: 18),
           ],
           Row(

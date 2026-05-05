@@ -162,16 +162,242 @@ class ShimmerUserProfile extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: ShimmerSkeleton(width: double.infinity, height: 50, borderRadius: 18),
+                child: ShimmerSkeleton(
+                  width: double.infinity,
+                  height: 50,
+                  borderRadius: 18,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ShimmerSkeleton(width: double.infinity, height: 50, borderRadius: 18),
+                child: ShimmerSkeleton(
+                  width: double.infinity,
+                  height: 50,
+                  borderRadius: 18,
+                ),
               ),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Skeleton completo para la pantalla de perfil
+class ShimmerPerfilPage extends StatelessWidget {
+  const ShimmerPerfilPage({super.key});
+
+  static const Color _surfaceColor = Color(0xFF131760);
+  static const Color _cardColor = Color(0xFF20206B);
+  static const Color _panelColor = Color(0xFF171968);
+  static const Color _softBorderColor = Color(0xFF3E3BB8);
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: _surfaceColor,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final bool isCompact = constraints.maxWidth < 920;
+
+          return SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              isCompact ? 16 : 24,
+              24,
+              isCompact ? 16 : 24,
+              isCompact ? 120 : 80,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1100),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const ShimmerSkeleton(
+                      width: 260,
+                      height: 28,
+                      borderRadius: 8,
+                    ),
+                    const SizedBox(height: 10),
+                    const ShimmerSkeleton(
+                      width: 520,
+                      height: 14,
+                      borderRadius: 8,
+                    ),
+                    const SizedBox(height: 14),
+                    const ShimmerSkeleton(
+                      width: 190,
+                      height: 38,
+                      borderRadius: 12,
+                    ),
+                    const SizedBox(height: 24),
+                    Wrap(
+                      spacing: 18,
+                      runSpacing: 18,
+                      children: [
+                        _profileCard(isCompact),
+                        _detailsCard(isCompact),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    _actionsCard(isCompact),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  static Widget _profileCard(bool isCompact) {
+    return Container(
+      width: isCompact ? double.infinity : 360,
+      padding: const EdgeInsets.all(22),
+      decoration: _boxDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              ShimmerSkeleton(width: 72, height: 72, borderRadius: 36),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ShimmerSkeleton(width: 170, height: 18, borderRadius: 6),
+                    SizedBox(height: 10),
+                    ShimmerSkeleton(width: 210, height: 13, borderRadius: 6),
+                    SizedBox(height: 8),
+                    ShimmerSkeleton(width: 130, height: 13, borderRadius: 6),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.45,
+            children: List.generate(
+              4,
+              (_) => Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _panelColor,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _softBorderColor.withValues(alpha: 0.45),
+                  ),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ShimmerSkeleton(width: 80, height: 15, borderRadius: 6),
+                    SizedBox(height: 8),
+                    ShimmerSkeleton(width: 60, height: 11, borderRadius: 6),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _detailsCard(bool isCompact) {
+    return Container(
+      width: isCompact ? double.infinity : 640,
+      padding: const EdgeInsets.all(22),
+      decoration: _boxDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ShimmerSkeleton(width: 220, height: 20, borderRadius: 6),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 18,
+            runSpacing: 16,
+            children: List.generate(
+              6,
+              (_) => SizedBox(
+                width: isCompact ? double.infinity : 280,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _panelColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _softBorderColor.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ShimmerSkeleton(width: 90, height: 12, borderRadius: 6),
+                      SizedBox(height: 8),
+                      ShimmerSkeleton(width: 170, height: 15, borderRadius: 6),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _actionsCard(bool isCompact) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isCompact ? 18 : 22),
+      decoration: _boxDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ShimmerSkeleton(width: 210, height: 20, borderRadius: 6),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 14,
+            runSpacing: 14,
+            children: List.generate(
+              3,
+              (_) => SizedBox(
+                width: isCompact ? double.infinity : 260,
+                child: const ShimmerSkeleton(height: 50, borderRadius: 16),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static BoxDecoration _boxDecoration() {
+    return BoxDecoration(
+      color: _cardColor,
+      border: Border.all(color: _softBorderColor.withValues(alpha: 0.45)),
+      borderRadius: BorderRadius.circular(22),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.05),
+          blurRadius: 16,
+          offset: const Offset(0, 8),
+        ),
+      ],
     );
   }
 }

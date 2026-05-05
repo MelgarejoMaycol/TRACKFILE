@@ -1,15 +1,14 @@
-import 'package:flutter/material.dart';
-import 'dart:convert';
 import 'dart:async';
-import 'package:http/http.dart' as http;
-import 'package:frontendproyecto/utils/api_config.dart';
-import 'package:frontendproyecto/widgets/inicio.dart';
-import 'package:frontendproyecto/widgets/documents/documentos_screen.dart';
-import 'package:frontendproyecto/widgets/vehiculos/vehiculos.dart';
-import 'package:frontendproyecto/widgets/users/empresa.dart';
+
+import 'package:flutter/material.dart';
+import 'package:frontendproyecto/services/api_service.dart';
 import 'package:frontendproyecto/widgets/certificados/certificaciones.dart';
+import 'package:frontendproyecto/widgets/documents/documentos_screen.dart';
+import 'package:frontendproyecto/widgets/inicio.dart';
 import 'package:frontendproyecto/widgets/mantenimientos/mantenimientos.dart';
+import 'package:frontendproyecto/widgets/users/empresa.dart';
 import 'package:frontendproyecto/widgets/users/perfil.dart';
+import 'package:frontendproyecto/widgets/vehiculos/vehiculos.dart';
 
 class _MenuOption {
   final String label;
@@ -56,20 +55,13 @@ class _ConductorScreenState extends State<ConductorScreen> {
   String? _userAddress;
   String? _userDocument;
   bool _isLoading = true;
-  String _baseUrl = ApiConfig.fallbackBaseUrl();
+  int _inicioRefreshKey = 0;
   final List<Map<String, dynamic>> _alerts = [];
 
   @override
   void initState() {
     super.initState();
-    _initBaseUrl();
     _loadUserData();
-  }
-
-  Future<void> _initBaseUrl() async {
-    final resolved = await ApiConfig.loadBaseUrl();
-    if (!mounted) return;
-    setState(() => _baseUrl = resolved);
   }
 
   Future<void> _loadUserData() async {
@@ -106,72 +98,56 @@ class _ConductorScreenState extends State<ConductorScreen> {
 
   Future<void> _loadUserDataFromBackend(String userId) async {
     try {
-      final uri = ApiConfig.resolve(_baseUrl, '/api/usuarios/$userId');
-      final response = await http
-          .get(uri)
-          .timeout(const Duration(seconds: 10));
+      final perfilBackend = await ApiService.getMiPerfil();
+      final empresaBackend = await ApiService.getMiEmpresa();
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> userData = json.decode(response.body) as Map<String, dynamic>;
-        
-        setState(() {
-          // Nombre del usuario
-          final String nombre = userData['nombre']?.toString() ?? '';
-          final String apellido = userData['apellido']?.toString() ?? '';
-          _userName = [nombre, apellido]
-              .where((part) => part.isNotEmpty)
-              .join(' ')
-              .trim();
-          if (_userName.isEmpty) {
-            _userName = widget.personName;
-          }
-
-          // Empresa del usuario
-          final dynamic rawEmpresa = userData['empresa'];
-          if (rawEmpresa is Map<String, dynamic>) {
-            _userCompany = rawEmpresa['nombreEmpresa']?.toString() ?? widget.companyName;
-          } else if (rawEmpresa is Map) {
-            _userCompany = rawEmpresa['nombreEmpresa']?.toString() ?? widget.companyName;
-          } else {
-            _userCompany = widget.companyName;
-          }
-
-          // Otros datos del usuario
-          _userEmail = userData['correo']?.toString();
-          _userPhone = userData['telefono']?.toString();
-          _userAddress = userData['direccion']?.toString();
-          _userDocument = userData['numeroDocumento']?.toString();
-          _isLoading = false;
-          debugPrint('✅ Datos de conductor cargados del backend: $_userName | $_userCompany');
-        });
-      } else {
-        debugPrint('⚠️ Error al obtener perfil del backend: ${response.statusCode}');
-        // Usar datos del constructor como fallback (datos reales del login)
-        setState(() {
-          _userName = widget.personName;
-          _userCompany = widget.companyName;
-          _userEmail = null;
-          _userPhone = null;
-          _userAddress = null;
-          _userDocument = null;
-          _isLoading = false;
-        });
+      if (perfilBackend == null) {
+        throw Exception('Perfil vacío');
       }
-    } on TimeoutException {
-      debugPrint('⚠️ Timeout al obtener perfil del backend - usando datos del login');
+
+      final String nombre = perfilBackend['nombre']?.toString() ?? '';
+      final String apellido = perfilBackend['apellido']?.toString() ?? '';
+
+      String nombreCompleto = [
+        nombre,
+        apellido,
+      ].where((part) => part.isNotEmpty).join(' ').trim();
+
+      if (nombreCompleto.isEmpty) {
+        nombreCompleto = widget.personName;
+      }
+
+      String empresaActualizada = widget.companyName;
+
+      final empresa = empresaBackend ?? perfilBackend['empresa'];
+
+      if (empresa is Map<String, dynamic>) {
+        empresaActualizada =
+            empresa['nombreEmpresa']?.toString() ??
+            empresa['nombre']?.toString() ??
+            widget.companyName;
+      }
+
       setState(() {
-        _userName = widget.personName;
-        _userCompany = widget.companyName;
-        _userEmail = null;
-        _userPhone = null;
-        _userAddress = null;
-        _userDocument = null;
+        _userName = nombreCompleto;
+        _userCompany = empresaActualizada;
+        _userEmail = perfilBackend['correo']?.toString();
+        _userPhone = perfilBackend['telefono']?.toString();
+        _userAddress = perfilBackend['direccion']?.toString();
+        _userDocument = perfilBackend['numeroDocumento']?.toString();
         _isLoading = false;
       });
+
+      debugPrint(
+        '✅ Perfil actualizado en panel superior conductor: $_userName | $_userCompany',
+      );
     } catch (e) {
-      debugPrint('⚠️ Excepción al obtener perfil del backend: $e - usando datos del login');
+      debugPrint('⚠️ Error actualizando panel superior conductor: $e');
+
+      if (!mounted) return;
+
       setState(() {
         _userName = widget.personName;
         _userCompany = widget.companyName;
@@ -217,29 +193,39 @@ class _ConductorScreenState extends State<ConductorScreen> {
   void _onBottomTap(String label) {
     setState(() {
       _activeSection = label;
-      final int upperIdx = _upperMenuOptions.indexWhere((option) => option.label == label);
+      final int upperIdx = _upperMenuOptions.indexWhere(
+        (option) => option.label == label,
+      );
       _selectedUpperIndex = upperIdx != -1 ? upperIdx : null;
-      final int lowerIdx = _lowerMenuOptions.indexWhere((option) => option.label == label);
+      final int lowerIdx = _lowerMenuOptions.indexWhere(
+        (option) => option.label == label,
+      );
       _selectedLowerIndex = lowerIdx != -1 ? lowerIdx : null;
     });
   }
 
   void _navigateToDocuments() {
-    final int docsIndex = _lowerMenuOptions.indexWhere((option) => option.label == 'Documentos');
+    final int docsIndex = _lowerMenuOptions.indexWhere(
+      (option) => option.label == 'Documentos',
+    );
     if (docsIndex != -1) {
       _onLowerMenuTap(docsIndex);
     }
   }
 
   void _navigateToProfile() {
-    final int profileIndex = _lowerMenuOptions.indexWhere((option) => option.label == 'Perfil');
+    final int profileIndex = _lowerMenuOptions.indexWhere(
+      (option) => option.label == 'Perfil',
+    );
     if (profileIndex != -1) {
       _onLowerMenuTap(profileIndex);
     }
   }
 
   void _navigateToMessages() {
-    final int messagesIndex = _upperMenuOptions.indexWhere((option) => option.label == 'Mensajes');
+    final int messagesIndex = _upperMenuOptions.indexWhere(
+      (option) => option.label == 'Mensajes',
+    );
     if (messagesIndex != -1) {
       _onUpperMenuTap(messagesIndex);
     }
@@ -255,9 +241,13 @@ class _ConductorScreenState extends State<ConductorScreen> {
   void _activateSection(String section) {
     setState(() {
       _activeSection = section;
-      final int topIdx = _upperMenuOptions.indexWhere((option) => option.label == section);
+      final int topIdx = _upperMenuOptions.indexWhere(
+        (option) => option.label == section,
+      );
       _selectedTopIndex = topIdx != -1 ? topIdx : null;
-      final int lowerIdx = _lowerMenuOptions.indexWhere((option) => option.label == section);
+      final int lowerIdx = _lowerMenuOptions.indexWhere(
+        (option) => option.label == section,
+      );
       _selectedLowerIndex = lowerIdx != -1 ? lowerIdx : null;
     });
   }
@@ -278,7 +268,11 @@ class _ConductorScreenState extends State<ConductorScreen> {
             backgroundColor: _accentColor,
             child: Text(
               _userName.isNotEmpty ? _userName[0].toUpperCase() : 'C',
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ),
@@ -289,7 +283,11 @@ class _ConductorScreenState extends State<ConductorScreen> {
         backgroundColor: _accentColor,
         child: Text(
           _userName.isNotEmpty ? _userName[0].toUpperCase() : 'C',
-          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       );
     }
@@ -310,9 +308,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
         selectedColor: _accentColor,
         backgroundColor: _accentColor.withValues(alpha: 0.12),
         showCheckmark: false,
-        side: BorderSide(
-          color: selected ? _chipBorderColor : Colors.white24,
-        ),
+        side: BorderSide(color: selected ? _chipBorderColor : Colors.white24),
         labelStyle: TextStyle(
           color: Colors.white,
           fontSize: 11,
@@ -359,7 +355,10 @@ class _ConductorScreenState extends State<ConductorScreen> {
                         _userCompany,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white70, fontSize: 10),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10,
+                        ),
                       ),
                     ],
                   ),
@@ -369,7 +368,10 @@ class _ConductorScreenState extends State<ConductorScreen> {
                   // Center: Search bar
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(10),
@@ -379,9 +381,19 @@ class _ConductorScreenState extends State<ConductorScreen> {
                           filled: true,
                           fillColor: Colors.white.withValues(alpha: 0.14),
                           hintText: 'Buscar viajes, documentos o información',
-                          hintStyle: const TextStyle(color: Colors.white70, fontSize: 12),
-                          prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70, size: 18),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                          hintStyle: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: Colors.white70,
+                            size: 18,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 8,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide.none,
@@ -494,13 +506,13 @@ class _ConductorScreenState extends State<ConductorScreen> {
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              color: selected 
-                ? Colors.white.withValues(alpha: 0.12)
-                : Colors.transparent,
+              color: selected
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.transparent,
               border: Border.all(
                 color: selected
-                  ? _accentColor.withValues(alpha: 0.4)
-                  : Colors.transparent,
+                    ? _accentColor.withValues(alpha: 0.4)
+                    : Colors.transparent,
               ),
             ),
             child: Row(
@@ -530,7 +542,6 @@ class _ConductorScreenState extends State<ConductorScreen> {
       ),
     );
   }
-
 
   Widget _buildBottomBar({required bool isCompact}) {
     return Container(
@@ -571,7 +582,9 @@ class _ConductorScreenState extends State<ConductorScreen> {
           vertical: isCompact ? 6 : 8,
         ),
         decoration: BoxDecoration(
-          color: selected ? _accentColor.withValues(alpha: 0.28) : Colors.transparent,
+          color: selected
+              ? _accentColor.withValues(alpha: 0.28)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -582,7 +595,10 @@ class _ConductorScreenState extends State<ConductorScreen> {
             const SizedBox(height: 4),
             Text(
               label,
-              style: TextStyle(fontSize: isCompact ? 10 : 11, color: Colors.white),
+              style: TextStyle(
+                fontSize: isCompact ? 10 : 11,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
@@ -593,15 +609,24 @@ class _ConductorScreenState extends State<ConductorScreen> {
   Widget _buildHeader({required bool isCompact}) {
     return Container(
       color: _primaryColor,
-      padding: EdgeInsets.symmetric(vertical: isCompact ? 20 : 28, horizontal: isCompact ? 16 : 20),
+      padding: EdgeInsets.symmetric(
+        vertical: isCompact ? 20 : 28,
+        horizontal: isCompact ? 16 : 20,
+      ),
       child: Row(
         children: [
           CircleAvatar(
             radius: isCompact ? 30 : 36,
             backgroundColor: Colors.white24,
-            backgroundImage: widget.profileImagePath.isNotEmpty ? NetworkImage(widget.profileImagePath) : null,
+            backgroundImage: widget.profileImagePath.isNotEmpty
+                ? NetworkImage(widget.profileImagePath)
+                : null,
             child: widget.profileImagePath.isEmpty
-                ? Icon(Icons.person, size: isCompact ? 32 : 36, color: Colors.white)
+                ? Icon(
+                    Icons.person,
+                    size: isCompact ? 32 : 36,
+                    color: Colors.white,
+                  )
                 : null,
           ),
           SizedBox(width: isCompact ? 10 : 12),
@@ -611,10 +636,20 @@ class _ConductorScreenState extends State<ConductorScreen> {
               children: [
                 Text(
                   _userName,
-                  style: TextStyle(color: Colors.white, fontSize: isCompact ? 16 : 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isCompact ? 16 : 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 SizedBox(height: isCompact ? 2 : 4),
-                Text(_userCompany, style: TextStyle(color: Colors.white70, fontSize: isCompact ? 13 : 14)),
+                Text(
+                  _userCompany,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: isCompact ? 13 : 14,
+                  ),
+                ),
               ],
             ),
           ),
@@ -622,17 +657,27 @@ class _ConductorScreenState extends State<ConductorScreen> {
             children: [
               GestureDetector(
                 onTap: _navigateToMessages,
-                child: Icon(Icons.notifications_none, color: Colors.white, size: isCompact ? 24 : 28),
+                child: Icon(
+                  Icons.notifications_none,
+                  color: Colors.white,
+                  size: isCompact ? 24 : 28,
+                ),
               ),
               if (widget.notificationsCount > 0)
                 Positioned(
                   right: 0,
                   child: Container(
                     padding: EdgeInsets.all(isCompact ? 5 : 6),
-                    decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
                     child: Text(
                       '${widget.notificationsCount}',
-                      style: TextStyle(color: Colors.white, fontSize: isCompact ? 9 : 10),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: isCompact ? 9 : 10,
+                      ),
                     ),
                   ),
                 ),
@@ -657,7 +702,11 @@ class _ConductorScreenState extends State<ConductorScreen> {
                 offset: const Offset(-8, 0),
                 child: Text(
                   'Bienvenido',
-                  style: TextStyle(color: Colors.white, fontSize: isCompact ? 18 : 20, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isCompact ? 18 : 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               SizedBox(height: isCompact ? 8 : 10),
@@ -668,8 +717,14 @@ class _ConductorScreenState extends State<ConductorScreen> {
                   hintText: 'Buscar',
                   hintStyle: const TextStyle(color: Colors.white70),
                   prefixIcon: const Icon(Icons.search, color: Colors.white70),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 0,
+                    horizontal: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ],
@@ -721,6 +776,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
     switch (_activeSection) {
       case 'Inicio':
         return InicioWidget(
+          key: ValueKey(_inicioRefreshKey),
           role: 'Conductor',
           jsonPath: 'assets/documents_data.json',
           userProfilePath: 'assets/user_profile.json',
@@ -745,13 +801,26 @@ class _ConductorScreenState extends State<ConductorScreen> {
         return PerfilWidget(
           role: 'Conductor',
           userId: widget.userId ?? '1',
-          jsonPath: 'assets/user_profile.json',
           userName: _userName,
           userCompany: _userCompany,
           userEmail: _userEmail,
           userPhone: _userPhone,
           userAddress: _userAddress,
           userDocument: _userDocument,
+          onPerfilActualizado: () async {
+            await _loadUserData();
+            if (!mounted) return;
+            setState(() {
+              _inicioRefreshKey++;
+            });
+          },
+          onEmpresaActualizada: () async {
+            await _loadUserData();
+            if (!mounted) return;
+            setState(() {
+              _inicioRefreshKey++;
+            });
+          },
         );
       case 'Mensajes':
         return _buildMessagesContent();
@@ -795,13 +864,13 @@ class _ConductorScreenState extends State<ConductorScreen> {
       );
     }
 
-    final List<Map<String, dynamic>> ordered =
-        List<Map<String, dynamic>>.from(_alerts)
-          ..sort((a, b) {
-            final String severityA = a['severity']?.toString().toLowerCase() ?? '';
-            final String severityB = b['severity']?.toString().toLowerCase() ?? '';
-            return _severityRank(severityB).compareTo(_severityRank(severityA));
-          });
+    final List<Map<String, dynamic>>
+    ordered = List<Map<String, dynamic>>.from(_alerts)
+      ..sort((a, b) {
+        final String severityA = a['severity']?.toString().toLowerCase() ?? '';
+        final String severityB = b['severity']?.toString().toLowerCase() ?? '';
+        return _severityRank(severityB).compareTo(_severityRank(severityA));
+      });
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
@@ -810,7 +879,11 @@ class _ConductorScreenState extends State<ConductorScreen> {
         children: [
           const Text(
             'Mensajes corporativos',
-            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           ...ordered.map(_buildMessageCard),
         ],
@@ -827,7 +900,11 @@ class _ConductorScreenState extends State<ConductorScreen> {
           children: [
             Text(
               title,
-              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
@@ -845,7 +922,8 @@ class _ConductorScreenState extends State<ConductorScreen> {
   Widget _buildMessageCard(Map<String, dynamic> alert) {
     final String title = alert['title']?.toString() ?? 'Mensaje';
     final String message = alert['message']?.toString() ?? '';
-    final String severity = alert['severity']?.toString().toLowerCase() ?? 'medium';
+    final String severity =
+        alert['severity']?.toString().toLowerCase() ?? 'medium';
     final String tag = alert['tag']?.toString() ?? 'General';
     final Color borderColor = _alertSeverityColor(severity);
 
@@ -862,11 +940,19 @@ class _ConductorScreenState extends State<ConductorScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.mark_email_unread_rounded, color: borderColor, size: 18),
+              Icon(
+                Icons.mark_email_unread_rounded,
+                color: borderColor,
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Text(
                 tag,
-                style: TextStyle(color: borderColor, fontSize: 12, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: borderColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const Spacer(),
               Container(
@@ -877,7 +963,11 @@ class _ConductorScreenState extends State<ConductorScreen> {
                 ),
                 child: Text(
                   severity.toUpperCase(),
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -885,16 +975,23 @@ class _ConductorScreenState extends State<ConductorScreen> {
           const SizedBox(height: 10),
           Text(
             title,
-            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          if (message.isNotEmpty) ...
-            [
-              const SizedBox(height: 8),
-              Text(
-                message,
-                style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+          if (message.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                height: 1.4,
               ),
-            ],
+            ),
+          ],
         ],
       ),
     );
@@ -961,7 +1058,9 @@ class _ConductorScreenState extends State<ConductorScreen> {
                       height: double.infinity,
                       decoration: BoxDecoration(
                         color: _surfaceColor,
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(radius),
+                        ),
                       ),
                       child: _buildContentView(),
                     ),

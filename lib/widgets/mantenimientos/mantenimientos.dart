@@ -10,7 +10,18 @@ class MantenimientosWidget extends StatefulWidget {
   final String role;
   final String? userId;
 
-  const MantenimientosWidget({super.key, required this.role, this.userId});
+  final String? personaUserId;
+  final String? personaRole;
+  final String? personaNombre;
+
+  const MantenimientosWidget({
+    super.key,
+    required this.role,
+    this.userId,
+    this.personaUserId,
+    this.personaRole,
+    this.personaNombre,
+  });
 
   @override
   State<MantenimientosWidget> createState() => _MantenimientosWidgetState();
@@ -157,6 +168,12 @@ class _Mantenimiento {
             map['vehiculoId']?.toString() ??
                 map['idVehiculo']?.toString() ??
                 map['id_vehiculo']?.toString() ??
+                (map['vehiculo'] is Map
+                    ? ((map['vehiculo']['idVehiculo'] ??
+                              map['vehiculo']['id_vehiculo'] ??
+                              map['vehiculo']['id'])
+                          ?.toString())
+                    : '') ??
                 '',
           ) ??
           0,
@@ -233,6 +250,8 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
   bool get _isConductor => widget.role.toLowerCase() == 'conductor';
   bool get _isPropietario => widget.role.toLowerCase() == 'propietario';
   bool get _isEmpresa => widget.role.toLowerCase() == 'empresa';
+  bool get _viendoPersona =>
+      widget.personaUserId != null && widget.personaUserId!.isNotEmpty;
 
   @override
   void initState() {
@@ -263,9 +282,12 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           token: token,
         ),
         ApiService.getTiposMantenimiento(token: token),
+
+        // Si viene desde una persona, cargamos todos los vehículos de empresa
+        // y luego filtramos por el usuario seleccionado.
         ApiService.getVehiculosPorRol(
-          role: widget.role,
-          userId: userId,
+          role: _viendoPersona ? 'Empresa' : widget.role,
+          userId: _viendoPersona ? null : userId,
           token: token,
         ),
       ]);
@@ -299,7 +321,13 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
         return _MantenimientoDetalle(mantenimiento: mantenimiento, tipo: tipo);
       }).toList();
 
-      final filtrados = todos;
+      final vehiculosFiltrados = _viendoPersona
+          ? filtrarVehiculosPorUsuarioSeleccionado(vehiculosData)
+          : vehiculosData;
+
+      final filtrados = _viendoPersona
+          ? filtrarMantenimientosPorVehiculos(todos, vehiculosFiltrados)
+          : filtrarPorRolConVehiculos(todos, vehiculosData);
 
       if (mounted) {
         setState(() {
@@ -424,7 +452,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     }
 
     if (_vehiculos.isEmpty) {
-      return true;
+      return false;
     }
 
     return _vehiculos.any((vehiculo) {
@@ -497,6 +525,68 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     }).toSet();
 
     debugPrint('🚗 Vehículos asignados: $vehiculoIds');
+
+    return todos.where((detalle) {
+      return vehiculoIds.contains(detalle.mantenimiento.vehiculoId);
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> filtrarVehiculosPorUsuarioSeleccionado(
+    List<Map<String, dynamic>> vehiculosData,
+  ) {
+    final selectedUserId = widget.personaUserId?.trim() ?? '';
+    final selectedRole = widget.personaRole?.toUpperCase().trim() ?? '';
+
+    if (selectedUserId.isEmpty) return [];
+
+    return vehiculosData.where((vehiculo) {
+      final conductor = vehiculo['conductor'];
+      final propietario = vehiculo['propietario'];
+
+      if (selectedRole == 'CONDUCTOR' && conductor is Map) {
+        final usuario = conductor['usuario'];
+        if (usuario is Map) {
+          final id =
+              usuario['id']?.toString() ??
+              usuario['idUsuario']?.toString() ??
+              usuario['id_usuario']?.toString() ??
+              '';
+          return id == selectedUserId;
+        }
+      }
+
+      if (selectedRole == 'PROPIETARIO' && propietario is Map) {
+        final usuario = propietario['usuario'];
+        if (usuario is Map) {
+          final id =
+              usuario['id']?.toString() ??
+              usuario['idUsuario']?.toString() ??
+              usuario['id_usuario']?.toString() ??
+              '';
+          return id == selectedUserId;
+        }
+      }
+
+      return false;
+    }).toList();
+  }
+
+  List<_MantenimientoDetalle> filtrarMantenimientosPorVehiculos(
+    List<_MantenimientoDetalle> todos,
+    List<Map<String, dynamic>> vehiculosData,
+  ) {
+    if (vehiculosData.isEmpty) return [];
+
+    final Set<int> vehiculoIds = vehiculosData.map((vehiculo) {
+      return int.tryParse(
+            (vehiculo['id'] ??
+                    vehiculo['id_vehiculo'] ??
+                    vehiculo['idVehiculo'] ??
+                    0)
+                .toString(),
+          ) ??
+          0;
+    }).toSet();
 
     return todos.where((detalle) {
       return vehiculoIds.contains(detalle.mantenimiento.vehiculoId);
@@ -856,7 +946,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _isConductor
+          _viendoPersona
+              ? 'Mantenimientos de ${widget.personaNombre ?? 'la persona'}'
+              : _isConductor
               ? 'Mantenimientos asignados'
               : _isPropietario
               ? 'Mantenimientos de tus vehículos'
@@ -1154,86 +1246,86 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
   }
 
   void abrirListaModal(String titulo, List<_MantenimientoDetalle> lista) {
-  final ordenados = List<_MantenimientoDetalle>.from(lista)
-    ..sort((a, b) {
-      final fechaA =
-          a.mantenimiento.fechaRealizada ??
-          a.mantenimiento.fechaProgramada ??
-          a.mantenimiento.fechaSugerida ??
-          DateTime(1900);
+    final ordenados = List<_MantenimientoDetalle>.from(lista)
+      ..sort((a, b) {
+        final fechaA =
+            a.mantenimiento.fechaRealizada ??
+            a.mantenimiento.fechaProgramada ??
+            a.mantenimiento.fechaSugerida ??
+            DateTime(1900);
 
-      final fechaB =
-          b.mantenimiento.fechaRealizada ??
-          b.mantenimiento.fechaProgramada ??
-          b.mantenimiento.fechaSugerida ??
-          DateTime(1900);
+        final fechaB =
+            b.mantenimiento.fechaRealizada ??
+            b.mantenimiento.fechaProgramada ??
+            b.mantenimiento.fechaSugerida ??
+            DateTime(1900);
 
-      return fechaB.compareTo(fechaA);
-    });
+        return fechaB.compareTo(fechaA);
+      });
 
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: _surfaceColor,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (context) {
-      return DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.85,
-        minChildSize: 0.45,
-        maxChildSize: 0.95,
-        builder: (context, scrollController) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white24,
-                      borderRadius: BorderRadius.circular(12),
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.85,
+          minChildSize: 0.45,
+          maxChildSize: 0.95,
+          builder: (context, scrollController) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  titulo,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
+                  const SizedBox(height: 18),
+                  Text(
+                    titulo,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${ordenados.length} mantenimiento(s)',
-                  style: const TextStyle(color: Colors.white60),
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: ListView(
-                    controller: scrollController,
-                    children: ordenados.map((detalle) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: buildMantenimientoCard(detalle),
-                      );
-                    }).toList(),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${ordenados.length} mantenimiento(s)',
+                    style: const TextStyle(color: Colors.white60),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
+                      children: ordenados.map((detalle) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: buildMantenimientoCard(detalle),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   Widget buildProgramadosSection({
     required bool isTableCompact,

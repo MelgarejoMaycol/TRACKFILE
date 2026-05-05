@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:frontendproyecto/services/api_service.dart';
 import 'package:frontendproyecto/services/document_service.dart';
 import 'package:frontendproyecto/widgets/documents/document_preview_modal.dart';
-import 'package:frontendproyecto/widgets/utils/shimmer_skeleton.dart';
 import 'package:frontendproyecto/widgets/documents/upload_document_modal.dart';
+import 'package:frontendproyecto/widgets/utils/shimmer_skeleton.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DocumentosScreen extends StatefulWidget {
@@ -90,8 +90,19 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
 
       final role = widget.role?.toLowerCase() ?? '';
       final isEmpresa = role == 'empresa';
+      final String selectedPersonId = (widget.userId ?? '').trim();
+      final bool isEmpresaPersonaSeleccionada =
+          isEmpresa && selectedPersonId.isNotEmpty;
 
-      final visibleUsers = isEmpresa
+      final visibleUsers = isEmpresaPersonaSeleccionada
+          ? users.where((user) {
+              final id =
+                  _valueAsString(user['id']) ??
+                  _valueAsString(user['idUsuario']) ??
+                  '';
+              return id == selectedPersonId;
+            }).toList()
+          : isEmpresa
           ? users
           : users.where((user) {
               final id =
@@ -101,7 +112,11 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
               return id == widget.userId;
             }).toList();
 
-      final visibleVehicles = isEmpresa
+      final visibleVehicles = isEmpresaPersonaSeleccionada
+          ? vehicles.where((vehicle) {
+              return _vehicleBelongsToUser(vehicle, selectedPersonId);
+            }).toList()
+          : isEmpresa
           ? vehicles
           : vehicles.where((vehicle) {
               final vehicleId =
@@ -121,7 +136,13 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
 
       _vehicles = _buildVehicleSummaries(visibleVehicles, filteredEntries);
 
-      if (!isEmpresa) {
+      if (isEmpresaPersonaSeleccionada) {
+        _persons = _persons.where((p) => p.id == selectedPersonId).toList();
+        if (_persons.isNotEmpty) {
+          _selectedPerson = _persons.first;
+          _view = _DocumentosFlowView.personDetail;
+        }
+      } else if (!isEmpresa) {
         final currentUserId = (widget.userId ?? '').trim();
 
         _persons = _persons.where((p) => p.id == currentUserId).toList();
@@ -152,7 +173,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
     debugPrint('ROL DOCUMENTOS: $role');
     debugPrint('USER ID DOCUMENTOS: $currentUserId');
 
-    if (role == 'empresa' || currentUserId.isEmpty) {
+    if (currentUserId.isEmpty) {
       return documents;
     }
 
@@ -413,6 +434,34 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
     final String firstName = _valueAsString(map['nombre']) ?? '';
     final String lastName = _valueAsString(map['apellido']) ?? '';
     return '$firstName $lastName'.trim();
+  }
+
+  bool _vehicleBelongsToUser(Map<String, dynamic> vehicle, String userId) {
+    final conductor = vehicle['conductor'];
+    if (conductor is Map) {
+      final usuario = conductor['usuario'];
+      if (usuario is Map) {
+        final conductorUserId =
+            _valueAsString(usuario['id']) ??
+            _valueAsString(usuario['idUsuario']) ??
+            '';
+        if (conductorUserId == userId) return true;
+      }
+    }
+
+    final propietario = vehicle['propietario'];
+    if (propietario is Map) {
+      final usuario = propietario['usuario'];
+      if (usuario is Map) {
+        final propietarioUserId =
+            _valueAsString(usuario['id']) ??
+            _valueAsString(usuario['idUsuario']) ??
+            '';
+        if (propietarioUserId == userId) return true;
+      }
+    }
+
+    return false;
   }
 
   static String _documentFromMap(dynamic map) {

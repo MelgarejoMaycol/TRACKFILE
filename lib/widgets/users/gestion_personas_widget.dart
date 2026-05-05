@@ -12,12 +12,27 @@ class GestionPersonasWidget extends StatefulWidget {
   final TipoGestionPersona tipoInicial;
   final bool permitirCambiarTipo;
   final String nombreEmpresa;
+  final void Function({
+    required int usuarioId,
+    required String tipoPersona,
+    required String nombrePersona,
+  })?
+  onVerDocumentosPersona;
+
+  final void Function({
+    required int usuarioId,
+    required String tipoPersona,
+    required String nombrePersona,
+  })?
+  onVerMantenimientosPersona;
 
   const GestionPersonasWidget({
     super.key,
     this.tipoInicial = TipoGestionPersona.conductor,
     this.permitirCambiarTipo = true,
     this.nombreEmpresa = '',
+    this.onVerDocumentosPersona,
+    this.onVerMantenimientosPersona,
   });
 
   @override
@@ -215,6 +230,32 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
     await _loadPersonas();
   }
 
+  Future<void> _cambiarEstadoPersona({
+    required int id,
+    required String nuevoEstado,
+  }) async {
+    final token = await _token();
+
+    final uri = ApiConfig.resolve(_baseUrl, '$_endpointBase/$id/estado');
+
+    final response = await http.patch(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({'estado': nuevoEstado}),
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception(
+        'Error cambiando estado ${response.statusCode}: ${response.body}',
+      );
+    }
+
+    await _loadPersonas();
+  }
+
   Future<int> _crearUsuario(Map<String, dynamic> body) async {
     final token = await _token();
     final uri = ApiConfig.resolve(_baseUrl, '/api/usuarios');
@@ -228,10 +269,15 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
       body: json.encode(body),
     );
 
-    throw Exception(
-      'Error creando usuario ${response.statusCode}: ${response.body.isEmpty ? 'Sin detalle del servidor. Revisa permisos en SecurityConfig para POST /api/usuarios' : response.body}',
-    );
+    // 🔥 SOLO lanza error si falla
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(
+        'Error creando usuario ${response.statusCode}: '
+        '${response.body.isEmpty ? 'Sin detalle del servidor.' : response.body}',
+      );
+    }
 
+    // ✅ Si funciona, obtiene el ID
     final data = json.decode(response.body) as Map<String, dynamic>;
     return int.parse(data['id'].toString());
   }
@@ -280,6 +326,74 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
     final full = '$nombre $apellido'.trim();
     return full.isEmpty ? 'Sin nombre' : full;
+  }
+
+  int? _obtenerUsuarioId(Map<String, dynamic> item) {
+    final raw =
+        item['usuarioId'] ??
+        item['idUsuario'] ??
+        item['id_usuario'] ??
+        (item['usuario'] is Map ? (item['usuario'] as Map)['id'] : null) ??
+        item['id'];
+
+    return int.tryParse(raw?.toString() ?? '');
+  }
+
+  void _verDocumentosPersona(Map<String, dynamic> item) {
+    final usuarioId = _obtenerUsuarioId(item);
+    if (usuarioId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se encontró el usuario de esta persona'),
+        ),
+      );
+      return;
+    }
+
+    if (widget.onVerDocumentosPersona != null) {
+      widget.onVerDocumentosPersona!.call(
+        usuarioId: usuarioId,
+        tipoPersona: _esConductor ? 'CONDUCTOR' : 'PROPIETARIO',
+        nombrePersona: _nombreCompleto(item),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Configura la navegación hacia documentos de la persona.',
+          ),
+        ),
+      );
+    }
+  }
+
+  void _verMantenimientosPersona(Map<String, dynamic> item) {
+    final usuarioId = _obtenerUsuarioId(item);
+
+    if (usuarioId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se encontró el usuario de esta persona'),
+        ),
+      );
+      return;
+    }
+
+    if (widget.onVerMantenimientosPersona != null) {
+      widget.onVerMantenimientosPersona!.call(
+        usuarioId: usuarioId,
+        tipoPersona: _esConductor ? 'CONDUCTOR' : 'PROPIETARIO',
+        nombrePersona: _nombreCompleto(item),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Configura la navegación hacia mantenimientos de la persona.',
+          ),
+        ),
+      );
+    }
   }
 
   String _limpiarTextoCorreo(String value) {
@@ -634,6 +748,9 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                         '${direccionController.text.trim()}, ${barrioController.text.trim()}, ${ciudadController.text.trim()}, ${departamentoController.text.trim()}',
                     'contrasena': contrasenaController.text.trim(),
                     'rol': _esConductor ? 'CONDUCTOR' : 'PROPIETARIO',
+
+                    // ✅ Se crea como correo confirmado porque estos usuarios son creados por la empresa.
+                    'emailConfirmado': true,
                   });
                 }
 
@@ -642,14 +759,26 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                 if (_esConductor) {
                   body = {
                     if (!editando) 'idUsuario': idUsuario,
+                    'nombre': nombreController.text.trim(),
+                    'apellido': apellidoController.text.trim(),
+                    'tipoDocumento': tipoDocumentoSeleccionado,
+                    'numeroDocumento': numeroDocumentoController.text.trim(),
+                    'telefono': telefonoController.text.trim(),
+                    'direccion': direccionController.text.trim(),
                     'licenciaConduccion': licenciaController.text.trim(),
-                    'categoriaLicencia': categoriaController.text.trim(),
+                    'categoriaLicencia': categoriaLicenciaSeleccionada,
                     'fechaVencimientoLicencia': vencimientoController.text
                         .trim(),
                   };
                 } else {
                   body = {
                     if (!editando) 'idUsuario': idUsuario,
+                    'nombre': nombreController.text.trim(),
+                    'apellido': apellidoController.text.trim(),
+                    'tipoDocumento': tipoDocumentoSeleccionado,
+                    'numeroDocumento': numeroDocumentoController.text.trim(),
+                    'telefono': telefonoController.text.trim(),
+                    'direccion': direccionController.text.trim(),
                     'documentoPropietario': documentoPropietarioController.text
                         .trim(),
                   };
@@ -725,76 +854,57 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
                     const SizedBox(height: 18),
 
+                    _formInput(
+                      controller: nombreController,
+                      label: 'Nombre',
+                      icon: Icons.person_rounded,
+                    ),
+                    _formInput(
+                      controller: apellidoController,
+                      label: 'Apellido',
+                      icon: Icons.person_outline_rounded,
+                    ),
+                    _formSelect(
+                      label: 'Tipo documento',
+                      icon: Icons.badge_rounded,
+                      value: tipoDocumentoSeleccionado,
+                      items: const ['CC', 'CE', 'TI', 'Pasaporte', 'NIT'],
+                      onChanged: (value) {
+                        setModalState(() {
+                          tipoDocumentoSeleccionado = value!;
+                          tipoDocumentoController.text = value;
+                        });
+                      },
+                    ),
+                    _formInput(
+                      controller: numeroDocumentoController,
+                      label: 'Número documento',
+                      icon: Icons.confirmation_number_rounded,
+                    ),
+                    _formInput(
+                      controller: telefonoController,
+                      label: 'Teléfono',
+                      hint: 'Ej: 3001234567',
+                      icon: Icons.phone_rounded,
+                      keyboardType: TextInputType.phone,
+                    ),
+                    _formInput(
+                      controller: direccionController,
+                      label: 'Dirección',
+                      icon: Icons.location_on_rounded,
+                    ),
+
                     if (!editando) ...[
-                      _formInput(
-                        controller: nombreController,
-                        label: 'Nombre',
-                        icon: Icons.person_rounded,
-                      ),
-                      _formInput(
-                        controller: apellidoController,
-                        label: 'Apellido',
-                        icon: Icons.person_outline_rounded,
-                      ),
-                      _formSelect(
-                        label: 'Tipo documento',
-                        icon: Icons.badge_rounded,
-                        value: tipoDocumentoSeleccionado,
-                        items: const ['CC', 'CE', 'TI', 'Pasaporte', 'NIT'],
-                        onChanged: (value) {
-                          setModalState(() {
-                            tipoDocumentoSeleccionado = value!;
-                            tipoDocumentoController.text = value;
-                          });
-                        },
-                      ),
-                      _formInput(
-                        controller: numeroDocumentoController,
-                        label: 'Número documento',
-                        icon: Icons.confirmation_number_rounded,
-                      ),
                       _formEmailEmpresaInput(
                         controller: correoAliasController,
                         label: 'Correo',
                         icon: Icons.alternate_email_rounded,
                       ),
                       _formInput(
-                        controller: telefonoController,
-                        label: 'Teléfono',
-                        hint: 'Ej: 3001234567',
-                        icon: Icons.phone_rounded,
-                        keyboardType: TextInputType.phone,
-                      ),
-                      _formInput(
-                        controller: departamentoController,
-                        label: 'Departamento',
-                        hint: 'Ej: Santander',
-                        icon: Icons.map_rounded,
-                      ),
-                      _formInput(
-                        controller: ciudadController,
-                        label: 'Ciudad',
-                        hint: 'Ej: San Gil',
-                        icon: Icons.location_city_rounded,
-                      ),
-                      _formInput(
-                        controller: barrioController,
-                        label: 'Barrio / sector',
-                        hint: 'Ej: Centro',
-                        icon: Icons.home_work_rounded,
-                      ),
-                      _formInput(
-                        controller: direccionController,
-                        label: 'Dirección exacta',
-                        hint: 'Ej: Calle 10 # 5-30',
-                        icon: Icons.location_on_rounded,
-                      ),
-                      _formInput(
                         controller: contrasenaController,
                         label: 'Contraseña',
                         icon: Icons.lock_rounded,
                       ),
-                      const SizedBox(height: 10),
                     ],
 
                     if (_esConductor) ...[
@@ -1141,34 +1251,24 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF3330BE), Color(0xFF4F4CE8)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [
-          BoxShadow(
-            color: _accentColor.withValues(alpha: 0.25),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
         children: [
           Container(
-            width: 58,
-            height: 58,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(18),
+              color: _accentColor.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(_iconoPrincipal, color: Colors.white, size: 32),
+            child: Icon(_iconoPrincipal, color: Colors.white, size: 24),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1177,16 +1277,34 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                   _titulo,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 25,
+                    fontSize: 19,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 3),
                 Text(
-                  _subtitulo,
-                  style: const TextStyle(color: Colors.white70, fontSize: 13.5),
+                  _esConductor
+                      ? 'Control de conductores'
+                      : 'Control de propietarios',
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
                 ),
               ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              color: _accentColor.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _accentColor.withValues(alpha: 0.35)),
+            ),
+            child: Text(
+              '${_personas.length} ${_esConductor ? 'conductores' : 'propietarios'}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -1195,53 +1313,52 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
   }
 
   Widget _buildSearchAndActions() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 50,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
             child: TextField(
               onChanged: (value) => setState(() => _search = value),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 hintText: _esConductor
-                    ? 'Buscar conductor por nombre, documento o correo'
-                    : 'Buscar propietario por nombre, documento o correo',
+                    ? 'Buscar conductor...'
+                    : 'Buscar propietario...',
                 hintStyle: const TextStyle(color: Colors.white54),
                 prefixIcon: const Icon(
                   Icons.search_rounded,
                   color: Colors.white54,
                 ),
-                filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.06),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          ElevatedButton.icon(
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          height: 50,
+          child: ElevatedButton.icon(
             onPressed: () => _showFormModal(),
-            icon: const Icon(Icons.add_rounded),
+            icon: const Icon(Icons.add_rounded, size: 18),
             label: const Text('Crear'),
             style: ElevatedButton.styleFrom(
               backgroundColor: _accentColor,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1254,97 +1371,144 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
     final estado = _value(item, ['estado', 'estadoUsuario']);
     final activo = estado.toUpperCase() != 'INACTIVO';
 
-    return InkWell(
-      onTap: () => _showDetalle(item),
-      borderRadius: BorderRadius.circular(22),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: _cardColor,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.18),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundColor: _accentColor.withValues(alpha: 0.22),
-              child: Text(
-                _iniciales(item),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: _accentColor.withValues(alpha: 0.25),
+                child: Text(
+                  _iniciales(item),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    nombre,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16.5,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (documento.isNotEmpty)
-                    _miniInfo(Icons.badge_rounded, 'Documento: $documento'),
-                  if (_esConductor && licencia.isNotEmpty)
-                    _miniInfo(Icons.credit_card_rounded, 'Licencia: $licencia'),
-                  if (correo.isNotEmpty) _miniInfo(Icons.email_rounded, correo),
-                  if (telefono.isNotEmpty)
-                    _miniInfo(Icons.phone_rounded, telefono),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: activo
+                      ? const Color(0xFF16C79A).withValues(alpha: 0.16)
+                      : const Color(0xFFE66B6B).withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  activo ? 'Activo' : 'Inactivo',
+                  style: TextStyle(
                     color: activo
-                        ? const Color(0xFF16C79A).withValues(alpha: 0.16)
-                        : const Color(0xFFE66B6B).withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    activo ? 'Activo' : 'Inactivo',
-                    style: TextStyle(
-                      color: activo
-                          ? const Color(0xFF16C79A)
-                          : const Color(0xFFE66B6B),
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
+                        ? const Color(0xFF16C79A)
+                        : const Color(0xFFE66B6B),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 14),
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: Colors.white38,
-                  size: 16,
+              ),
+              const SizedBox(width: 4),
+              PopupMenuButton<int>(
+                icon: const Icon(
+                  Icons.more_vert_rounded,
+                  color: Colors.white54,
+                  size: 20,
                 ),
-              ],
+                color: _panelColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                itemBuilder: (context) => [
+                  _menuItem(1, Icons.visibility_rounded, 'Ver información'),
+                  _menuItem(2, Icons.edit_rounded, 'Editar información'),
+                  _menuItem(3, Icons.folder_copy_rounded, 'Ver documentos'),
+                  _menuItem(4, Icons.build_rounded, 'Ver mantenimientos'),
+                ],
+                onSelected: (value) {
+                  switch (value) {
+                    case 1:
+                      _showDetalle(item);
+                      break;
+                    case 2:
+                      _showFormModal(persona: item);
+                      break;
+                    case 3:
+                      _verDocumentosPersona(item);
+                      break;
+                    case 4:
+                      _verMantenimientosPersona(item);
+                      break;
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            nombre,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15.5,
+              fontWeight: FontWeight.bold,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          if (documento.isNotEmpty)
+            _compactInfo(Icons.badge_rounded, documento),
+          if (_esConductor && licencia.isNotEmpty)
+            _compactInfo(Icons.credit_card_rounded, licencia),
+          if (correo.isNotEmpty) _compactInfo(Icons.email_rounded, correo),
+          if (telefono.isNotEmpty) _compactInfo(Icons.phone_rounded, telefono),
+        ],
+      ),
+    );
+  }
+
+  PopupMenuItem<int> _menuItem(int value, IconData icon, String text) {
+    return PopupMenuItem<int>(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white70, size: 18),
+          const SizedBox(width: 10),
+          Text(text, style: const TextStyle(color: Colors.white, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _compactInfo(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 5),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white54, size: 14),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1522,40 +1686,35 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
             _buildSearchAndActions(),
             const SizedBox(height: 18),
 
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-              ),
-              child: Row(
-                children: [
-                  Icon(_iconoPrincipal, color: _accentColor, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${items.length} ${_esConductor ? 'conductores' : 'propietarios'} encontrados',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: _loadPersonas,
-                    icon: const Icon(
-                      Icons.refresh_rounded,
-                      color: Colors.white54,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            if (items.isEmpty)
+              _buildEmpty()
+            else
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.maxWidth;
 
-            const SizedBox(height: 8),
+                  final crossAxisCount = width > 1100
+                      ? 3
+                      : width > 720
+                      ? 2
+                      : 1;
 
-            if (items.isEmpty) _buildEmpty() else ...items.map(_buildCard),
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: items.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 14,
+                      mainAxisSpacing: 14,
+                      mainAxisExtent: 190,
+                    ),
+                    itemBuilder: (context, index) {
+                      return _buildCard(items[index]);
+                    },
+                  );
+                },
+              ),
 
             const SizedBox(height: 32),
           ],

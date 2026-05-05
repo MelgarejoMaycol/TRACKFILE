@@ -109,6 +109,65 @@ class ApiService {
     return [];
   }
 
+  static Future<List<Map<String, dynamic>>> getMisVehiculos() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final role = (prefs.getString('role') ?? '').toUpperCase();
+    final userId = prefs.getString('user_id');
+
+    debugPrint('🚦 getMisVehiculos => role=$role userId=$userId');
+
+    if (userId == null || userId.isEmpty) {
+      debugPrint('❌ No hay user_id guardado');
+      return [];
+    }
+
+    final todosVehiculos = await getVehiculos();
+
+    if (role == 'EMPRESA' || role == 'ADMIN' || role == 'SECRETARIA') {
+      return todosVehiculos;
+    }
+
+    final filtrados = todosVehiculos.where((vehiculo) {
+      if (role == 'CONDUCTOR') {
+        final conductor = vehiculo['conductor'];
+
+        if (conductor is Map) {
+          final usuario = conductor['usuario'];
+
+          final idUsuario =
+              conductor['idUsuario']?.toString() ??
+              conductor['id_usuario']?.toString() ??
+              (usuario is Map ? usuario['id']?.toString() : null) ??
+              (usuario is Map ? usuario['idUsuario']?.toString() : null);
+
+          return idUsuario == userId;
+        }
+      }
+
+      if (role == 'PROPIETARIO') {
+        final propietario = vehiculo['propietario'];
+
+        if (propietario is Map) {
+          final usuario = propietario['usuario'];
+
+          final idUsuario =
+              propietario['idUsuario']?.toString() ??
+              propietario['id_usuario']?.toString() ??
+              (usuario is Map ? usuario['id']?.toString() : null) ??
+              (usuario is Map ? usuario['idUsuario']?.toString() : null);
+
+          return idUsuario == userId;
+        }
+      }
+
+      return false;
+    }).toList();
+
+    debugPrint('✅ Vehículos filtrados para $role: ${filtrados.length}');
+    return filtrados;
+  }
+
   /// Obtiene detalle de un vehículo específico
   /// GET /api/vehiculos/{id}/detalle
   static Future<Map<String, dynamic>?> getVehiculoDetalle(
@@ -245,6 +304,80 @@ class ApiService {
       debugPrint('❌ Error al obtener documentos: $e');
     }
     return [];
+  }
+
+  static Future<List<Map<String, dynamic>>> getMisDocumentos() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final userId = prefs.getString('user_id');
+    final role = prefs.getString('role') ?? '';
+    final conductorId = prefs.getString('conductor_id');
+    final propietarioId = prefs.getString('propietario_id');
+
+    if (userId == null || userId.isEmpty) {
+      debugPrint('❌ No hay user_id guardado');
+      return [];
+    }
+
+    debugPrint(
+      '📄 [getMisDocumentos] Role: $role, UserId: $userId, ConductorId: $conductorId, PropietarioId: $propietarioId',
+    );
+
+    final List<Map<String, dynamic>> documentosFinales = [];
+
+    // 1. Documentos personales del usuario
+    final personales = await getDocumentos(userId: userId);
+    documentosFinales.addAll(personales);
+    debugPrint(
+      '📄 [getMisDocumentos] Documentos personales: ${personales.length}',
+    );
+
+    // 2. Documentos de vehículos asignados al conductor/propietario
+    if (role.toLowerCase() == 'conductor' ||
+        role.toLowerCase() == 'propietario') {
+      final vehiculos = await getMisVehiculos();
+      debugPrint(
+        '📄 [getMisDocumentos] Vehículos del $role: ${vehiculos.length}',
+      );
+
+      for (final vehiculo in vehiculos) {
+        final dynamic rawId = vehiculo['idVehiculo'] ?? vehiculo['id'];
+        final int? vehiculoId = rawId is int
+            ? rawId
+            : int.tryParse(rawId?.toString() ?? '');
+
+        if (vehiculoId == null) {
+          debugPrint('⚠️ No se pudo obtener ID del vehículo: $vehiculo');
+          continue;
+        }
+
+        final docsVehiculo = await getDocumentosPorVehiculo(vehiculoId);
+        documentosFinales.addAll(docsVehiculo);
+        debugPrint(
+          '📄 [getMisDocumentos] Documentos vehículo $vehiculoId: ${docsVehiculo.length}',
+        );
+      }
+    }
+
+    // 3. Evitar duplicados por id_documento
+    final Map<String, Map<String, dynamic>> unicos = {};
+
+    for (int i = 0; i < documentosFinales.length; i++) {
+      final doc = documentosFinales[i];
+
+      final id = doc['idDocumento'] ?? doc['id_documento'] ?? doc['id'];
+
+      final key =
+          id?.toString() ??
+          '${doc['nombre'] ?? doc['nombreTipoDocumento'] ?? 'doc'}-${doc['fechaVencimiento'] ?? i}';
+
+      unicos[key] = doc;
+    }
+    debugPrint(
+      '✅ [getMisDocumentos] Total documentos finales: ${unicos.length} para rol $role',
+    );
+
+    return unicos.values.toList();
   }
 
   /// Obtiene documentos próximos a vencer (en X días)
@@ -448,6 +581,179 @@ class ApiService {
       debugPrint('❌ Error al obtener usuario actual: $e');
     }
     return null;
+  }
+
+  // ==================== PERFIL ====================
+
+  /// Obtiene el perfil del usuario autenticado
+  /// GET /api/usuarios/me
+  static Future<Map<String, dynamic>?> getMiPerfil() async {
+    try {
+      final headers = await _buildHeaders();
+
+      final response = await http
+          .get(Uri.parse('$_baseUrl/api/usuarios/me'), headers: headers)
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        debugPrint('✅ Perfil obtenido');
+        return decoded is Map<String, dynamic> ? decoded : null;
+      } else {
+        debugPrint('❌ Error perfil ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error al obtener perfil: $e');
+    }
+
+    return null;
+  }
+
+  /// Actualiza el perfil del usuario autenticado
+  /// PUT /api/usuarios/me
+  static Future<bool> updateMiPerfil({
+    required String nombre,
+    required String apellido,
+    required String telefono,
+    required String direccion,
+  }) async {
+    try {
+      final headers = await _buildHeaders();
+
+      final body = {
+        'nombre': nombre.trim(),
+        'apellido': apellido.trim(),
+        'telefono': telefono.trim(),
+        'direccion': direccion.trim(),
+      };
+
+      final response = await http
+          .put(
+            Uri.parse('$_baseUrl/api/usuarios/me'),
+            headers: headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        debugPrint('✅ Perfil actualizado');
+        return true;
+      }
+
+      debugPrint(
+        '❌ Error actualizando perfil ${response.statusCode}: ${response.body}',
+      );
+    } catch (e) {
+      debugPrint('❌ Error al actualizar perfil: $e');
+    }
+
+    return false;
+  }
+
+  /// Cambia la contraseña del usuario autenticado
+  /// PUT /api/usuarios/me/password
+  static Future<Map<String, dynamic>> cambiarMiPassword({
+    required String passwordActual,
+    required String passwordNueva,
+  }) async {
+    try {
+      final headers = await _buildHeaders();
+
+      final response = await http
+          .put(
+            Uri.parse('$_baseUrl/api/usuarios/me/password'),
+            headers: headers,
+            body: jsonEncode({
+              'passwordActual': passwordActual,
+              'passwordNueva': passwordNueva,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      final decoded = response.body.isNotEmpty
+          ? jsonDecode(response.body)
+          : <String, dynamic>{};
+
+      if (response.statusCode == 200) {
+        debugPrint('✅ Contraseña actualizada');
+        return {
+          'ok': true,
+          'mensaje':
+              decoded['mensaje'] ?? 'Contraseña actualizada correctamente',
+        };
+      }
+
+      return {
+        'ok': false,
+        'error': decoded['error'] ?? 'No se pudo cambiar la contraseña',
+      };
+    } catch (e) {
+      debugPrint('❌ Error al cambiar contraseña: $e');
+      return {'ok': false, 'error': 'Error de conexión'};
+    }
+  }
+
+  /// Obtiene la empresa del usuario autenticado
+  /// GET /api/empresas/me
+  static Future<Map<String, dynamic>?> getMiEmpresa() async {
+    try {
+      final headers = await _buildHeaders();
+
+      final response = await http
+          .get(Uri.parse('$_baseUrl/api/empresas/me'), headers: headers)
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        debugPrint('✅ Empresa actual obtenida');
+        return decoded is Map<String, dynamic> ? decoded : null;
+      }
+
+      debugPrint('❌ Error empresa ${response.statusCode}: ${response.body}');
+    } catch (e) {
+      debugPrint('❌ Error al obtener empresa actual: $e');
+    }
+
+    return null;
+  }
+
+  /// Actualiza la empresa del usuario autenticado
+  /// PUT /api/empresas/me
+  static Future<bool> updateMiEmpresa({
+    required String nombreEmpresa,
+    required String telefono,
+    required String direccion,
+  }) async {
+    try {
+      final headers = await _buildHeaders();
+
+      final body = {
+        'nombreEmpresa': nombreEmpresa.trim(),
+        'telefono': telefono.trim(),
+        'direccion': direccion.trim(),
+      };
+
+      final response = await http
+          .put(
+            Uri.parse('$_baseUrl/api/empresas/me'),
+            headers: headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        debugPrint('✅ Empresa actualizada');
+        return true;
+      }
+
+      debugPrint(
+        '❌ Error actualizando empresa ${response.statusCode}: ${response.body}',
+      );
+    } catch (e) {
+      debugPrint('❌ Error al actualizar empresa: $e');
+    }
+
+    return false;
   }
 
   // ==================== MANTENIMIENTOS ====================
