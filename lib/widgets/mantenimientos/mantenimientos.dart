@@ -237,6 +237,12 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
 
   final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
 
+  double _pagePadding(double width) {
+    if (width < 380) return 12;
+    if (width < 720) return 16;
+    return 24;
+  }
+
   bool _isLoading = true;
   bool _hasError = false;
   List<_MantenimientoDetalle> _detalles = const [];
@@ -643,12 +649,11 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           Positioned(
             bottom: 24,
             right: 24,
-            child: FloatingActionButton.extended(
+            child: FloatingActionButton(
               onPressed: showNewMaintenanceModal,
               backgroundColor: const Color(0xFF4F4CE8),
               foregroundColor: Colors.white,
-              icon: const Icon(Icons.add),
-              label: const Text('Crear mantenimiento'),
+              child: const Icon(Icons.add),
             ),
           ),
         ],
@@ -893,13 +898,11 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
   }
 
   Widget buildContent(bool isCompact, bool isTableCompact) {
+    final width = MediaQuery.of(context).size.width;
+    final padding = _pagePadding(width);
+
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        isCompact ? 16 : 24,
-        24,
-        isCompact ? 16 : 24,
-        isCompact ? 120 : 64,
-      ),
+      padding: EdgeInsets.fromLTRB(padding, 20, padding, isCompact ? 120 : 72),
       child: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(
@@ -924,9 +927,15 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       },
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
-        hintText: 'Buscar por placa, vehículo o tipo de mantenimiento',
-        hintStyle: const TextStyle(color: Colors.white54),
-        prefixIcon: const Icon(Icons.search, color: Colors.white54),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+        hintText: 'Buscar por placa, vehículo o tipo',
+        hintStyle: const TextStyle(color: Colors.white54, fontSize: 12),
+        prefixIcon: const Icon(Icons.search, color: Colors.white54, size: 20),
+        prefixIconConstraints: const BoxConstraints(minWidth: 42),
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.06),
         enabledBorder: OutlineInputBorder(
@@ -1074,28 +1083,56 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           ),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: buildEstadoDashboardCard(
-                titulo: 'Sugeridos',
-                icono: Icons.lightbulb,
-                cantidad: sugeridos.length,
-                color: _warningColor,
-                onTap: () => abrirListaModal('Sugeridos', sugeridos),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: buildEstadoDashboardCard(
-                titulo: 'Programados',
-                icono: Icons.event_available,
-                cantidad: programados.length,
-                color: _accentColor,
-                onTap: () => abrirListaModal('Programados', programados),
-              ),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final small = constraints.maxWidth < 420;
+
+            if (small) {
+              return Column(
+                children: [
+                  buildEstadoDashboardCard(
+                    titulo: 'Sugeridos',
+                    icono: Icons.lightbulb,
+                    cantidad: sugeridos.length,
+                    color: _warningColor,
+                    onTap: () => abrirListaModal('Sugeridos', sugeridos),
+                  ),
+                  const SizedBox(height: 12),
+                  buildEstadoDashboardCard(
+                    titulo: 'Programados',
+                    icono: Icons.event_available,
+                    cantidad: programados.length,
+                    color: _accentColor,
+                    onTap: () => abrirListaModal('Programados', programados),
+                  ),
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                Expanded(
+                  child: buildEstadoDashboardCard(
+                    titulo: 'Sugeridos',
+                    icono: Icons.lightbulb,
+                    cantidad: sugeridos.length,
+                    color: _warningColor,
+                    onTap: () => abrirListaModal('Sugeridos', sugeridos),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: buildEstadoDashboardCard(
+                    titulo: 'Programados',
+                    icono: Icons.event_available,
+                    cantidad: programados.length,
+                    color: _accentColor,
+                    onTap: () => abrirListaModal('Programados', programados),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -1108,38 +1145,52 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
-      child: Container(
-        height: 130,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.14),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final small = constraints.maxWidth < 360;
+
+        return InkWell(
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: color.withValues(alpha: 0.45)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icono, color: color, size: 30),
-            const Spacer(),
-            Text(
-              titulo,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: 15,
-              ),
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            height: small ? 112 : 130,
+            padding: EdgeInsets.all(small ? 13 : 16),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: color.withValues(alpha: 0.45)),
             ),
-            const SizedBox(height: 4),
-            Text(
-              '$cantidad mantenimiento(s)',
-              style: const TextStyle(color: Colors.white60, fontSize: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icono, color: color, size: small ? 24 : 30),
+                const Spacer(),
+                Text(
+                  titulo,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: small ? 13 : 15,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$cantidad mantenimiento(s)',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white60,
+                    fontSize: small ? 11 : 12,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -1185,20 +1236,33 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           ),
         ),
         const SizedBox(height: 12),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: isCompact ? 2 : 4,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.6,
-          children: agrupados.entries.map((entry) {
-            return buildHistorialTipoCard(
-              tipo: entry.key,
-              cantidad: entry.value.length,
-              onTap: () => abrirListaModal(entry.key, entry.value),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            final columns = width < 360
+                ? 1
+                : width < 620
+                ? 2
+                : width < 950
+                ? 3
+                : 4;
+
+            return GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: columns,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: width < 360 ? 2.4 : 1.55,
+              children: agrupados.entries.map((entry) {
+                return buildHistorialTipoCard(
+                  tipo: entry.key,
+                  cantidad: entry.value.length,
+                  onTap: () => abrirListaModal(entry.key, entry.value),
+                );
+              }).toList(),
             );
-          }).toList(),
+          },
         ),
       ],
     );
@@ -1664,7 +1728,12 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: cardColor.withValues(alpha: 0.45)),
         ),
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+        padding: EdgeInsets.fromLTRB(
+          MediaQuery.of(context).size.width < 380 ? 12 : 18,
+          16,
+          MediaQuery.of(context).size.width < 380 ? 12 : 18,
+          12,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1753,24 +1822,28 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
             ],
 
             const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (_isConductor || _isPropietario) ...[
-                  if ((mantenimiento.estado.toUpperCase() == 'SUGERIDO' ||
-                          mantenimiento.estado.toUpperCase() == 'PROGRAMADO') &&
-                      usuarioTieneAccesoAlVehiculo(mantenimiento.vehiculoId))
-                    TextButton(
-                      onPressed: () => showCompletarMantenimientoModal(detalle),
-                      style: TextButton.styleFrom(
-                        foregroundColor: _successColor,
-                      ),
-                      child: const Text('Completar mantenimiento'),
-                    ),
-                  const SizedBox(width: 8),
-                ],
-              ],
-            ),
+            if (_isConductor || _isPropietario)
+              Align(
+                alignment: Alignment.centerRight,
+                child:
+                    ((mantenimiento.estado.toUpperCase() == 'SUGERIDO' ||
+                            mantenimiento.estado.toUpperCase() ==
+                                'PROGRAMADO') &&
+                        usuarioTieneAccesoAlVehiculo(mantenimiento.vehiculoId))
+                    ? TextButton(
+                        onPressed: () =>
+                            showCompletarMantenimientoModal(detalle),
+                        style: TextButton.styleFrom(
+                          foregroundColor: _successColor,
+                          padding: EdgeInsets.zero,
+                        ),
+                        child: const Text(
+                          'Completar mantenimiento',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
           ],
         ),
       ),
