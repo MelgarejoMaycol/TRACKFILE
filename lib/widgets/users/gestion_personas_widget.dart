@@ -52,17 +52,6 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
     return 24;
   }
 
-  double _textResponsive(
-    double width, {
-    required double small,
-    required double normal,
-    required double large,
-  }) {
-    if (width < 360) return small;
-    if (width < 600) return normal;
-    return large;
-  }
-
   late TipoGestionPersona _tipoActual;
 
   List<Map<String, dynamic>> _personas = [];
