@@ -57,57 +57,6 @@ class _PerfilUsuario {
     required this.certificaciones,
     required this.vehiculos,
   });
-
-  factory _PerfilUsuario.fromMap(Map<String, dynamic> map) {
-    final List<_PerfilStat> stats = (map['stats'] as List<dynamic>? ?? const [])
-        .whereType<Map<String, dynamic>>()
-        .map(_PerfilStat.fromMap)
-        .toList();
-
-    final List<_PerfilDato> datos =
-        (map['details'] as List<dynamic>? ?? const [])
-            .whereType<Map<String, dynamic>>()
-            .map(_PerfilDato.fromMap)
-            .toList();
-
-    final List<_CertificacionItem> certificaciones =
-        (map['certifications'] as List<dynamic>? ?? const [])
-            .whereType<Map<String, dynamic>>()
-            .map(_CertificacionItem.fromMap)
-            .toList();
-
-    final List<_VehiculoCompacto> vehiculos =
-        (map['vehicles'] as List<dynamic>? ?? const [])
-            .whereType<Map<String, dynamic>>()
-            .map(_VehiculoCompacto.fromMap)
-            .toList();
-
-    return _PerfilUsuario(
-      id: map['id']?.toString() ?? '0',
-      nombre: map['name']?.toString() ?? 'Usuario sin nombre',
-      empresa: map['company']?.toString() ?? 'Sin empresa asignada',
-      email: map['email']?.toString() ?? 'sin-correo@empresa.com',
-      telefono: map['phone']?.toString() ?? 'Sin teléfono',
-      imagen: map['profileImage']?.toString() ?? '',
-      estadisticas: stats.isNotEmpty
-          ? stats
-          : const [
-              _PerfilStat(value: '0', label: 'Años\nen la empresa'),
-              _PerfilStat(value: '0', label: 'Años\nde experiencia'),
-              _PerfilStat(value: '0', label: 'Asignaciones\ncompletadas'),
-            ],
-      datos: datos.isNotEmpty
-          ? datos
-          : const [
-              _PerfilDato(label: 'Documento', value: 'No registrado'),
-              _PerfilDato(label: 'Rol', value: 'Sin rol'),
-              _PerfilDato(label: 'Departamento', value: '-'),
-              _PerfilDato(label: 'Ciudad base', value: '-'),
-            ],
-      certificaciones: certificaciones,
-      vehiculos: vehiculos,
-    );
-  }
 }
 
 class _PerfilStat {
@@ -115,13 +64,6 @@ class _PerfilStat {
   final String label;
 
   const _PerfilStat({required this.value, required this.label});
-
-  factory _PerfilStat.fromMap(Map<String, dynamic> map) {
-    return _PerfilStat(
-      value: map['value']?.toString() ?? '0',
-      label: map['label']?.toString() ?? '',
-    );
-  }
 }
 
 class _PerfilDato {
@@ -129,33 +71,13 @@ class _PerfilDato {
   final String value;
 
   const _PerfilDato({required this.label, required this.value});
-
-  factory _PerfilDato.fromMap(Map<String, dynamic> map) {
-    return _PerfilDato(
-      label: map['label']?.toString() ?? 'Dato',
-      value: map['value']?.toString() ?? '-',
-    );
-  }
 }
 
 class _CertificacionItem {
   final String nombre;
   final String estado;
-  final String? vencimiento;
 
-  const _CertificacionItem({
-    required this.nombre,
-    required this.estado,
-    this.vencimiento,
-  });
-
-  factory _CertificacionItem.fromMap(Map<String, dynamic> map) {
-    return _CertificacionItem(
-      nombre: map['name']?.toString() ?? 'Sin nombre',
-      estado: map['status']?.toString() ?? 'Sin estado',
-      vencimiento: map['expires']?.toString(),
-    );
-  }
+  const _CertificacionItem({required this.nombre, required this.estado});
 }
 
 class _VehiculoCompacto {
@@ -168,14 +90,6 @@ class _VehiculoCompacto {
     required this.modelo,
     required this.estado,
   });
-
-  factory _VehiculoCompacto.fromMap(Map<String, dynamic> map) {
-    return _VehiculoCompacto(
-      placa: map['plate']?.toString() ?? 'Sin placa',
-      modelo: map['model']?.toString() ?? 'Modelo desconocido',
-      estado: map['status']?.toString() ?? 'Sin estado',
-    );
-  }
 }
 
 class _PerfilWidgetState extends State<PerfilWidget> {
@@ -631,158 +545,6 @@ class _PerfilWidgetState extends State<PerfilWidget> {
     );
   }
 
-  Widget _buildCertificaciones(bool isCompact) {
-    final _PerfilUsuario perfil = _perfil!;
-    final bool empty = perfil.certificaciones.isEmpty;
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        isCompact ? 18 : 22,
-        22,
-        isCompact ? 18 : 22,
-        22,
-      ),
-      decoration: BoxDecoration(
-        color: _cardColor,
-        border: Border.all(color: _softBorderColor.withValues(alpha: 0.45)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: const [
-              Icon(Icons.verified_rounded, color: _primaryColor, size: 20),
-              SizedBox(width: 10),
-              Text(
-                'Credenciales y certificaciones',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          if (empty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                color: _surfaceColor,
-                border: Border.all(
-                  color: _primaryColor.withValues(alpha: 0.12),
-                ),
-              ),
-              child: const Text(
-                'Todavía no registras certificaciones en el sistema.',
-                style: TextStyle(color: Colors.white70),
-              ),
-            )
-          else
-            Column(
-              children: perfil.certificaciones
-                  .map(
-                    (cert) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _buildCertTile(cert),
-                    ),
-                  )
-                  .toList(),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVehiculos(bool isCompact) {
-    final _PerfilUsuario perfil = _perfil!;
-    final bool empty = perfil.vehiculos.isEmpty;
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        isCompact ? 18 : 22,
-        22,
-        isCompact ? 18 : 22,
-        22,
-      ),
-      decoration: BoxDecoration(
-        color: _cardColor,
-        border: Border.all(color: _softBorderColor.withValues(alpha: 0.45)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: const [
-              Icon(
-                Icons.directions_car_filled_rounded,
-                color: _primaryColor,
-                size: 20,
-              ),
-              SizedBox(width: 10),
-              Text(
-                'Vehículos asignados',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          if (empty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                color: _surfaceColor,
-                border: Border.all(
-                  color: _primaryColor.withValues(alpha: 0.12),
-                ),
-              ),
-              child: const Text(
-                'Sin vehículos en asignación actual.',
-                style: TextStyle(color: Colors.white70),
-              ),
-            )
-          else
-            Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              children: perfil.vehiculos
-                  .map(
-                    (vehiculo) => SizedBox(
-                      width: isCompact ? double.infinity : 320,
-                      child: _buildVehiculoTile(vehiculo),
-                    ),
-                  )
-                  .toList(),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildAvatar(String imagen) {
     if (imagen.isNotEmpty) {
       return CircleAvatar(
@@ -860,146 +622,6 @@ class _PerfilWidgetState extends State<PerfilWidget> {
               color: Colors.white,
               fontWeight: FontWeight.w600,
               fontSize: 14,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCertTile(_CertificacionItem cert) {
-    final String estado = cert.estado.isEmpty ? 'Sin estado' : cert.estado;
-    final String vencimiento = cert.vencimiento?.isNotEmpty == true
-        ? cert.vencimiento!
-        : 'Sin fecha';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: _surfaceColor,
-        border: Border.all(color: _softBorderColor.withValues(alpha: 0.45)),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _accentColor.withValues(alpha: 0.2),
-              border: Border.all(color: _accentColor.withValues(alpha: 0.45)),
-            ),
-            child: const Icon(
-              Icons.assignment_turned_in_rounded,
-              color: Colors.white,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  cert.nombre,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Estado: $estado',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text(
-                'Vence',
-                style: TextStyle(color: Colors.white70, fontSize: 11),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                vencimiento,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVehiculoTile(_VehiculoCompacto vehiculo) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: _surfaceColor,
-        border: Border.all(color: _softBorderColor.withValues(alpha: 0.45)),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _accentColor.withValues(alpha: 0.2),
-              border: Border.all(color: _accentColor.withValues(alpha: 0.45)),
-            ),
-            child: const Icon(
-              Icons.directions_car_rounded,
-              color: Colors.white,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  vehiculo.placa,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  vehiculo.modelo,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: _primaryColor.withValues(alpha: 0.08),
-              border: Border.all(color: _primaryColor.withValues(alpha: 0.25)),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(
-              vehiculo.estado,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
             ),
           ),
         ],
@@ -1161,7 +783,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                                               direccion: direccion.text,
                                             );
 
-                                        if (!mounted) return;
+                                        if (!context.mounted) return;
 
                                         Navigator.pop(context);
 
@@ -1323,7 +945,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                                               direccion: direccion.text,
                                             );
 
-                                        if (!mounted) return;
+                                        if (!context.mounted) return;
 
                                         Navigator.pop(context);
 
@@ -1470,7 +1092,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                                               passwordNueva: nueva.text,
                                             );
 
-                                        if (!mounted) return;
+                                        if (!context.mounted) return;
 
                                         Navigator.pop(context);
 

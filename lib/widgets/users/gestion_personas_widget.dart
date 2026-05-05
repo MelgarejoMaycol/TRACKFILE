@@ -94,10 +94,6 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
   String get _titulo => _esConductor ? 'Conductores' : 'Propietarios';
 
-  String get _subtitulo => _esConductor
-      ? 'Gestión de conductores registrados en la empresa'
-      : 'Gestión de propietarios registrados en la empresa';
-
   String get _endpointBase =>
       _esConductor ? '/api/conductores' : '/api/propietarios';
 
@@ -225,32 +221,6 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
     if (response.statusCode != 200) {
       throw Exception('Error ${response.statusCode}: ${response.body}');
-    }
-
-    await _loadPersonas();
-  }
-
-  Future<void> _cambiarEstadoPersona({
-    required int id,
-    required String nuevoEstado,
-  }) async {
-    final token = await _token();
-
-    final uri = ApiConfig.resolve(_baseUrl, '$_endpointBase/$id/estado');
-
-    final response = await http.patch(
-      uri,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: json.encode({'estado': nuevoEstado}),
-    );
-
-    if (response.statusCode != 200 && response.statusCode != 204) {
-      throw Exception(
-        'Error cambiando estado ${response.statusCode}: ${response.body}',
-      );
     }
 
     await _loadPersonas();
@@ -791,13 +761,12 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                   await _crearPersona(body);
                 }
 
-                if (!mounted) return;
+                if (!context.mounted) return;
 
-                // 🔥 Mostrar mensaje ANTES de cerrar
                 Navigator.pop(context);
 
                 Future.delayed(const Duration(milliseconds: 200), () {
-                  if (!mounted) return;
+                  if (!context.mounted) return;
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -1506,25 +1475,6 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _miniInfo(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 3),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.white54, size: 15),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(color: Colors.white70, fontSize: 12.5),
-              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
