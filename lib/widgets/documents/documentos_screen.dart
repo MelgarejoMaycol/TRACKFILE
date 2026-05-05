@@ -32,6 +32,24 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
   static const Color _accentColor = Color(0xFF4F4CE8);
   static const Color _successColor = Color(0xFF16C79A);
   static const Color _warningColor = Color(0xFFEFB549);
+
+  double _screenPadding(double width) {
+    if (width < 360) return 12;
+    if (width < 600) return 16;
+    return 24;
+  }
+
+  double _responsiveText(
+    double width, {
+    required double small,
+    required double medium,
+    required double large,
+  }) {
+    if (width < 360) return small;
+    if (width < 600) return medium;
+    return large;
+  }
+
   bool _isLoading = true;
   String? _errorMessage;
   _DocumentosFlowView _view = _DocumentosFlowView.home;
@@ -372,28 +390,29 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
       final String brand = _valueAsString(vehicle['marca']) ?? '';
       final String model = _valueAsString(vehicle['modelo']) ?? '';
       final String imageUrl = _valueAsString(vehicle['imagen']) ?? '';
-      final List<String> owners = [];
+      String propietarioNombre = '';
+      String conductorNombre = '';
+
       final dynamic propietario = vehicle['propietario'];
       if (propietario is Map) {
-        final ownerName = _fullNameFromMap(
+        propietarioNombre = _fullNameFromMap(
           propietario['usuario'] ?? propietario,
         );
-        if (ownerName.isNotEmpty) owners.add(ownerName);
       }
+
       final dynamic conductor = vehicle['conductor'];
       if (conductor is Map) {
-        final conductorName = _fullNameFromMap(
-          conductor['usuario'] ?? conductor,
-        );
-        if (conductorName.isNotEmpty) owners.add(conductorName);
+        conductorNombre = _fullNameFromMap(conductor['usuario'] ?? conductor);
       }
       byVehicle[id] = _VehicleSummary(
         id: id,
+        propietario: propietarioNombre,
+        conductor: conductorNombre,
         plate: plate,
         brand: brand,
         model: model,
         imageUrl: imageUrl,
-        owners: owners,
+        owners: [],
         documents: [],
       );
     }
@@ -407,6 +426,8 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
       } else {
         byVehicle[vehicleId] = _VehicleSummary(
           id: vehicleId,
+          propietario: '',
+          conductor: '',
           plate: document.vehiclePlate.isEmpty
               ? 'Vehículo'
               : document.vehiclePlate,
@@ -505,48 +526,69 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final content = Container(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-      color: _surfaceColor,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(context),
-          const SizedBox(height: 16),
-          Expanded(child: _buildContent()),
-        ],
-      ),
-    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final padding = _screenPadding(width);
+        final isEmpresa = widget.role?.toLowerCase() == 'empresa';
 
-    final isEmpresa = widget.role?.toLowerCase() == 'empresa';
-
-    if (!isEmpresa || !widget.canUpload) {
-      return content;
-    }
-
-    return Stack(
-      children: [
-        Positioned.fill(child: content),
-        Positioned(
-          bottom: 24,
-          right: 24,
-          child: FloatingActionButton.extended(
-            backgroundColor: _accentColor,
-            elevation: 6,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-            onPressed: _showUploadModal,
-            icon: const Icon(Icons.upload_file),
-            label: const Text('Subir documento'),
+        final content = Container(
+          padding: EdgeInsets.fromLTRB(padding, padding, padding, 16),
+          color: _surfaceColor,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(context),
+              const SizedBox(height: 16),
+              Expanded(child: _buildContent()),
+            ],
           ),
-        ),
-      ],
+        );
+
+        if (!isEmpresa || !widget.canUpload) {
+          return content;
+        }
+
+        return Stack(
+          children: [
+            Positioned.fill(child: content),
+            Positioned(
+              bottom: 78,
+              right: padding,
+              child: FloatingActionButton(
+                backgroundColor: _accentColor,
+                elevation: 6,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                onPressed: _showUploadModal,
+                child: const Icon(Icons.upload_file),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildHeader(BuildContext context) {
     final bool showBack = _view != _DocumentosFlowView.home;
+    final width = MediaQuery.of(context).size.width;
+
+    final double titleSize = _responsiveText(
+      width,
+      small: 19,
+      medium: 21,
+      large: 24,
+    );
+
+    final double subtitleSize = _responsiveText(
+      width,
+      small: 12,
+      medium: 13,
+      large: 14,
+    );
+
     final String subtitle;
     switch (_view) {
       case _DocumentosFlowView.home:
@@ -572,38 +614,58 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
     }
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (showBack)
-          IconButton(
-            onPressed: _onBackPressed,
-            icon: Icon(Icons.arrow_back, size: 28, color: Colors.white),
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: IconButton(
+              constraints: const BoxConstraints(),
+              padding: EdgeInsets.zero,
+              onPressed: _onBackPressed,
+              icon: const Icon(Icons.arrow_back, size: 26, color: Colors.white),
+            ),
           ),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Documentos',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                _view == _DocumentosFlowView.people
+                    ? 'Personas'
+                    : _view == _DocumentosFlowView.vehicles
+                    ? 'Vehículos'
+                    : 'Documentos',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: titleSize,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                subtitle,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
-              ),
+              if (_view != _DocumentosFlowView.people &&
+                  _view != _DocumentosFlowView.vehicles) ...[
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  maxLines: width < 390 ? 2 : 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: subtitleSize,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
         if (!_isLoading)
           IconButton(
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.only(left: 8),
             onPressed: _loadExplorerData,
-            icon: Icon(Icons.refresh_rounded, color: Colors.white),
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             tooltip: 'Actualizar datos',
           ),
       ],
@@ -770,7 +832,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
       return a.daysRemaining.compareTo(b.daysRemaining);
     });
 
-    return docs.take(3).toList();
+    return docs;
   }
 
   void _openPeopleSection() {
@@ -796,66 +858,92 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
   Widget _buildHomeView() {
     final upcomingDocs = _upcomingDocuments;
 
-    return SingleChildScrollView(
-      key: const ValueKey('home-view'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (upcomingDocs.isNotEmpty) ...[
-            const Center(
-              child: Text(
-                'Próximos a vencer',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            _buildUpcomingDocumentsRow(upcomingDocs),
-            const SizedBox(height: 22),
-          ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
 
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: MediaQuery.of(context).size.width > 900 ? 2 : 1,
-            crossAxisSpacing: 18,
-            mainAxisSpacing: 18,
-            childAspectRatio: 2.6,
+        final int columns = width >= 520 ? 2 : 1;
+        final double cardHeight = width < 380
+            ? 175
+            : width < 420
+            ? 165
+            : 155;
+
+        return SingleChildScrollView(
+          key: const ValueKey('home-view'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHomeCard(
-                icon: Icons.people_alt_rounded,
-                title: 'Personas',
-                subtitle: _isEmpresa
-                    ? 'Conductores y propietarios'
-                    : 'Mis documentos personales',
-                accent: Colors.blue.shade700,
-                onTap: _openPeopleSection,
+              if (upcomingDocs.isNotEmpty) ...[
+                const Center(
+                  child: Text(
+                    'Próximos a vencer',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildUpcomingDocumentsRow(upcomingDocs),
+                const SizedBox(height: 18),
+              ],
+
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: columns,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                mainAxisExtent: cardHeight,
+                children: [
+                  _buildHomeCard(
+                    icon: Icons.people_alt_rounded,
+                    title: 'Personas',
+                    subtitle: _isEmpresa
+                        ? 'Conductores y propietarios'
+                        : 'Mis documentos personales',
+                    accent: Colors.blue.shade700,
+                    onTap: _openPeopleSection,
+                  ),
+                  _buildHomeCard(
+                    icon: Icons.directions_car_rounded,
+                    title: 'Vehículos',
+                    subtitle: 'Tarjetas por placa, modelo y marca',
+                    accent: Colors.teal.shade700,
+                    onTap: () =>
+                        setState(() => _view = _DocumentosFlowView.vehicles),
+                  ),
+                ],
               ),
-              _buildHomeCard(
-                icon: Icons.directions_car_rounded,
-                title: 'Vehículos',
-                subtitle: 'Tarjetas por placa, modelo y marca',
-                accent: Colors.teal.shade700,
-                onTap: () =>
-                    setState(() => _view = _DocumentosFlowView.vehicles),
-              ),
+
+              const SizedBox(height: 90),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildUpcomingDocumentsRow(List<_DocumentEntry> documents) {
+    final width = MediaQuery.of(context).size.width;
+    final bool isMobile = width < 600;
+
+    final visibleDocuments = isMobile
+        ? documents.take(2).toList()
+        : documents.take(3).toList();
+
+    final double cardWidth = isMobile ? (width - 72) / 2 : 220;
+
+    final double avatarRadius = isMobile ? 28 : 38;
+
     return Center(
       child: Wrap(
         alignment: WrapAlignment.center,
-        spacing: 14,
-        runSpacing: 14,
-        children: documents.map((doc) {
+        spacing: isMobile ? 10 : 14,
+        runSpacing: isMobile ? 10 : 14,
+        children: visibleDocuments.map((doc) {
           final color = _getExpiryColor(doc.daysRemaining);
 
           return InkWell(
@@ -868,8 +956,8 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
             ),
             borderRadius: BorderRadius.circular(18),
             child: Container(
-              width: 220,
-              padding: const EdgeInsets.all(14),
+              width: cardWidth.clamp(135, 220),
+              padding: EdgeInsets.all(isMobile ? 10 : 14),
               decoration: BoxDecoration(
                 color: _cardColor.withValues(alpha: 0.75),
                 borderRadius: BorderRadius.circular(18),
@@ -886,7 +974,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   CircleAvatar(
-                    radius: 38,
+                    radius: avatarRadius,
                     backgroundColor: color.withValues(alpha: 0.16),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -898,7 +986,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                           style: TextStyle(
                             color: color,
                             fontWeight: FontWeight.w800,
-                            fontSize: 22,
+                            fontSize: isMobile ? 17 : 22,
                           ),
                         ),
                         Text(
@@ -911,22 +999,22 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                               : 'mes(es)',
                           style: TextStyle(
                             color: color,
-                            fontSize: 9,
+                            fontSize: isMobile ? 8 : 9,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: isMobile ? 8 : 10),
                   Text(
                     doc.name,
                     textAlign: TextAlign.center,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: isMobile ? 11 : 12,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -936,9 +1024,11 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                         ? 'Documento vencido'
                         : 'Faltan ${doc.remainingLabel}',
                     textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: color,
-                      fontSize: 11,
+                      fontSize: isMobile ? 10 : 11,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -946,7 +1036,10 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                   Text(
                     'Vence: ${doc.formattedExpiry}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70, fontSize: 10),
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: isMobile ? 9 : 10,
+                    ),
                   ),
                 ],
               ),
@@ -972,103 +1065,122 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
     required Color accent,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Ink(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [accent, _cardColor],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool small = constraints.maxWidth < 280;
+
+        final double iconSize = small ? 20 : 24;
+        final double titleSize = small ? 14 : 16;
+        final double subtitleSize = small ? 10.5 : 12;
+        final double exploreSize = small ? 10.5 : 12;
+
+        return InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: _cardColor,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            padding: EdgeInsets.all(small ? 10 : 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  padding: EdgeInsets.all(small ? 8 : 10),
+                  child: Icon(icon, size: iconSize, color: Colors.white),
+                ),
+                SizedBox(height: small ? 8 : 10),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: titleSize,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: small ? 6 : 8),
+                Flexible(
+                  child: Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: subtitleSize,
+                      height: 1.15,
+                    ),
+                  ),
+                ),
+                SizedBox(height: small ? 6 : 8),
+                Text(
+                  'Explorar',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: exploreSize,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: accent.withValues(alpha: 0.28),
-              blurRadius: 18,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              padding: const EdgeInsets.all(14),
-              child: Icon(icon, size: 34, color: Colors.white),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: Text(
-                subtitle,
-                style: const TextStyle(color: Colors.white70, fontSize: 15),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Explorar',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.9),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
+        );
+      },
     );
   }
 
   Widget _buildPeopleView() {
     final persons = _filteredPersons;
-    return Column(
-      key: const ValueKey('people-view'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSearchBar(),
-        const SizedBox(height: 14),
-        _buildSegmentTabs(),
-        const SizedBox(height: 18),
-        Expanded(
-          child: persons.isEmpty
-              ? _buildEmptyState(
-                  title: 'No se encontraron personas',
-                  message: _searchQuery.isEmpty
-                      ? 'Aún no existen conductores o propietarios en la empresa.'
-                      : 'Ninguna persona coincide con la búsqueda.',
-                )
-              : GridView.builder(
-                  padding: EdgeInsets.zero,
-                  itemCount: persons.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: MediaQuery.of(context).size.width > 800
-                        ? 2
-                        : 1,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 3.1,
-                  ),
-                  itemBuilder: (context, index) {
-                    final person = persons[index];
-                    return _buildPersonCard(person);
-                  },
-                ),
-        ),
-      ],
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final int columns = width >= 760 ? 2 : 1;
+        final double cardHeight = width < 380 ? 128 : 118;
+
+        return Column(
+          key: const ValueKey('people-view'),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSearchBar(),
+            const SizedBox(height: 14),
+            _buildSegmentTabs(),
+            const SizedBox(height: 18),
+            Expanded(
+              child: persons.isEmpty
+                  ? _buildEmptyState(
+                      title: 'No se encontraron personas',
+                      message: _searchQuery.isEmpty
+                          ? 'Aún no existen conductores o propietarios en la empresa.'
+                          : 'Ninguna persona coincide con la búsqueda.',
+                    )
+                  : GridView.builder(
+                      padding: const EdgeInsets.only(bottom: 95),
+                      itemCount: persons.length,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                        mainAxisExtent: cardHeight,
+                      ),
+                      itemBuilder: (context, index) {
+                        final person = persons[index];
+                        return _buildPersonCard(person);
+                      },
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1080,9 +1192,10 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
         hintText: 'Buscar por nombre o número de documento',
         prefixIcon: const Icon(Icons.search),
         filled: true,
+        isDense: true,
         fillColor: Colors.white.withValues(alpha: 0.08),
         hintStyle: const TextStyle(color: Colors.white54),
-        contentPadding: const EdgeInsets.symmetric(vertical: 18),
+        contentPadding: const EdgeInsets.symmetric(vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide.none,
@@ -1108,7 +1221,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
         onTap: () => setState(() => _activePersonTab = title),
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
           decoration: BoxDecoration(
             color: selected
                 ? _accentColor
@@ -1131,89 +1244,115 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
   }
 
   Widget _buildPersonCard(_PersonSummary person) {
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedPerson = person;
-          _view = _DocumentosFlowView.personDetail;
-        });
-      },
-      borderRadius: BorderRadius.circular(20),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: _cardColor,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final small = constraints.maxWidth < 360;
+
+        return InkWell(
+          onTap: () {
+            setState(() {
+              _selectedPerson = person;
+              _view = _DocumentosFlowView.personDetail;
+            });
+          },
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: _accentColor.withValues(alpha: 0.25),
-              child: Text(
-                person.initials,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white70,
+          child: Ink(
+            decoration: BoxDecoration(
+              color: _cardColor,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    person.fullName,
+            padding: EdgeInsets.all(small ? 12 : 16),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: small ? 24 : 30,
+                  backgroundColor: _accentColor.withValues(alpha: 0.25),
+                  child: Text(
+                    person.initials,
                     style: TextStyle(
-                      fontSize: 17,
+                      fontSize: small ? 16 : 20,
                       fontWeight: FontWeight.bold,
                       color: Colors.white70,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    person.documentNumber.isNotEmpty
-                        ? 'CC: ${person.documentNumber}'
-                        : 'Documento no disponible',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    person.subtitle,
-                    style: TextStyle(color: Colors.white54),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: _accentColor.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                '${person.documents.length} docs',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white70,
                 ),
-              ),
+                SizedBox(width: small ? 10 : 14),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        person.fullName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: small ? 14 : 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        person.documentNumber.isNotEmpty
+                            ? 'CC: ${person.documentNumber}'
+                            : 'Documento no disponible',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: small ? 11 : 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Rol: ${person.roles.join(' / ')}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: small ? 11 : 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  flex: 0,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: small ? 8 : 10,
+                      vertical: small ? 6 : 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _accentColor.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      '${person.documents.length} docs',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: small ? 10 : 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -1232,87 +1371,128 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
         )
         .toList();
 
-    return Column(
-      key: const ValueKey('person-detail-view'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          decoration: BoxDecoration(
-            color: _cardColor,
-            borderRadius: BorderRadius.circular(20),
-          ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final titleSize = width < 380 ? 16.0 : 18.0;
+        final textSize = width < 380 ? 12.0 : 14.0;
+        final maxExtent = width < 380 ? 145.0 : 175.0;
+        final cardHeight = width < 380 ? 155.0 : 165.0;
+
+        return SingleChildScrollView(
+          key: const ValueKey('person-detail-view'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                person.fullName,
+                'Documentos de la persona',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 18,
+                  color: Colors.white,
+                  fontSize: titleSize,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white70,
                 ),
               ),
-              const SizedBox(height: 4),
+
+              const SizedBox(height: 6),
+
+              Text(
+                person.fullName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: textSize,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
               Text(
                 person.documentNumber.isNotEmpty
                     ? 'Documento: ${person.documentNumber}'
                     : 'Documento no disponible',
-                style: TextStyle(color: Colors.white70),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.white70, fontSize: textSize),
               ),
+
               const SizedBox(height: 4),
+
               Text(
                 'Rol: ${person.roles.join(' / ')}',
-                style: const TextStyle(color: Colors.white70),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.white70, fontSize: textSize),
               ),
+
               if (person.vehiclePlates.isNotEmpty) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Text(
                   'Vehículos vinculados: ${person.vehiclePlates.join(' • ')}',
-                  style: const TextStyle(color: Colors.white70),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.white70, fontSize: textSize),
                 ),
               ],
-            ],
-          ),
-        ),
 
-        const SizedBox(height: 12),
-        ElevatedButton.icon(
-          onPressed: () {
-            setState(() {
-              _showHistory = !_showHistory;
-            });
-          },
-          icon: Icon(
-            _showHistory ? Icons.visibility : Icons.history,
-            color: Colors.white,
-          ),
-          label: Text(
-            _showHistory ? 'Ver documentos activos' : 'Ver historial',
-            style: const TextStyle(color: Colors.white),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _showHistory ? Colors.orange : _accentColor,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-        const SizedBox(height: 18),
-        Expanded(
-          child: visibleDocuments.isEmpty
-              ? _buildEmptyState(
-                  title: 'Sin documentos',
-                  message:
-                      'Esta persona no tiene documentos asociados a la vista actual.',
+              const SizedBox(height: 14),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _showHistory = !_showHistory;
+                    });
+                  },
+                  icon: Icon(
+                    _showHistory ? Icons.visibility : Icons.history,
+                    color: Colors.white,
+                  ),
+                  label: Text(
+                    _showHistory ? 'Ver documentos activos' : 'Ver historial',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _showHistory
+                        ? Colors.orange
+                        : _accentColor,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              if (visibleDocuments.isEmpty)
+                SizedBox(
+                  height: 320,
+                  child: _buildEmptyState(
+                    title: 'Sin documentos',
+                    message:
+                        'Esta persona no tiene documentos asociados a la vista actual.',
+                  ),
                 )
-              : GridView.builder(
+              else
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
                   padding: EdgeInsets.zero,
                   itemCount: visibleDocuments.length,
                   gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 170,
-                    mainAxisExtent: 140,
+                    maxCrossAxisExtent: maxExtent,
+                    mainAxisExtent: cardHeight,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
                   ),
@@ -1321,126 +1501,161 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                     return _buildDocumentCard(document);
                   },
                 ),
-        ),
-      ],
+
+              const SizedBox(height: 90),
+            ],
+          ),
+        );
+      },
     );
   }
 
   Widget _buildVehiclesView() {
-    return Column(
-      key: const ValueKey('vehicles-view'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: _vehicles.isEmpty
-              ? _buildEmptyState(
-                  title: 'No hay vehículos',
-                  message:
-                      'No se encontraron vehículos asociados a la empresa.',
-                )
-              : GridView.builder(
-                  padding: EdgeInsets.zero,
-                  itemCount: _vehicles.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: MediaQuery.of(context).size.width > 900
-                        ? 2
-                        : 1,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 3.2,
-                  ),
-                  itemBuilder: (context, index) {
-                    final vehicle = _vehicles[index];
-                    return _buildVehicleCard(vehicle);
-                  },
-                ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+
+        final int columns = width >= 700 ? 2 : 1;
+        final double cardHeight = width < 420 ? 112 : 126;
+
+        return Column(
+          key: const ValueKey('vehicles-view'),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _vehicles.isEmpty
+                  ? _buildEmptyState(
+                      title: 'No hay vehículos',
+                      message:
+                          'No se encontraron vehículos asociados a la empresa.',
+                    )
+                  : GridView.builder(
+                      padding: const EdgeInsets.only(bottom: 95),
+                      itemCount: _vehicles.length,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        mainAxisExtent: cardHeight,
+                      ),
+                      itemBuilder: (context, index) {
+                        final vehicle = _vehicles[index];
+                        return _buildVehicleCard(vehicle);
+                      },
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildVehicleCard(_VehicleSummary vehicle) {
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedVehicle = vehicle;
-          _view = _DocumentosFlowView.vehicleDetail;
-        });
-      },
-      borderRadius: BorderRadius.circular(22),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: _cardColor,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: _successColor.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Icon(
-                Icons.directions_car_filled,
-                size: 34,
-                color: Colors.green.shade700,
-              ),
-            ),
-            const SizedBox(width: 18),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    vehicle.plate,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white70,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    vehicle.title,
-                    style: TextStyle(fontSize: 15, color: Colors.white70),
-                  ),
-                  const SizedBox(height: 4),
-                  if (vehicle.owners.isNotEmpty)
-                    Text(
-                      'Propietario: ${vehicle.owners.join(', ')}',
-                      style: const TextStyle(color: Colors.white54),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: _successColor.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                '${vehicle.documents.length} docs',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool small = constraints.maxWidth < 360;
+
+        final double iconBox = small ? 44 : 52;
+        final double titleSize = small ? 13 : 15;
+        final double subtitleSize = small ? 11 : 12.5;
+        final double docsSize = small ? 10 : 11;
+
+        return InkWell(
+          onTap: () {
+            setState(() {
+              _selectedVehicle = vehicle;
+              _view = _DocumentosFlowView.vehicleDetail;
+            });
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: _cardColor,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+            padding: EdgeInsets.symmetric(
+              horizontal: small ? 12 : 16,
+              vertical: small ? 12 : 14,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: iconBox,
+                  height: iconBox,
+                  decoration: BoxDecoration(
+                    color: _successColor.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    Icons.directions_car_filled,
+                    size: small ? 22 : 26,
+                    color: Colors.green.shade700,
+                  ),
+                ),
+
+                const SizedBox(width: 14),
+
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        vehicle.plate,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: titleSize,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        vehicle.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: subtitleSize,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: 10),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _successColor.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${vehicle.documents.length} docs',
+                    style: TextStyle(
+                      fontSize: docsSize,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1459,77 +1674,101 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
         )
         .toList();
 
-    return Column(
-      key: const ValueKey('vehicle-detail-view'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
-          decoration: BoxDecoration(
-            color: _cardColor,
-            borderRadius: BorderRadius.circular(20),
-          ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final titleSize = width < 380 ? 15.0 : 18.0;
+        final textSize = width < 380 ? 12.0 : 14.0;
+        final maxExtent = width < 380 ? 145.0 : 175.0;
+        final cardHeight = width < 380 ? 155.0 : 165.0;
+
+        return SingleChildScrollView(
+          key: const ValueKey('vehicle-detail-view'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                vehicle.title,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+                'Documentos de propietario y conductor',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
                   color: Colors.white,
+                  fontSize: titleSize,
+                  fontWeight: FontWeight.bold,
                 ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${vehicle.title} • Placa ${vehicle.plate}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.white70, fontSize: textSize),
               ),
               const SizedBox(height: 10),
               Text(
-                'Placa: ${vehicle.plate}',
-                style: const TextStyle(color: Colors.white70),
+                'Propietario: ${vehicle.propietario.isNotEmpty ? vehicle.propietario : 'No asignado'}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.white70, fontSize: textSize),
               ),
               const SizedBox(height: 4),
-              if (vehicle.owners.isNotEmpty)
-                Text(
-                  'Propietario(s): ${vehicle.owners.join(' • ')}',
-                  style: const TextStyle(color: Colors.white70),
+              Text(
+                'Conductor: ${vehicle.conductor.isNotEmpty ? vehicle.conductor : 'No asignado'}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.white70, fontSize: textSize),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _showHistory = !_showHistory;
+                    });
+                  },
+                  icon: Icon(
+                    _showHistory ? Icons.visibility : Icons.history,
+                    color: Colors.white,
+                  ),
+                  label: Text(
+                    _showHistory ? 'Ver documentos activos' : 'Ver historial',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _showHistory
+                        ? Colors.orange
+                        : _accentColor,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        ElevatedButton.icon(
-          onPressed: () {
-            setState(() {
-              _showHistory = !_showHistory;
-            });
-          },
-          icon: Icon(
-            _showHistory ? Icons.visibility : Icons.history,
-            color: Colors.white,
-          ),
-          label: Text(
-            _showHistory ? 'Ver documentos activos' : 'Ver historial',
-            style: const TextStyle(color: Colors.white),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _showHistory ? Colors.orange : _accentColor,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-        const SizedBox(height: 18),
-        Expanded(
-          child: visibleDocuments.isEmpty
-              ? _buildEmptyState(
-                  title: 'Sin documentos de vehículo',
-                  message: 'Este vehículo no tiene documentos disponibles.',
+              ),
+              const SizedBox(height: 18),
+              if (visibleDocuments.isEmpty)
+                SizedBox(
+                  height: 320,
+                  child: _buildEmptyState(
+                    title: 'Sin documentos de vehículo',
+                    message: 'Este vehículo no tiene documentos disponibles.',
+                  ),
                 )
-              : GridView.builder(
+              else
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
                   padding: EdgeInsets.zero,
                   itemCount: visibleDocuments.length,
                   gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 170,
-                    mainAxisExtent: 140,
+                    maxCrossAxisExtent: maxExtent,
+                    mainAxisExtent: cardHeight,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
                   ),
@@ -1538,8 +1777,11 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                     return _buildDocumentCard(document);
                   },
                 ),
-        ),
-      ],
+              const SizedBox(height: 120),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1562,71 +1804,89 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
   }
 
   Widget _buildDocumentCard(_DocumentEntry document) {
-    return InkWell(
-      onTap: () => DocumentPreviewModal.show(
-        context: context,
-        documentName: document.name,
-        fileUrl: document.url,
-        expiryDate: document.expiryDate,
-        observations: document.observations,
-      ),
-      borderRadius: BorderRadius.circular(20),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: _cardColor,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final small = constraints.maxWidth < 155;
+
+        return InkWell(
+          onTap: () => DocumentPreviewModal.show(
+            context: context,
+            documentName: document.name,
+            fileUrl: document.url,
+            expiryDate: document.expiryDate,
+            observations: document.observations,
+          ),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: _cardColor,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-          ],
-        ),
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              padding: const EdgeInsets.all(10),
-              child: Icon(
-                _getDocumentIcon(document),
-                size: 22,
-                color: Colors.white,
-              ),
+            padding: EdgeInsets.all(small ? 9 : 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  padding: EdgeInsets.all(small ? 8 : 10),
+                  child: Icon(
+                    _getDocumentIcon(document),
+                    size: small ? 19 : 22,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: small ? 8 : 12),
+                Text(
+                  document.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: small ? 11 : 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                if (document.expiryDate != null)
+                  Text(
+                    'Vence: ${document.formattedExpiry}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: small ? 10 : 12,
+                    ),
+                  ),
+                if (document.observations.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Expanded(
+                    child: Text(
+                      document.observations,
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: small ? 10 : 12,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              document.name,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 4),
-            if (document.expiryDate != null)
-              Text(
-                'Vence: ${document.formattedExpiry}',
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-            if (document.observations.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                document.observations,
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -1891,6 +2151,8 @@ class _PersonSummary {
 
 class _VehicleSummary {
   final String id;
+  final String propietario;
+  final String conductor;
   final String plate;
   final String brand;
   final String model;
@@ -1900,6 +2162,8 @@ class _VehicleSummary {
 
   _VehicleSummary({
     required this.id,
+    required this.propietario,
+    required this.conductor,
     required this.plate,
     required this.brand,
     required this.model,
