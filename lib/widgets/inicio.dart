@@ -627,6 +627,19 @@ class _InicioWidgetState extends State<InicioWidget> {
     return '$day/$month/${date.year}';
   }
 
+  DateTime? _getDocumentCreationDate(String documentKey) {
+    final rawDoc = _documentRawData[documentKey];
+
+    final creationStr =
+        rawDoc?['fechaCreacion']?.toString() ??
+        rawDoc?['fecha_creacion']?.toString() ??
+        rawDoc?['createdAt']?.toString();
+
+    if (creationStr == null || creationStr.isEmpty) return null;
+
+    return DateTime.tryParse(creationStr);
+  }
+
   /// Return list of entries sorted by soonest expiry
   List<MapEntry<String, DateTime>> _upcomingDocs({int limit = 3}) {
     final entries = _documents.entries.toList();
@@ -2237,9 +2250,25 @@ class _InicioWidgetState extends State<InicioWidget> {
                 expiry.day,
               );
               final int daysRemaining = expiryOnly.difference(todayOnly).inDays;
-              final int totalDays = daysRemaining.abs() <= 90
-                  ? 90
-                  : daysRemaining.abs();
+              final DateTime? creationDate = _getDocumentCreationDate(
+                entry.key,
+              );
+
+              final DateTime creationOnly = creationDate != null
+                  ? DateTime(
+                      creationDate.year,
+                      creationDate.month,
+                      creationDate.day,
+                    )
+                  : todayOnly.subtract(const Duration(days: 90));
+
+              final int totalDaysFromCreation = expiryOnly
+                  .difference(creationOnly)
+                  .inDays;
+
+              final int totalDays = totalDaysFromCreation > 0
+                  ? totalDaysFromCreation
+                  : 1;
               final DateTime? paymentDate = _paymentDates?[entry.key];
               final String detailLabel =
                   _documentVehicle[entry.key] ?? 'Sin detalle';

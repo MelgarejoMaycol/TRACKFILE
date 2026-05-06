@@ -51,7 +51,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
   static const Color _primaryColor = Color(0xFF3330BE); // principal
   static const Color _accentColor = Color(0xFF4F4CE8); // botones / detalles
   static const Color _bgColor = Color(0xFF131760); // fondo oscuro
-  static const Color _cardColor = Color.fromARGB(255, 55, 55, 119);
+  static const Color _cardColor = Color.fromARGB(255, 42, 42, 104);
   static const Color _panelColor = Color.fromARGB(255, 45, 45, 99);
 
   double _paddingResponsive(double width) {
@@ -638,6 +638,22 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
     );
   }
 
+  Future<void> _abrirEditarConDetalle(Map<String, dynamic> persona) async {
+    final id = persona['id'];
+
+    Map<String, dynamic> data = Map<String, dynamic>.from(persona);
+
+    if (id is int) {
+      final detalle = await _loadDetalle(id);
+      if (detalle != null) {
+        data = {...data, ...detalle};
+      }
+    }
+
+    if (!mounted) return;
+    _showFormModal(persona: data);
+  }
+
   void _showFormModal({Map<String, dynamic>? persona}) {
     final bool editando = persona != null;
 
@@ -648,10 +664,14 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
       text: editando ? _value(persona, ['apellido']) : '',
     );
     final tipoDocumentoController = TextEditingController(
-      text: editando ? _value(persona, ['tipoDocumento']) : 'CC',
+      text: editando
+          ? _value(persona, ['tipoDocumento', 'tipo_documento'])
+          : 'CC',
     );
     final numeroDocumentoController = TextEditingController(
-      text: editando ? _value(persona, ['numeroDocumento']) : '',
+      text: editando
+          ? _value(persona, ['numeroDocumento', 'numero_documento'])
+          : '',
     );
     final correoAliasController = TextEditingController();
     final telefonoController = TextEditingController(
@@ -666,13 +686,24 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
     final contrasenaController = TextEditingController();
 
     final licenciaController = TextEditingController(
-      text: editando ? _value(persona, ['licenciaConduccion']) : '',
+      text: editando
+          ? _value(persona, ['licenciaConduccion', 'licencia_conduccion'])
+          : '',
     );
+
     final categoriaController = TextEditingController(
-      text: editando ? _value(persona, ['categoriaLicencia']) : '',
+      text: editando
+          ? _value(persona, ['categoriaLicencia', 'categoria_licencia'])
+          : '',
     );
+
     final vencimientoController = TextEditingController(
-      text: editando ? _value(persona, ['fechaVencimientoLicencia']) : '',
+      text: editando
+          ? _value(persona, [
+              'fechaVencimientoLicencia',
+              'fecha_vencimiento_licencia',
+            ])
+          : '',
     );
     final documentoPropietarioController = TextEditingController(
       text: editando
@@ -1588,7 +1619,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                           _showDetalle(item);
                           break;
                         case 2:
-                          _showFormModal(persona: item);
+                          _abrirEditarConDetalle(item);
                           break;
                         case 3:
                           _verDocumentosPersona(item);
