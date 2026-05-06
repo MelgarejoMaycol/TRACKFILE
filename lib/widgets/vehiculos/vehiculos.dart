@@ -1659,13 +1659,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
               if (filtered.isEmpty)
                 _buildEmptyFilteredMessage(isCompact)
               else
-                Column(
-                  children: filtered
-                      .map(
-                        (vehicle) => _buildVehicleListCard(vehicle, isCompact),
-                      )
-                      .toList(),
-                ),
+                _buildVehiclesResponsiveGrid(filtered, isCompact),
             ],
           ),
         );
@@ -1962,6 +1956,209 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
             style: TextStyle(
               color: Colors.white70,
               fontSize: isCompact ? 12 : 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVehiclesResponsiveGrid(List<_Vehicle> vehicles, bool isCompact) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double width = constraints.maxWidth;
+
+        int crossAxisCount = 1;
+
+        if (width >= 1200) {
+          crossAxisCount = 4;
+        } else if (width >= 900) {
+          crossAxisCount = 3;
+        } else if (width >= 560) {
+          crossAxisCount = 2;
+        }
+
+        return GridView.builder(
+          itemCount: vehicles.length,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 14,
+            mainAxisSpacing: 14,
+            childAspectRatio: isCompact ? 1.08 : 1.18,
+          ),
+          itemBuilder: (context, index) {
+            return _buildVehicleGridCard(vehicles[index], isCompact);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildVehicleGridCard(_Vehicle vehicle, bool isCompact) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => _showVehicleModal(vehicle, isCompact),
+      child: Container(
+        padding: EdgeInsets.all(isCompact ? 13 : 15),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.055),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: _statusColor(
+                      vehicle.estadoVehiculo,
+                    ).withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Icon(
+                    Icons.directions_car_filled_rounded,
+                    color: _statusColor(vehicle.estadoVehiculo),
+                    size: 21,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    vehicle.placa,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: isCompact ? 16 : 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                _buildVehicleActionsMenu(vehicle),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            _buildStatusTag(vehicle.estadoVehiculo, isCompact),
+
+            const SizedBox(height: 10),
+
+            Text(
+              '${vehicle.marca} • ${vehicle.modelo}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: isCompact ? 12 : 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+
+            if (vehicle.anio != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Año ${vehicle.anio}',
+                style: TextStyle(
+                  color: Colors.white60,
+                  fontSize: isCompact ? 11 : 12,
+                ),
+              ),
+            ],
+
+            const Spacer(),
+
+            if (vehicle.nombrePropietario != null &&
+                vehicle.nombrePropietario!.trim().isNotEmpty)
+              _buildMiniVehicleLine(
+                icon: Icons.person_rounded,
+                text: vehicle.nombrePropietario!,
+                color: _successColor,
+                isCompact: isCompact,
+              ),
+
+            if (vehicle.nombreConductor != null &&
+                vehicle.nombreConductor!.trim().isNotEmpty)
+              _buildMiniVehicleLine(
+                icon: Icons.badge_rounded,
+                text: vehicle.nombreConductor!,
+                color: const Color(0xFF9D84FF),
+                isCompact: isCompact,
+              ),
+
+            const SizedBox(height: 8),
+
+            Row(
+              children: [
+                if (vehicle.color != null && vehicle.color!.trim().isNotEmpty)
+                  Expanded(
+                    child: Text(
+                      vehicle.color!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: isCompact ? 10 : 11,
+                      ),
+                    ),
+                  )
+                else
+                  const Spacer(),
+
+                if (vehicle.documentosVehiculo.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _warningColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${vehicle.documentosVehiculo.length} docs',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: isCompact ? 10 : 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniVehicleLine({
+    required IconData icon,
+    required String text,
+    required Color color,
+    required bool isCompact,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: isCompact ? 14 : 15),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: isCompact ? 11 : 12,
+              ),
             ),
           ),
         ],
@@ -2479,135 +2676,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildVehicleListCard(_Vehicle vehicle, bool isCompact) {
-    return InkWell(
-      onTap: () => _showVehicleModal(vehicle, isCompact),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white24),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Placa y Estado en la misma fila
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    vehicle.placa,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                _buildStatusTag(vehicle.estadoVehiculo, isCompact),
-                const SizedBox(width: 6),
-                _buildVehicleActionsMenu(vehicle),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            // Marca y Modelo
-            Text(
-              '${vehicle.marca} • ${vehicle.modelo}${vehicle.anio != null ? ' • ${vehicle.anio}' : ''}',
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-            const SizedBox(height: 10),
-
-            // Propietario
-            if (vehicle.nombrePropietario != null &&
-                vehicle.nombrePropietario!.isNotEmpty) ...[
-              Row(
-                children: [
-                  const Icon(Icons.person, color: _successColor, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Propietario: ${vehicle.nombrePropietario}',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-            ],
-
-            // Conductor
-            if (vehicle.nombreConductor != null &&
-                vehicle.nombreConductor!.isNotEmpty) ...[
-              Row(
-                children: [
-                  const Icon(
-                    Icons.directions_car,
-                    color: Color(0xFF9D84FF),
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Conductor: ${vehicle.nombreConductor}',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-            ],
-
-            // Color y Documentos
-            if ((vehicle.color != null && vehicle.color!.isNotEmpty) ||
-                vehicle.documentosVehiculo.isNotEmpty) ...[
-              Row(
-                children: [
-                  if (vehicle.color != null && vehicle.color!.isNotEmpty) ...[
-                    Icon(Icons.color_lens, color: _warningColor, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Color: ${vehicle.color}',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                  if (vehicle.documentosVehiculo.isNotEmpty) ...[
-                    Icon(Icons.description, color: _warningColor, size: 18),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${vehicle.documentosVehiculo.length} docs',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }
