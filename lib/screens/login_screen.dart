@@ -565,8 +565,29 @@ class _LoginScreenState extends State<LoginScreen>
             return;
           }
 
+          await prefs.remove('auth_token');
+          await prefs.remove('token');
+          await prefs.remove('rol');
+          await prefs.remove('role');
+          await prefs.remove('user_id');
+          await prefs.remove('usuario_id');
+          await prefs.remove('empresa_id');
+          await prefs.remove('conductor_id');
+          await prefs.remove('propietario_id');
+
           await prefs.setString('token', tokenSesion);
+          await prefs.setString('auth_token', tokenSesion);
+
           await prefs.setString('rol', rolRuta);
+          await prefs.setString('role', rolRuta);
+
+          await prefs.setString('user_id', usuarioId.toString());
+          await prefs.setString('usuario_id', usuarioId.toString());
+
+          final empresaId = sessionData['empresaId']?.toString();
+          if (empresaId != null && empresaId.isNotEmpty) {
+            await prefs.setString('empresa_id', empresaId);
+          }
 
           if (!mounted) return;
 
@@ -665,7 +686,10 @@ class _LoginScreenState extends State<LoginScreen>
         (session['emailConfirmado'] == true) || emailConfirmado;
 
     final String role =
-        _stringValue(session['rol'])?.toUpperCase() ?? fallbackRole;
+        _stringValue(loginData['rol'])?.toUpperCase() ??
+        _stringValue(session['rol'])?.toUpperCase() ??
+        fallbackRole;
+
     session['rol'] = role;
 
     // Copiar el token JWT desde loginData (obtenido en /api/auth/login)

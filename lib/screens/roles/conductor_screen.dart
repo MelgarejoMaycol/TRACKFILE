@@ -57,6 +57,11 @@ class _ConductorScreenState extends State<ConductorScreen> {
   bool _isLoading = true;
   int _inicioRefreshKey = 0;
   final List<Map<String, dynamic>> _alerts = [];
+  String? _selectedDocumentsVehicleId;
+  String? _selectedDocumentsVehiclePlate;
+
+  String? _selectedMaintenanceVehicleId;
+  String? _selectedMaintenanceVehiclePlate;
 
   @override
   void initState() {
@@ -790,6 +795,8 @@ class _ConductorScreenState extends State<ConductorScreen> {
           role: 'Conductor',
           userId: widget.userId,
           canUpload: false,
+          initialVehicleId: _selectedDocumentsVehicleId,
+          initialVehiclePlate: _selectedDocumentsVehiclePlate,
         );
       case 'Certificaciones':
         return CertificacionesWidget(
@@ -829,6 +836,29 @@ class _ConductorScreenState extends State<ConductorScreen> {
           role: 'Conductor',
           ownerId: widget.userId,
           jsonPath: 'assets/vehicles_data.json',
+          onVerDocumentosVehiculo:
+              ({required int vehiculoId, required String placa}) {
+                setState(() {
+                  _selectedDocumentsVehicleId = vehiculoId.toString();
+                  _selectedDocumentsVehiclePlate = placa;
+
+                  _activeSection = 'Documentos';
+                  _selectedLowerIndex = 1;
+                  _selectedUpperIndex = null;
+                });
+              },
+
+          onVerMantenimientosVehiculo:
+              ({required int vehiculoId, required String placa}) {
+                setState(() {
+                  _selectedMaintenanceVehicleId = vehiculoId.toString();
+                  _selectedMaintenanceVehiclePlate = placa;
+
+                  _activeSection = 'Mantenimientos';
+                  _selectedUpperIndex = 3;
+                  _selectedLowerIndex = null;
+                });
+              },
         );
       case 'Empresa':
         return EmpresaWidget(
@@ -839,6 +869,8 @@ class _ConductorScreenState extends State<ConductorScreen> {
         return MantenimientosWidget(
           role: 'Conductor',
           userId: widget.userId ?? '1',
+          vehiculoId: _selectedMaintenanceVehicleId,
+          vehiculoPlaca: _selectedMaintenanceVehiclePlate,
         );
       case 'Calendario':
         return _buildPlaceholderSection('Calendario de actividades');

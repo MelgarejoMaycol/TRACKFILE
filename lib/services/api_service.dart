@@ -197,6 +197,160 @@ class ApiService {
     return null;
   }
 
+  static Future<Map<String, dynamic>?> createVehiculo({
+    required int idPropietario,
+    required String placa,
+    required String vin,
+    required String marca,
+    required String modelo,
+    required int anio,
+    required String color,
+    required int kilometrajeActual,
+  }) async {
+    try {
+      final headers = await _buildHeaders();
+
+      final body = {
+        'idPropietario': idPropietario,
+        'placa': placa.trim().toUpperCase(),
+        'vin': vin.trim(),
+        'marca': marca.trim(),
+        'modelo': modelo.trim(),
+        'anio': anio,
+        'color': color.trim(),
+        'kilometrajeActual': kilometrajeActual,
+      };
+
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/api/vehiculos'),
+            headers: headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final decoded = jsonDecode(response.body);
+        return decoded is Map<String, dynamic> ? decoded : null;
+      }
+
+      debugPrint(
+        '❌ Error creando vehículo ${response.statusCode}: ${response.body}',
+      );
+    } catch (e) {
+      debugPrint('❌ Error creando vehículo: $e');
+    }
+
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> updateVehiculo({
+    required int vehiculoId,
+    String? placa,
+    String? vin,
+    String? marca,
+    String? modelo,
+    int? anio,
+    String? color,
+    int? kilometrajeActual,
+  }) async {
+    try {
+      final headers = await _buildHeaders();
+
+      final body = <String, dynamic>{
+        if (placa != null && placa.trim().isNotEmpty)
+          'placa': placa.trim().toUpperCase(),
+        if (vin != null && vin.trim().isNotEmpty) 'vin': vin.trim(),
+        if (marca != null && marca.trim().isNotEmpty) 'marca': marca.trim(),
+        if (modelo != null && modelo.trim().isNotEmpty) 'modelo': modelo.trim(),
+        if (anio != null) 'anio': anio,
+        if (color != null && color.trim().isNotEmpty) 'color': color.trim(),
+        if (kilometrajeActual != null) 'kilometrajeActual': kilometrajeActual,
+      };
+
+      final response = await http
+          .put(
+            Uri.parse('$_baseUrl/api/vehiculos/$vehiculoId'),
+            headers: headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        return decoded is Map<String, dynamic> ? decoded : null;
+      }
+
+      debugPrint(
+        '❌ Error editando vehículo ${response.statusCode}: ${response.body}',
+      );
+    } catch (e) {
+      debugPrint('❌ Error editando vehículo: $e');
+    }
+
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> asignarConductorVehiculo({
+    required int vehiculoId,
+    required int idConductor,
+  }) async {
+    try {
+      final headers = await _buildHeaders();
+
+      final response = await http
+          .put(
+            Uri.parse('$_baseUrl/api/vehiculos/$vehiculoId/asignar-conductor'),
+            headers: headers,
+            body: jsonEncode({'idConductor': idConductor}),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        return decoded is Map<String, dynamic> ? decoded : null;
+      }
+
+      debugPrint(
+        '❌ Error asignando conductor ${response.statusCode}: ${response.body}',
+      );
+    } catch (e) {
+      debugPrint('❌ Error asignando conductor: $e');
+    }
+
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> desasignarConductorVehiculo({
+    required int vehiculoId,
+  }) async {
+    try {
+      final headers = await _buildHeaders();
+
+      final response = await http
+          .put(
+            Uri.parse(
+              '$_baseUrl/api/vehiculos/$vehiculoId/desasignar-conductor',
+            ),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        return decoded is Map<String, dynamic> ? decoded : null;
+      }
+
+      debugPrint(
+        '❌ Error desasignando conductor ${response.statusCode}: ${response.body}',
+      );
+    } catch (e) {
+      debugPrint('❌ Error desasignando conductor: $e');
+    }
+
+    return null;
+  }
+
   // ==================== DOCUMENTOS ====================
 
   /// Obtiene documentos de un usuario específico

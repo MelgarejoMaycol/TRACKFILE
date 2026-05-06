@@ -14,6 +14,9 @@ class MantenimientosWidget extends StatefulWidget {
   final String? personaRole;
   final String? personaNombre;
 
+  final String? vehiculoId;
+  final String? vehiculoPlaca;
+
   const MantenimientosWidget({
     super.key,
     required this.role,
@@ -21,6 +24,8 @@ class MantenimientosWidget extends StatefulWidget {
     this.personaUserId,
     this.personaRole,
     this.personaNombre,
+    this.vehiculoId,
+    this.vehiculoPlaca,
   });
 
   @override
@@ -331,9 +336,22 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           ? filtrarVehiculosPorUsuarioSeleccionado(vehiculosData)
           : vehiculosData;
 
-      final filtrados = _viendoPersona
+      List<_MantenimientoDetalle> filtrados = _viendoPersona
           ? filtrarMantenimientosPorVehiculos(todos, vehiculosFiltrados)
           : filtrarPorRolConVehiculos(todos, vehiculosData);
+
+      final int? vehiculoSeleccionadoId = int.tryParse(
+        widget.vehiculoId?.toString() ?? '',
+      );
+
+      if (vehiculoSeleccionadoId != null && vehiculoSeleccionadoId > 0) {
+        filtrados = filtrados
+            .where(
+              (detalle) =>
+                  detalle.mantenimiento.vehiculoId == vehiculoSeleccionadoId,
+            )
+            .toList();
+      }
 
       if (mounted) {
         setState(() {
@@ -957,6 +975,8 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
         Text(
           _viendoPersona
               ? 'Mantenimientos de ${widget.personaNombre ?? 'la persona'}'
+              : widget.vehiculoId != null
+              ? 'Mantenimientos de ${widget.vehiculoPlaca ?? 'vehículo'}'
               : _isConductor
               ? 'Mantenimientos asignados'
               : _isPropietario
@@ -974,6 +994,8 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
               ? 'Consulta el plan de mantenimiento que la empresa programó para tus vehículos.'
               : _isPropietario
               ? 'Consulta los mantenimientos programados para tus vehículos.'
+              : widget.vehiculoId != null
+              ? 'Consulta solo los mantenimientos asociados a este vehículo.'
               : 'Monitorea el estado de los mantenimientos y coordina acciones con los conductores.',
           style: TextStyle(
             color: Colors.white70,

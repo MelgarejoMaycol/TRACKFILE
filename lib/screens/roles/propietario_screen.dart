@@ -72,6 +72,11 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   String? _propietarioId; // ID del propietario obtenido del backend
   int _notificationsCount = 0;
   List<Map<String, dynamic>> _alerts = [];
+  String? _selectedDocumentsVehicleId;
+  String? _selectedDocumentsVehiclePlate;
+
+  String? _selectedMaintenanceVehicleId;
+  String? _selectedMaintenanceVehiclePlate;
   static const List<String> _monthLabels = [
     'ENE',
     'FEB',
@@ -1138,6 +1143,8 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           role: 'Propietario',
           userId: widget.userId,
           canUpload: false,
+          initialVehicleId: _selectedDocumentsVehicleId,
+          initialVehiclePlate: _selectedDocumentsVehiclePlate,
         );
       case 'Certificaciones':
         return CertificacionesWidget(
@@ -1178,10 +1185,45 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         debugPrint(
           '📍 PropietarioScreen.Vehículo - userId: ${widget.userId}, propietarioId: $_propietarioId',
         );
+
         return VehiculosWidget(
           role: 'Propietario',
-          ownerId: _propietarioId ?? widget.userId,
+          ownerId: widget.userId,
           jsonPath: 'assets/vehicles_data.json',
+
+          onVerDocumentosVehiculo:
+              ({required int vehiculoId, required String placa}) {
+                setState(() {
+                  _selectedDocumentsVehicleId = vehiculoId.toString();
+                  _selectedDocumentsVehiclePlate = placa;
+
+                  _activeSection = 'Documentos';
+
+                  final docsIndex = _lowerMenuOptions.indexWhere(
+                    (option) => option.label == 'Documentos',
+                  );
+
+                  _selectedLowerIndex = docsIndex;
+                  _selectedUpperIndex = null;
+                });
+              },
+
+          onVerMantenimientosVehiculo:
+              ({required int vehiculoId, required String placa}) {
+                setState(() {
+                  _selectedMaintenanceVehicleId = vehiculoId.toString();
+                  _selectedMaintenanceVehiclePlate = placa;
+
+                  _activeSection = 'Mantenimientos';
+
+                  final mantIndex = _upperMenuOptions.indexWhere(
+                    (option) => option.label == 'Mantenimientos',
+                  );
+
+                  _selectedUpperIndex = mantIndex;
+                  _selectedLowerIndex = null;
+                });
+              },
         );
       case 'Empresa':
         return EmpresaWidget(
@@ -1192,6 +1234,8 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         return MantenimientosWidget(
           role: 'Propietario',
           userId: widget.userId ?? '1',
+          vehiculoId: _selectedMaintenanceVehicleId,
+          vehiculoPlaca: _selectedMaintenanceVehiclePlate,
         );
       case 'Calendario':
         return _buildCalendarContent();
@@ -1201,7 +1245,33 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           message: 'No hay solicitudes registradas en el JSON de propietario.',
         );
       case 'Vehículos':
-        return _buildVehiclesContent();
+        return VehiculosWidget(
+          role: 'Propietario',
+          ownerId: widget.userId,
+          jsonPath: 'assets/vehicles_data.json',
+          onVerDocumentosVehiculo:
+              ({required int vehiculoId, required String placa}) {
+                setState(() {
+                  _selectedDocumentsVehicleId = vehiculoId.toString();
+                  _selectedDocumentsVehiclePlate = placa;
+                  _activeSection = 'Documentos';
+                  _selectedLowerIndex = 1;
+                  _selectedUpperIndex = null;
+                  _selectedTopIndex = null;
+                });
+              },
+          onVerMantenimientosVehiculo:
+              ({required int vehiculoId, required String placa}) {
+                setState(() {
+                  _selectedMaintenanceVehicleId = vehiculoId.toString();
+                  _selectedMaintenanceVehiclePlate = placa;
+                  _activeSection = 'Mantenimientos';
+                  _selectedUpperIndex = 3;
+                  _selectedLowerIndex = null;
+                  _selectedTopIndex = 3;
+                });
+              },
+        );
       default:
         return InicioWidget(
           role: 'Propietario',

@@ -63,6 +63,15 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   String? _selectedMaintenanceRole;
   String? _selectedMaintenancePersonName;
 
+  String? _selectedDocumentsVehicleId;
+  String? _selectedDocumentsVehiclePlate;
+
+  String? _selectedMaintenanceVehicleId;
+  String? _selectedMaintenanceVehiclePlate;
+  String? _selectedPersonaVehiculoUserId;
+  String? _selectedPersonaVehiculoTipo;
+  String? _selectedPersonaVehiculoNombre;
+
   Map<String, dynamic> _summary = {};
   List<Map<String, dynamic>> _documents = [];
   List<Map<String, dynamic>> _fleetVehicles = [];
@@ -303,7 +312,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       setState(() {
         _summary = summary;
         _documents = documents;
-        _fleetVehicles = vehicles;    
+        _fleetVehicles = vehicles;
         _alerts = alerts;
         _certificaciones = certificaciones;
         _notifications = notifications;
@@ -329,8 +338,11 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       _selectedBottomIndex = index;
       _selectedTopIndex = null;
       _activeSection = _bottomMenuOptions[index].section;
+
       if (_activeSection == 'Documentos') {
         _selectedDocumentsUserId = null;
+        _selectedDocumentsVehicleId = null;
+        _selectedDocumentsVehiclePlate = null;
       }
     });
   }
@@ -340,10 +352,17 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       _selectedTopIndex = index;
       _selectedBottomIndex = -1;
       _activeSection = _topMenuOptions[index].section;
+      if (_topMenuOptions[index].section == 'Vehículos') {
+        _selectedPersonaVehiculoUserId = null;
+        _selectedPersonaVehiculoTipo = null;
+        _selectedPersonaVehiculoNombre = null;
+      }
       if (_topMenuOptions[index].section == 'Mantenimientos') {
         _selectedMaintenanceUserId = null;
         _selectedMaintenanceRole = null;
         _selectedMaintenancePersonName = null;
+        _selectedMaintenanceVehicleId = null;
+        _selectedMaintenanceVehiclePlate = null;
       }
     });
   }
@@ -413,6 +432,22 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                   _activeSection = 'Mantenimientos';
                 });
               },
+          onVerVehiculosPersona:
+              ({
+                required int usuarioId,
+                required String tipoPersona,
+                required String nombrePersona,
+              }) {
+                setState(() {
+                  _selectedPersonaVehiculoUserId = usuarioId.toString();
+                  _selectedPersonaVehiculoTipo = tipoPersona;
+                  _selectedPersonaVehiculoNombre = nombrePersona;
+
+                  _selectedBottomIndex = -1;
+                  _selectedTopIndex = 2;
+                  _activeSection = 'Vehículos';
+                });
+              },
         );
 
       case 'Propietarios':
@@ -448,12 +483,32 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                   _activeSection = 'Mantenimientos';
                 });
               },
+          onVerVehiculosPersona:
+              ({
+                required int usuarioId,
+                required String tipoPersona,
+                required String nombrePersona,
+              }) {
+                setState(() {
+                  _selectedPersonaVehiculoUserId = usuarioId.toString();
+                  _selectedPersonaVehiculoTipo = tipoPersona;
+                  _selectedPersonaVehiculoNombre = nombrePersona;
+
+                  _selectedBottomIndex = -1;
+                  _selectedTopIndex = 2;
+                  _activeSection = 'Vehículos';
+                });
+              },
         );
       case 'Documentos':
         return DocumentosScreen(
           role: 'Empresa',
           userId: _selectedDocumentsUserId,
-          canUpload: _selectedDocumentsUserId == null,
+          canUpload:
+              _selectedDocumentsUserId == null &&
+              _selectedDocumentsVehicleId == null,
+          initialVehicleId: _selectedDocumentsVehicleId,
+          initialVehiclePlate: _selectedDocumentsVehiclePlate,
         );
       case 'Perfil':
         return PerfilWidget(
@@ -1341,9 +1396,39 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   }
 
   Widget _buildFleetContent() {
-    return const VehiculosWidget(
+    return VehiculosWidget(
       role: 'Empresa',
+      personaUserId: _selectedPersonaVehiculoUserId,
+      personaTipo: _selectedPersonaVehiculoTipo,
+      personaNombre: _selectedPersonaVehiculoNombre,
       jsonPath: 'assets/vehicles_data.json',
+      onVerDocumentosVehiculo:
+          ({required int vehiculoId, required String placa}) {
+            setState(() {
+              _selectedDocumentsUserId = null;
+              _selectedDocumentsVehicleId = vehiculoId.toString();
+              _selectedDocumentsVehiclePlate = placa;
+
+              _selectedBottomIndex = 3;
+              _selectedTopIndex = null;
+              _activeSection = 'Documentos';
+            });
+          },
+      onVerMantenimientosVehiculo:
+          ({required int vehiculoId, required String placa}) {
+            setState(() {
+              _selectedMaintenanceUserId = null;
+              _selectedMaintenanceRole = null;
+              _selectedMaintenancePersonName = null;
+
+              _selectedMaintenanceVehicleId = vehiculoId.toString();
+              _selectedMaintenanceVehiclePlate = placa;
+
+              _selectedBottomIndex = -1;
+              _selectedTopIndex = 3;
+              _activeSection = 'Mantenimientos';
+            });
+          },
     );
   }
 
@@ -1354,6 +1439,8 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       personaUserId: _selectedMaintenanceUserId,
       personaRole: _selectedMaintenanceRole,
       personaNombre: _selectedMaintenancePersonName,
+      vehiculoId: _selectedMaintenanceVehicleId,
+      vehiculoPlaca: _selectedMaintenanceVehiclePlate,
     );
   }
 

@@ -12,12 +12,17 @@ class DocumentosScreen extends StatefulWidget {
   final String? token;
   final bool canUpload;
 
+  final String? initialVehicleId;
+  final String? initialVehiclePlate;
+
   const DocumentosScreen({
     super.key,
     this.role,
     this.userId,
     this.token,
     this.canUpload = false,
+    this.initialVehicleId,
+    this.initialVehiclePlate,
   });
 
   @override
@@ -108,9 +113,13 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
 
       final role = widget.role?.toLowerCase() ?? '';
       final isEmpresa = role == 'empresa';
+      final String selectedVehicleId = (widget.initialVehicleId ?? '').trim();
       final String selectedPersonId = (widget.userId ?? '').trim();
+
+      final bool vieneDesdeVehiculo = selectedVehicleId.isNotEmpty;
+
       final bool isEmpresaPersonaSeleccionada =
-          isEmpresa && selectedPersonId.isNotEmpty;
+          isEmpresa && selectedPersonId.isNotEmpty && !vieneDesdeVehiculo;
 
       final visibleUsers = isEmpresaPersonaSeleccionada
           ? users.where((user) {
@@ -153,6 +162,17 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
       );
 
       _vehicles = _buildVehicleSummaries(visibleVehicles, filteredEntries);
+
+      if (selectedVehicleId.isNotEmpty) {
+        final vehicleMatches = _vehicles
+            .where((v) => v.id == selectedVehicleId)
+            .toList();
+
+        if (vehicleMatches.isNotEmpty) {
+          _selectedVehicle = vehicleMatches.first;
+          _view = _DocumentosFlowView.vehicleDetail;
+        }
+      }
 
       if (isEmpresaPersonaSeleccionada) {
         _persons = _persons.where((p) => p.id == selectedPersonId).toList();

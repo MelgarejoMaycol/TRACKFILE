@@ -1,24 +1,46 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:frontendproyecto/services/api_service.dart';
+import 'package:frontendproyecto/utils/api_config.dart';
+import 'package:frontendproyecto/widgets/utils/shimmer_skeleton.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:frontendproyecto/utils/api_config.dart';
-import 'package:frontendproyecto/widgets/utils/shimmer_skeleton.dart';
 
 /// Visualiza los registros de la tabla vehiculos con filtros basados en estado y busqueda.
 class VehiculosWidget extends StatefulWidget {
   final String role;
   final String? ownerId;
   final String? jsonPath;
+  final String? personaUserId;
+  final String? personaTipo;
+  final String? personaNombre;
   final bool showOwnerColumn;
+
+  final void Function({required int vehiculoId, required String placa})?
+  onVerDocumentosVehiculo;
+
+  final void Function({required int vehiculoId, required String placa})?
+  onVerMantenimientosVehiculo;
+
+  final void Function({required int propietarioId})? onVerPropietario;
+
+  final void Function({required int conductorId})? onVerConductor;
 
   const VehiculosWidget({
     super.key,
     required this.role,
     this.ownerId,
     this.jsonPath,
+    this.personaUserId,
+    this.personaTipo,
+    this.personaNombre,
     this.showOwnerColumn = false,
+    this.onVerDocumentosVehiculo,
+    this.onVerMantenimientosVehiculo,
+    this.onVerPropietario,
+    this.onVerConductor,
   });
 
   @override
@@ -28,6 +50,7 @@ class VehiculosWidget extends StatefulWidget {
 class _Vehicle {
   final int idVehiculo;
   final int idPropietario;
+  final int? idConductor;
   final String placa;
   final String? vin;
   final String marca;
@@ -43,11 +66,18 @@ class _Vehicle {
   final String? telefonoPropietario;
   final String? emailPropietario;
   final String? documentoPropietario;
+  final String? direccionPropietario;
+  final String? tipoDocumentoPropietario;
+  final String? apellidoPropietario;
   // Información del Conductor
   final String? telefonoConductor;
   final String? emailConductor;
   final String? licenciaConductor;
   final String? categoriaConductor;
+  final String? direccionConductor;
+  final String? tipoDocumentoConductor;
+  final String? documentoConductor;
+  final String? apellidoConductor;
   final DateTime? fechaVencimientoLicencia;
   // Documentos
   final List<Map<String, dynamic>> documentosVehiculo;
@@ -56,6 +86,7 @@ class _Vehicle {
   const _Vehicle({
     required this.idVehiculo,
     required this.idPropietario,
+    this.idConductor,
     required this.placa,
     required this.vin,
     required this.marca,
@@ -70,10 +101,17 @@ class _Vehicle {
     this.telefonoPropietario,
     this.emailPropietario,
     this.documentoPropietario,
+    this.direccionPropietario,
+    this.tipoDocumentoPropietario,
+    this.apellidoPropietario,
     this.telefonoConductor,
     this.emailConductor,
     this.licenciaConductor,
     this.categoriaConductor,
+    this.direccionConductor,
+    this.tipoDocumentoConductor,
+    this.documentoConductor,
+    this.apellidoConductor,
     this.fechaVencimientoLicencia,
     this.documentosVehiculo = const [],
     this.cantidadDocumentosVigentes = 0,
@@ -98,6 +136,19 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
   final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
   String _baseUrl = ApiConfig.fallbackBaseUrl();
   String? _error;
+  bool get _viendoPersona =>
+      widget.personaUserId != null && widget.personaUserId!.isNotEmpty;
+
+  String get _role => widget.role.toLowerCase().trim();
+
+  bool get _isEmpresaLike =>
+      _role == 'empresa' || _role == 'admin' || _role == 'secretaria';
+
+  bool get _isPropietario => _role == 'propietario';
+  bool get _isConductor => _role == 'conductor';
+  bool get _canCreateVehicle => _isEmpresaLike;
+  bool get _canEditVehicleInfo => _isEmpresaLike;
+  bool get _canManageDriverAssignment => _isEmpresaLike || _isPropietario;
 
   @override
   void initState() {
@@ -132,26 +183,32 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       if (token == null) return;
 
       final uri = ApiConfig.resolve(_baseUrl, '/api/propietarios');
-      final response = await http.get(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body) as List<dynamic>;
         _propietariosMap.clear();
-        
+
         for (final prop in data.whereType<Map<String, dynamic>>()) {
-          final id = int.tryParse(prop['id']?.toString() ?? prop['idPropietario']?.toString() ?? '');
+          final id = int.tryParse(
+            prop['id']?.toString() ?? prop['idPropietario']?.toString() ?? '',
+          );
           final nombre = prop['nombre']?.toString() ?? 'Desconocido';
           if (id != null) {
             _propietariosMap[id] = {...prop, 'nombre': nombre};
           }
         }
-        debugPrint('✅ Propietarios cargados: ${_propietariosMap.length} registros');
+        debugPrint(
+          '✅ Propietarios cargados: ${_propietariosMap.length} registros',
+        );
       }
     } catch (e) {
       debugPrint('❌ Error cargando propietarios: $e');
@@ -165,26 +222,32 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       if (token == null) return;
 
       final uri = ApiConfig.resolve(_baseUrl, '/api/conductores');
-      final response = await http.get(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body) as List<dynamic>;
         _conductoresMap.clear();
-        
+
         for (final cond in data.whereType<Map<String, dynamic>>()) {
-          final id = int.tryParse(cond['id']?.toString() ?? cond['idConductor']?.toString() ?? '');
+          final id = int.tryParse(
+            cond['id']?.toString() ?? cond['idConductor']?.toString() ?? '',
+          );
           final nombre = cond['nombre']?.toString() ?? 'Desconocido';
           if (id != null) {
             _conductoresMap[id] = {...cond, 'nombre': nombre};
           }
         }
-        debugPrint('✅ Conductores cargados: ${_conductoresMap.length} registros');
+        debugPrint(
+          '✅ Conductores cargados: ${_conductoresMap.length} registros',
+        );
       }
     } catch (e) {
       debugPrint('❌ Error cargando conductores: $e');
@@ -208,29 +271,22 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
 
       // Construir URL según el rol y el ownerId
       String endpoint = '/api/vehiculos';
-      debugPrint('🔍 VehiculosWidget - role: ${widget.role}, ownerId: ${widget.ownerId}');
-      
-      // Si es propietario y hay ownerId, usar endpoint específico del propietario
-      if (widget.role.toLowerCase() == 'propietario' && widget.ownerId != null && widget.ownerId!.isNotEmpty) {
-        endpoint = '/api/propietarios/${widget.ownerId}/vehiculos';
-        debugPrint('📍 Modo Propietario: Cargando vehículos para propietario ${widget.ownerId}');
-      }
-      // Si es conductor y hay ownerId, usar endpoint específico del conductor
-      else if (widget.role.toLowerCase() == 'conductor' && widget.ownerId != null && widget.ownerId!.isNotEmpty) {
-        endpoint = '/api/conductores/${widget.ownerId}/vehiculos';
-        debugPrint('📍 Modo Conductor: Cargando vehículos para conductor ${widget.ownerId}');
-      }
+      debugPrint(
+        '🔍 VehiculosWidget - role: ${widget.role}, ownerId: ${widget.ownerId}',
+      );
 
       final uri = ApiConfig.resolve(_baseUrl, endpoint);
       debugPrint('🔗 Cargando vehículos desde: $uri');
 
-      final response = await http.get(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .get(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
 
       debugPrint('📡 Respuesta: ${response.statusCode}');
 
@@ -239,13 +295,19 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body) as List<dynamic>;
         final List<_Vehicle> vehicles = _parseVehiclesFromApi(data);
-        
+
         // Cargar detalles completos de cada vehículo en paralelo
-        final List<_Vehicle> detailedVehicles = await _loadVehiclesDetails(vehicles, token);
-        final List<_Vehicle> enrichedVehicles = _enrichVehiclesWithNames(detailedVehicles);
-        
+        final List<_Vehicle> detailedVehicles = await _loadVehiclesDetails(
+          vehicles,
+          token,
+        );
+        final List<_Vehicle> enrichedVehicles = _enrichVehiclesWithNames(
+          detailedVehicles,
+        );
+
         // Enriquecer vehículos con documentos cargados desde la API
-        final List<_Vehicle> vehiclesWithDocuments = _enrichVehiclesWithDocuments(enrichedVehicles);
+        final List<_Vehicle> vehiclesWithDocuments =
+            _enrichVehiclesWithDocuments(enrichedVehicles);
 
         vehiclesWithDocuments.sort((a, b) => a.placa.compareTo(b.placa));
 
@@ -254,7 +316,9 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
           _isLoading = false;
         });
 
-        debugPrint('✅ ${vehiclesWithDocuments.length} vehículos cargados con detalles completos desde API');
+        debugPrint(
+          '✅ ${vehiclesWithDocuments.length} vehículos cargados con detalles completos desde API',
+        );
       } else if (response.statusCode == 401) {
         throw Exception('Sesión expirada. Por favor inicia sesión nuevamente.');
       } else if (response.statusCode == 403) {
@@ -262,14 +326,11 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       } else if (response.statusCode == 404) {
         debugPrint('⚠️ No se encontraron vehículos en el endpoint: $endpoint');
         // Para 404, intentar cargar desde el endpoint general como fallback
-        if (widget.role.toLowerCase() != 'empresa') {
-          debugPrint('🔄 Intentando cargar desde endpoint general como fallback...');
-          await _loadVehiclesFromGeneral(token);
-          return;
-        }
         throw Exception('No se encontraron vehículos para este usuario.');
       } else {
-        throw Exception('Error ${response.statusCode}: No se pudieron cargar los vehículos');
+        throw Exception(
+          'Error ${response.statusCode}: No se pudieron cargar los vehículos',
+        );
       }
     } catch (e) {
       debugPrint('❌ Error cargando vehículos: $e');
@@ -277,115 +338,92 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       setState(() {
         _isLoading = false;
         _error = e.toString();
-        _vehicles = _fallbackVehicles();
+        _vehicles = [];
       });
     }
   }
 
-  // Método para cargar desde endpoint general como fallback
-  Future<void> _loadVehiclesFromGeneral(String token) async {
-    try {
-      final uri = ApiConfig.resolve(_baseUrl, '/api/vehiculos');
-      final response = await http.get(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 15));
-
-      if (!mounted) return;
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body) as List<dynamic>;
-        final List<_Vehicle> vehicles = _parseVehiclesFromApi(data);
-        
-        final List<_Vehicle> detailedVehicles = await _loadVehiclesDetails(vehicles, token);
-        final List<_Vehicle> enrichedVehicles = _enrichVehiclesWithNames(detailedVehicles);
-        final List<_Vehicle> vehiclesWithDocuments = _enrichVehiclesWithDocuments(enrichedVehicles);
-
-        // Si tenemos ownerId, filtrar por ese propietario
-        List<_Vehicle> filtered = vehiclesWithDocuments;
-        if (widget.ownerId != null && widget.ownerId!.isNotEmpty) {
-          final int? ownerId = int.tryParse(widget.ownerId!);
-          if (ownerId != null) {
-            filtered = vehiclesWithDocuments.where((v) => v.idPropietario == ownerId).toList();
-            debugPrint('✅ Filtrados ${filtered.length} vehículos para propietario $ownerId');
-          }
-        }
-
-        filtered.sort((a, b) => a.placa.compareTo(b.placa));
-
-        setState(() {
-          _vehicles = filtered;
-          _isLoading = false;
-        });
-
-        debugPrint('✅ ${filtered.length} vehículos cargados desde fallback');
-      }
-    } catch (e) {
-      debugPrint('❌ Error en fallback: $e');
-    }
-  }
-
-  Future<List<_Vehicle>> _loadVehiclesDetails(List<_Vehicle> vehicles, String token) async {
+  Future<List<_Vehicle>> _loadVehiclesDetails(
+    List<_Vehicle> vehicles,
+    String token,
+  ) async {
     final List<Future<_Vehicle>> futures = [];
-    
+
     for (final vehicle in vehicles) {
       futures.add(_loadVehicleDetail(vehicle, token));
     }
-    
+
     final results = await Future.wait(futures, eagerError: false);
     return results.whereType<_Vehicle>().toList();
   }
 
   Future<_Vehicle> _loadVehicleDetail(_Vehicle vehicle, String token) async {
     try {
-      final uri = ApiConfig.resolve(_baseUrl, '/api/vehiculos/${vehicle.idVehiculo}/detalle');
-      debugPrint('📡 Cargando detalle de vehículo ${vehicle.idVehiculo} desde: $uri');
-      
-      final response = await http.get(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 10));
+      final uri = ApiConfig.resolve(
+        _baseUrl,
+        '/api/vehiculos/${vehicle.idVehiculo}/detalle',
+      );
+      debugPrint(
+        '📡 Cargando detalle de vehículo ${vehicle.idVehiculo} desde: $uri',
+      );
+
+      final response = await http
+          .get(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body) as Map<String, dynamic>;
+        final Map<String, dynamic> data =
+            json.decode(response.body) as Map<String, dynamic>;
         debugPrint('✅ Respuesta recibida para vehículo ${vehicle.idVehiculo}');
         debugPrint('   - Claves disponibles: ${data.keys.toList()}');
         debugPrint('   - nombrePropietario: ${data['nombrePropietario']}');
         debugPrint('   - nombreConductor: ${data['nombreConductor']}');
-        debugPrint('   - propietario (está?): ${data.containsKey('propietario')}');
+        debugPrint(
+          '   - propietario (está?): ${data.containsKey('propietario')}',
+        );
         debugPrint('   - conductor (está?): ${data.containsKey('conductor')}');
-        
+
         return _enrichVehicleFromDetalle(vehicle, data);
       } else {
-        debugPrint('⚠️ Error ${response.statusCode} cargando detalle ${vehicle.idVehiculo}: ${response.body}');
+        debugPrint(
+          '⚠️ Error ${response.statusCode} cargando detalle ${vehicle.idVehiculo}: ${response.body}',
+        );
       }
     } catch (e) {
-      debugPrint('❌ Error cargando detalle de vehículo ${vehicle.idVehiculo}: $e');
+      debugPrint(
+        '❌ Error cargando detalle de vehículo ${vehicle.idVehiculo}: $e',
+      );
     }
     debugPrint('↩️  Retornando vehículo sin enriquecimiento: ${vehicle.placa}');
     return vehicle;
   }
 
-  _Vehicle _enrichVehicleFromDetalle(_Vehicle vehicle, Map<String, dynamic> data) {
+  _Vehicle _enrichVehicleFromDetalle(
+    _Vehicle vehicle,
+    Map<String, dynamic> data,
+  ) {
     // Información del Propietario
     String? nombreProp = vehicle.nombrePropietario;
     String? telProp;
     String? emailProp;
     String? docProp;
-    
+
     // Intentar extraer desde estructura anidada: propietario.usuario
     final propietario = data['propietario'] as Map<String, dynamic>?;
     if (propietario != null) {
       // Si viene como objeto completo
       if (propietario['usuario'] is Map<String, dynamic>) {
         final usuario = propietario['usuario'] as Map<String, dynamic>;
-        nombreProp = nombreProp ?? '${usuario['nombre']?.toString() ?? ''} ${usuario['apellido']?.toString() ?? ''}'.trim();
+        nombreProp =
+            nombreProp ??
+            '${usuario['nombre']?.toString() ?? ''} ${usuario['apellido']?.toString() ?? ''}'
+                .trim();
         telProp = usuario['telefono']?.toString();
         emailProp = usuario['correo']?.toString();
       } else if (propietario['nombre'] != null) {
@@ -403,17 +441,20 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
         docProp = propietario['documento']?.toString();
       }
       // Si el usuario tiene documento, usarlo
-      if ((docProp == null || docProp.isEmpty) && propietario['usuario'] is Map<String, dynamic>) {
+      if ((docProp == null || docProp.isEmpty) &&
+          propietario['usuario'] is Map<String, dynamic>) {
         final usuario = propietario['usuario'] as Map<String, dynamic>;
         docProp = usuario['numeroDocumento']?.toString();
       }
     }
-    
+
     // Intentar extraer desde campos top-level (alternativa)
     if ((nombreProp == null || nombreProp.isEmpty)) {
       nombreProp = data['nombrePropietario']?.toString();
       if (nombreProp == null || nombreProp.isEmpty) {
-        nombreProp = '${data['apellidoPropietario']?.toString() ?? ''} ${data['nombrePropietario']?.toString() ?? ''}'.trim();
+        nombreProp =
+            '${data['apellidoPropietario']?.toString() ?? ''} ${data['nombrePropietario']?.toString() ?? ''}'
+                .trim();
       }
     }
     if (telProp == null || telProp.isEmpty) {
@@ -436,14 +477,17 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     String? licenciaCond;
     String? categoriaCond;
     DateTime? fechaVencimientoLic;
-    
+
     // Intentar extraer desde estructura anidada: conductor.usuario
     final conductor = data['conductor'] as Map<String, dynamic>?;
     if (conductor != null) {
       // Si viene como objeto completo
       if (conductor['usuario'] is Map<String, dynamic>) {
         final usuario = conductor['usuario'] as Map<String, dynamic>;
-        nombreCond = nombreCond ?? '${usuario['nombre']?.toString() ?? ''} ${usuario['apellido']?.toString() ?? ''}'.trim();
+        nombreCond =
+            nombreCond ??
+            '${usuario['nombre']?.toString() ?? ''} ${usuario['apellido']?.toString() ?? ''}'
+                .trim();
         telCond = usuario['telefono']?.toString();
         emailCond = usuario['correo']?.toString();
       } else if (conductor['nombre'] != null) {
@@ -459,12 +503,14 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
         fechaVencimientoLic = DateTime.tryParse(fechaVenc);
       }
     }
-    
+
     // Intentar extraer desde campos top-level (alternativa)
     if ((nombreCond == null || nombreCond.isEmpty)) {
       nombreCond = data['nombreConductor']?.toString();
       if (nombreCond == null || nombreCond.isEmpty) {
-        nombreCond = '${data['apellidoConductor']?.toString() ?? ''} ${data['nombreConductor']?.toString() ?? ''}'.trim();
+        nombreCond =
+            '${data['apellidoConductor']?.toString() ?? ''} ${data['nombreConductor']?.toString() ?? ''}'
+                .trim();
       }
     }
     if (telCond == null || telCond.isEmpty) {
@@ -486,18 +532,25 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       }
     }
 
-    debugPrint('🔄 Vehículo ${vehicle.placa}: Prop=$nombreProp (Doc:$docProp), Tel:$telProp, Cond=$nombreCond');
+    debugPrint(
+      '🔄 Vehículo ${vehicle.placa}: Prop=$nombreProp (Doc:$docProp), Tel:$telProp, Cond=$nombreCond',
+    );
 
     // Extraer documentos del detalle si vienen en la respuesta
     List<Map<String, dynamic>> documentsFromDetail = [];
     if (data['documentos'] is List) {
-      documentsFromDetail = (data['documentos'] as List).whereType<Map<String, dynamic>>().toList();
-      debugPrint('📄 Documentos encontrados en detalle: ${documentsFromDetail.length}');
+      documentsFromDetail = (data['documentos'] as List)
+          .whereType<Map<String, dynamic>>()
+          .toList();
+      debugPrint(
+        '📄 Documentos encontrados en detalle: ${documentsFromDetail.length}',
+      );
     }
 
     return _Vehicle(
       idVehiculo: vehicle.idVehiculo,
       idPropietario: vehicle.idPropietario,
+      idConductor: vehicle.idConductor,
       placa: vehicle.placa,
       vin: vehicle.vin,
       marca: vehicle.marca,
@@ -512,46 +565,79 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       telefonoPropietario: telProp,
       emailPropietario: emailProp,
       documentoPropietario: docProp,
+
       telefonoConductor: telCond,
       emailConductor: emailCond,
       licenciaConductor: licenciaCond,
       categoriaConductor: categoriaCond,
       fechaVencimientoLicencia: fechaVencimientoLic,
-      documentosVehiculo: documentsFromDetail.isNotEmpty ? documentsFromDetail : vehicle.documentosVehiculo,
+      documentosVehiculo: documentsFromDetail.isNotEmpty
+          ? documentsFromDetail
+          : vehicle.documentosVehiculo,
       cantidadDocumentosVigentes: vehicle.cantidadDocumentosVigentes,
     );
   }
 
   List<_Vehicle> _parseVehiclesFromApi(List<dynamic> data) {
-    return data.map((dynamic item) {
-      if (item is! Map<String, dynamic>) return null;
-      
-      final Map<String, dynamic> map = item;
-      final int? id = int.tryParse(map['id']?.toString() ?? map['idVehiculo']?.toString() ?? '');
-      final int? ownerId = int.tryParse(map['idPropietario']?.toString() ?? '');
-      
-      if (id == null) return null;
+    return data
+        .map((dynamic item) {
+          if (item is! Map<String, dynamic>) return null;
 
-      final int kilometraje = int.tryParse(map['kilometrajeActual']?.toString() ?? '') ?? 0;
-      final int? anio = int.tryParse(map['anio']?.toString() ?? '');
-      final DateTime? fecha = DateTime.tryParse(map['fechaCreacion']?.toString() ?? '');
+          final Map<String, dynamic> map = item;
+          final int? id = int.tryParse(
+            map['id']?.toString() ?? map['idVehiculo']?.toString() ?? '',
+          );
+          final int? ownerId = int.tryParse(
+            map['idPropietario']?.toString() ??
+                map['propietarioId']?.toString() ??
+                map['id_propietario']?.toString() ??
+                map['propietario']?['id']?.toString() ??
+                map['propietario']?['idPropietario']?.toString() ??
+                '',
+          );
 
-      return _Vehicle(
-        idVehiculo: id,
-        idPropietario: ownerId ?? 0,
-        placa: map['placa']?.toString() ?? 'SIN PLACA',
-        vin: map['vin']?.toString(),
-        marca: map['marca']?.toString() ?? 'Marca desconocida',
-        modelo: map['modelo']?.toString() ?? 'Modelo desconocido',
-        anio: anio,
-        color: map['color']?.toString(),
-        kilometrajeActual: kilometraje,
-        estadoVehiculo: map['estadoVehiculo']?.toString() ?? 'ACTIVO',
-        fechaCreacion: fecha,
-        nombrePropietario: map['propietario']?['nombre']?.toString() ?? map['nombrePropietario']?.toString(),
-        nombreConductor: map['conductor']?['nombre']?.toString() ?? map['nombreConductor']?.toString(),
-      );
-    }).whereType<_Vehicle>().toList();
+          if (id == null) return null;
+
+          final int kilometraje =
+              int.tryParse(map['kilometrajeActual']?.toString() ?? '') ?? 0;
+          final int? anio = int.tryParse(map['anio']?.toString() ?? '');
+          final DateTime? fecha = DateTime.tryParse(
+            map['fechaCreacion']?.toString() ?? '',
+          );
+
+          return _Vehicle(
+            idVehiculo: id,
+            idPropietario: ownerId ?? 0,
+            idConductor: int.tryParse(
+              map['idConductor']?.toString() ??
+                  map['conductorId']?.toString() ??
+                  map['id_conductor']?.toString() ??
+                  map['conductor']?['id']?.toString() ??
+                  map['conductor']?['idConductor']?.toString() ??
+                  '',
+            ),
+            placa: map['placa']?.toString() ?? 'SIN PLACA',
+            vin: map['vin']?.toString(),
+            marca: map['marca']?.toString() ?? 'Marca desconocida',
+            modelo: map['modelo']?.toString() ?? 'Modelo desconocido',
+            anio: anio,
+            color: map['color']?.toString(),
+            kilometrajeActual: kilometraje,
+            estadoVehiculo: map['estadoVehiculo']?.toString() ?? 'ACTIVO',
+            fechaCreacion: fecha,
+            nombrePropietario:
+                map['nombrePropietario']?.toString() ??
+                map['propietario']?['nombre']?.toString() ??
+                map['propietario']?['usuario']?['nombre']?.toString(),
+
+            nombreConductor:
+                map['nombreConductor']?.toString() ??
+                map['conductor']?['nombre']?.toString() ??
+                map['conductor']?['usuario']?['nombre']?.toString(),
+          );
+        })
+        .whereType<_Vehicle>()
+        .toList();
   }
 
   List<_Vehicle> _enrichVehiclesWithNames(List<_Vehicle> vehicles) {
@@ -559,14 +645,28 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       String? nombreProp = vehicle.nombrePropietario;
       String? nombreCond = vehicle.nombreConductor;
 
+      final propData = _propietariosMap[vehicle.idPropietario];
+      final condData = vehicle.idConductor != null
+          ? _conductoresMap[vehicle.idConductor]
+          : null;
+
       // Si no tiene nombre de propietario, intenta obtenerlo del mapa
-      if ((nombreProp == null || nombreProp.isEmpty) && vehicle.idPropietario > 0) {
-        nombreProp = _propietariosMap[vehicle.idPropietario]?['nombre']?.toString();
+      if ((nombreProp == null || nombreProp.isEmpty) &&
+          vehicle.idPropietario > 0) {
+        nombreProp = _propietariosMap[vehicle.idPropietario]?['nombre']
+            ?.toString();
+      }
+
+      if ((nombreCond == null || nombreCond.isEmpty) &&
+          vehicle.idConductor != null) {
+        nombreCond = _conductoresMap[vehicle.idConductor]?['nombre']
+            ?.toString();
       }
 
       return _Vehicle(
         idVehiculo: vehicle.idVehiculo,
         idPropietario: vehicle.idPropietario,
+        idConductor: vehicle.idConductor,
         placa: vehicle.placa,
         vin: vehicle.vin,
         marca: vehicle.marca,
@@ -578,13 +678,38 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
         fechaCreacion: vehicle.fechaCreacion,
         nombrePropietario: nombreProp,
         nombreConductor: nombreCond,
-        telefonoPropietario: vehicle.telefonoPropietario,
-        emailPropietario: vehicle.emailPropietario,
-        documentoPropietario: vehicle.documentoPropietario,
-        telefonoConductor: vehicle.telefonoConductor,
-        emailConductor: vehicle.emailConductor,
-        licenciaConductor: vehicle.licenciaConductor,
-        categoriaConductor: vehicle.categoriaConductor,
+        telefonoPropietario:
+            vehicle.telefonoPropietario ?? propData?['telefono']?.toString(),
+
+        emailPropietario:
+            vehicle.emailPropietario ?? propData?['correo']?.toString(),
+
+        documentoPropietario:
+            vehicle.documentoPropietario ??
+            propData?['numeroDocumento']?.toString() ??
+            propData?['documentoPropietario']?.toString(),
+
+        direccionPropietario: propData?['direccion']?.toString(),
+        tipoDocumentoPropietario: propData?['tipoDocumento']?.toString(),
+        apellidoPropietario: propData?['apellido']?.toString(),
+
+        telefonoConductor:
+            vehicle.telefonoConductor ?? condData?['telefono']?.toString(),
+
+        emailConductor:
+            vehicle.emailConductor ?? condData?['correo']?.toString(),
+
+        licenciaConductor:
+            vehicle.licenciaConductor ??
+            condData?['licenciaConduccion']?.toString(),
+
+        categoriaConductor:
+            vehicle.categoriaConductor ??
+            condData?['categoriaLicencia']?.toString(),
+        direccionConductor: condData?['direccion']?.toString(),
+        tipoDocumentoConductor: condData?['tipoDocumento']?.toString(),
+        documentoConductor: condData?['numeroDocumento']?.toString(),
+        apellidoConductor: condData?['apellido']?.toString(),
         fechaVencimientoLicencia: vehicle.fechaVencimientoLicencia,
         documentosVehiculo: vehicle.documentosVehiculo,
         cantidadDocumentosVigentes: vehicle.cantidadDocumentosVigentes,
@@ -596,17 +721,22 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     return vehicles.map((vehicle) {
       // Obtener documentos para este vehículo desde el mapa cargado
       final docs = _vehicleDocumentsByPlate[vehicle.placa] ?? [];
-      
+
       // Si el vehículo ya tiene documentos del detalle, no sobrescribir
-      final docsToUse = vehicle.documentosVehiculo.isNotEmpty ? vehicle.documentosVehiculo : docs;
-      
+      final docsToUse = vehicle.documentosVehiculo.isNotEmpty
+          ? vehicle.documentosVehiculo
+          : docs;
+
       if (docsToUse.isNotEmpty) {
-        debugPrint('📄 Vehículo ${vehicle.placa}: ${docsToUse.length} documentos asignados');
+        debugPrint(
+          '📄 Vehículo ${vehicle.placa}: ${docsToUse.length} documentos asignados',
+        );
       }
-      
+
       return _Vehicle(
         idVehiculo: vehicle.idVehiculo,
         idPropietario: vehicle.idPropietario,
+        idConductor: vehicle.idConductor,
         placa: vehicle.placa,
         vin: vehicle.vin,
         marca: vehicle.marca,
@@ -621,10 +751,17 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
         telefonoPropietario: vehicle.telefonoPropietario,
         emailPropietario: vehicle.emailPropietario,
         documentoPropietario: vehicle.documentoPropietario,
+        direccionPropietario: vehicle.direccionPropietario,
+        tipoDocumentoPropietario: vehicle.tipoDocumentoPropietario,
+        apellidoPropietario: vehicle.apellidoPropietario,
         telefonoConductor: vehicle.telefonoConductor,
         emailConductor: vehicle.emailConductor,
         licenciaConductor: vehicle.licenciaConductor,
         categoriaConductor: vehicle.categoriaConductor,
+        direccionConductor: vehicle.direccionConductor,
+        tipoDocumentoConductor: vehicle.tipoDocumentoConductor,
+        documentoConductor: vehicle.documentoConductor,
+        apellidoConductor: vehicle.apellidoConductor,
         fechaVencimientoLicencia: vehicle.fechaVencimientoLicencia,
         documentosVehiculo: docsToUse,
         cantidadDocumentosVigentes: vehicle.cantidadDocumentosVigentes,
@@ -639,98 +776,54 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       if (token == null) return;
 
       final uri = ApiConfig.resolve(_baseUrl, '/api/documentos/tabla');
-      final response = await http.get(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body) as List<dynamic>;
         _vehicleDocumentsByPlate.clear();
-        
+
         for (final doc in data.whereType<Map<String, dynamic>>()) {
           // Filtrar solo documentos de vehículos (id_usuario = null)
           final idUsuario = doc['idUsuario'];
           if (idUsuario == null) {
-            final placa = doc['vehiculoPlaca']?.toString() ?? doc['placa']?.toString() ?? '';
+            final placa =
+                doc['vehiculoPlaca']?.toString() ??
+                doc['placa']?.toString() ??
+                '';
             if (placa.isNotEmpty) {
               if (!_vehicleDocumentsByPlate.containsKey(placa)) {
                 _vehicleDocumentsByPlate[placa] = [];
               }
               _vehicleDocumentsByPlate[placa]!.add(doc);
-              debugPrint('📄 Documento de vehículo encontrado: $placa - ${doc['nombre']?.toString() ?? 'Sin nombre'}');
+              debugPrint(
+                '📄 Documento de vehículo encontrado: $placa - ${doc['nombre']?.toString() ?? 'Sin nombre'}',
+              );
             }
           }
         }
-        debugPrint('✅ Documentos de vehículos cargados: ${_vehicleDocumentsByPlate.values.fold<int>(0, (sum, list) => sum + list.length)} registros');
+        debugPrint(
+          '✅ Documentos de vehículos cargados: ${_vehicleDocumentsByPlate.values.fold<int>(0, (sum, list) => sum + list.length)} registros',
+        );
       } else {
-        debugPrint('⚠️ Error ${response.statusCode} cargando documentos: ${response.body}');
+        debugPrint(
+          '⚠️ Error ${response.statusCode} cargando documentos: ${response.body}',
+        );
       }
     } catch (e) {
       debugPrint('❌ Error cargando documentos: $e');
     }
   }
 
-  List<_Vehicle> _fallbackVehicles() {
-    final DateTime now = DateTime.now();
-    return [
-      _Vehicle(
-        idVehiculo: 1,
-        idPropietario: 12,
-        placa: 'ABC123',
-        vin: '1HGCM82633A004352',
-        marca: 'Toyota',
-        modelo: 'Corolla',
-        anio: 2020,
-        color: 'Rojo',
-        kilometrajeActual: 25000,
-        estadoVehiculo: 'ACTIVO',
-        fechaCreacion: now.subtract(const Duration(days: 180)),
-        nombrePropietario: 'Carlos González',
-        nombreConductor: 'Juan Pérez',
-        telefonoPropietario: '3001234567',
-        emailPropietario: 'carlos@email.com',
-        documentoPropietario: '1234567890',
-        telefonoConductor: '3007654321',
-        emailConductor: 'juan@email.com',
-        licenciaConductor: '12AB34CD',
-        categoriaConductor: 'C',
-        fechaVencimientoLicencia: now.add(const Duration(days: 180)),
-      ),
-      _Vehicle(
-        idVehiculo: 2,
-        idPropietario: 12,
-        placa: 'XYZ789',
-        vin: 'JHMCM56557C404453',
-        marca: 'Toyota',
-        modelo: 'Corolla',
-        anio: 2021,
-        color: 'Gris',
-        kilometrajeActual: 90000,
-        estadoVehiculo: 'ACTIVO',
-        fechaCreacion: now.subtract(const Duration(days: 420)),
-        nombrePropietario: 'Carlos González',
-        telefonoPropietario: '3001234567',
-        emailPropietario: 'carlos@email.com',
-      ),
-    ];
-  }
-
   List<_Vehicle> get _filteredVehicles {
-    Iterable<_Vehicle> filtered = _vehicles;
-
-    if (widget.ownerId != null && widget.ownerId!.isNotEmpty) {
-      final int? owner = int.tryParse(widget.ownerId!);
-      if (owner != null) {
-        final List<_Vehicle> ownerMatches = filtered.where((vehicle) => vehicle.idPropietario == owner).toList();
-        if (ownerMatches.isNotEmpty) {
-          filtered = ownerMatches;
-        }
-      }
-    }
+    Iterable<_Vehicle> filtered = _vehiclesForCurrentUser;
 
     if (_statusFilter != null) {
       final String normalized = _statusFilter!;
@@ -741,14 +834,119 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       final String lower = _searchTerm.toLowerCase();
       filtered = filtered.where((vehicle) {
         return vehicle.placa.toLowerCase().contains(lower) ||
-            (vehicle.marca.toLowerCase().contains(lower)) ||
-            (vehicle.modelo.toLowerCase().contains(lower));
+            vehicle.marca.toLowerCase().contains(lower) ||
+            vehicle.modelo.toLowerCase().contains(lower);
       });
     }
 
-    final List<_Vehicle> result = filtered.toList();
-    result.sort((a, b) => a.placa.compareTo(b.placa));
+    final result = filtered.toList();
+
+    result.sort((a, b) {
+      final int aRank = _statusOrderRank(a.statusKey);
+      final int bRank = _statusOrderRank(b.statusKey);
+
+      if (aRank != bRank) return aRank.compareTo(bRank);
+
+      return a.placa.compareTo(b.placa);
+    });
+
     return result;
+  }
+
+  bool _vehicleMatchesPersona(_Vehicle vehicle) {
+    final selectedUserId = widget.personaUserId?.trim() ?? '';
+    final selectedTipo = widget.personaTipo?.toUpperCase().trim() ?? '';
+
+    if (selectedUserId.isEmpty) return false;
+
+    if (selectedTipo == 'PROPIETARIO') {
+      final propData = _propietariosMap[vehicle.idPropietario];
+
+      final usuarioId = _usuarioIdFromMap(propData);
+
+      return usuarioId == selectedUserId ||
+          vehicle.idPropietario.toString() == selectedUserId;
+    }
+
+    if (selectedTipo == 'CONDUCTOR') {
+      if (vehicle.idConductor == null) return false;
+
+      final condData = _conductoresMap[vehicle.idConductor];
+
+      final usuarioId = _usuarioIdFromMap(condData);
+
+      return usuarioId == selectedUserId ||
+          vehicle.idConductor.toString() == selectedUserId;
+    }
+
+    return false;
+  }
+
+  String _usuarioIdFromMap(Map<String, dynamic>? data) {
+    if (data == null) return '';
+
+    final usuario = data['usuario'];
+
+    if (usuario is Map) {
+      return usuario['id']?.toString() ??
+          usuario['idUsuario']?.toString() ??
+          usuario['id_usuario']?.toString() ??
+          '';
+    }
+
+    return data['usuarioId']?.toString() ??
+        data['idUsuario']?.toString() ??
+        data['id_usuario']?.toString() ??
+        '';
+  }
+
+  int? _idFromMap(Map<String, dynamic>? data, String tipo) {
+    if (data == null) return null;
+
+    if (tipo == 'PROPIETARIO') {
+      return int.tryParse(
+        data['id']?.toString() ??
+            data['idPropietario']?.toString() ??
+            data['id_propietario']?.toString() ??
+            '',
+      );
+    }
+
+    if (tipo == 'CONDUCTOR') {
+      return int.tryParse(
+        data['id']?.toString() ??
+            data['idConductor']?.toString() ??
+            data['id_conductor']?.toString() ??
+            '',
+      );
+    }
+
+    return null;
+  }
+
+  int? _currentEntityIdByRole() {
+    final rawId = widget.ownerId?.trim() ?? '';
+    if (rawId.isEmpty) return null;
+
+    final directId = int.tryParse(rawId);
+
+    if (_isPropietario) {
+      for (final entry in _propietariosMap.entries) {
+        final usuarioId = _usuarioIdFromMap(entry.value);
+        if (usuarioId == rawId) return entry.key;
+      }
+      return directId;
+    }
+
+    if (_isConductor) {
+      for (final entry in _conductoresMap.entries) {
+        final usuarioId = _usuarioIdFromMap(entry.value);
+        if (usuarioId == rawId) return entry.key;
+      }
+      return directId;
+    }
+
+    return directId;
   }
 
   void _setStatusFilter(String status) {
@@ -765,12 +963,588 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     });
   }
 
+  Widget _buildVehicleTopActions(bool isCompact) {
+    if (!_canCreateVehicle) return const SizedBox.shrink();
+
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            padding: EdgeInsets.all(isCompact ? 14 : 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: _accentColor.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.directions_car_filled_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Gestiona la flota, propietarios y conductores asignados.',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: isCompact ? 11 : 13,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: _showCreateVehicleModal,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: Text(
+                    isCompact ? 'Crear' : 'Crear vehículo',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _accentColor,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isCompact ? 12 : 18,
+                      vertical: isCompact ? 10 : 13,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showCreateVehicleModal() {
+    final placaCtrl = TextEditingController();
+    final vinCtrl = TextEditingController();
+    final marcaCtrl = TextEditingController();
+    final modeloCtrl = TextEditingController();
+    final anioCtrl = TextEditingController();
+    final colorCtrl = TextEditingController();
+    final kmCtrl = TextEditingController();
+
+    int? selectedPropietarioId = _propietariosMap.keys.isNotEmpty
+        ? _propietariosMap.keys.first
+        : null;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Dialog(
+              backgroundColor: const Color(0xFF151B47),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 620),
+                padding: const EdgeInsets.all(22),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildModalHeader(
+                        title: 'Crear vehículo',
+                        subtitle: 'Registra un vehículo nuevo en la flota.',
+                        icon: Icons.add_road_rounded,
+                      ),
+                      const SizedBox(height: 18),
+
+                      _buildOwnerDropdown(selectedPropietarioId, (value) {
+                        setModalState(() => selectedPropietarioId = value);
+                      }),
+
+                      const SizedBox(height: 12),
+                      _buildModalInput('Placa', placaCtrl),
+                      _buildModalInput('VIN', vinCtrl),
+                      _buildModalInput('Marca', marcaCtrl),
+                      _buildModalInput('Modelo', modeloCtrl),
+                      _buildModalInput('Año', anioCtrl, isNumber: true),
+                      _buildModalInput('Color', colorCtrl),
+                      _buildModalInput(
+                        'Kilometraje actual',
+                        kmCtrl,
+                        isNumber: true,
+                      ),
+
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text(
+                                'Cancelar',
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                if (selectedPropietarioId == null) return;
+
+                                final creado = await ApiService.createVehiculo(
+                                  idPropietario: selectedPropietarioId!,
+                                  placa: placaCtrl.text,
+                                  vin: vinCtrl.text,
+                                  marca: marcaCtrl.text,
+                                  modelo: modeloCtrl.text,
+                                  anio: int.tryParse(anioCtrl.text) ?? 0,
+                                  color: colorCtrl.text,
+                                  kilometrajeActual:
+                                      int.tryParse(kmCtrl.text) ?? 0,
+                                );
+
+                                if (!mounted) return;
+                                Navigator.pop(context);
+                                await _loadAllData();
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      creado != null
+                                          ? 'Vehículo creado correctamente'
+                                          : 'No se pudo crear el vehículo',
+                                    ),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _accentColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: const Text('Guardar'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showEditVehicleModal(_Vehicle vehicle) {
+    final placaCtrl = TextEditingController(text: vehicle.placa);
+    final vinCtrl = TextEditingController(text: vehicle.vin ?? '');
+    final marcaCtrl = TextEditingController(text: vehicle.marca);
+    final modeloCtrl = TextEditingController(text: vehicle.modelo);
+    final anioCtrl = TextEditingController(
+      text: vehicle.anio?.toString() ?? '',
+    );
+    final colorCtrl = TextEditingController(text: vehicle.color ?? '');
+    final kmCtrl = TextEditingController(
+      text: vehicle.kilometrajeActual.toString(),
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: const Color(0xFF151B47),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 620),
+            padding: const EdgeInsets.all(22),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildModalHeader(
+                    title: 'Editar vehículo',
+                    subtitle: 'Actualiza los datos principales del vehículo.',
+                    icon: Icons.edit_road_rounded,
+                  ),
+                  const SizedBox(height: 18),
+                  _buildModalInput('Placa', placaCtrl),
+                  _buildModalInput('VIN', vinCtrl),
+                  _buildModalInput('Marca', marcaCtrl),
+                  _buildModalInput('Modelo', modeloCtrl),
+                  _buildModalInput('Año', anioCtrl, isNumber: true),
+                  _buildModalInput('Color', colorCtrl),
+                  _buildModalInput(
+                    'Kilometraje actual',
+                    kmCtrl,
+                    isNumber: true,
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text(
+                            'Cancelar',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final actualizado = await ApiService.updateVehiculo(
+                              vehiculoId: vehicle.idVehiculo,
+                              placa: placaCtrl.text,
+                              vin: vinCtrl.text,
+                              marca: marcaCtrl.text,
+                              modelo: modeloCtrl.text,
+                              anio: int.tryParse(anioCtrl.text),
+                              color: colorCtrl.text,
+                              kilometrajeActual: int.tryParse(kmCtrl.text),
+                            );
+
+                            if (!mounted) return;
+                            Navigator.pop(context);
+                            await _loadAllData();
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  actualizado != null
+                                      ? 'Vehículo actualizado correctamente'
+                                      : 'No se pudo actualizar el vehículo',
+                                ),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _accentColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: const Text('Guardar cambios'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAssignDriverModal(_Vehicle vehicle) {
+    int? selectedConductorId = _conductoresMap.keys.isNotEmpty
+        ? _conductoresMap.keys.first
+        : null;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Dialog(
+              backgroundColor: const Color(0xFF151B47),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 520),
+                padding: const EdgeInsets.all(22),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildModalHeader(
+                      title: 'Asignar conductor',
+                      subtitle:
+                          'Selecciona el conductor para ${vehicle.placa}.',
+                      icon: Icons.person_add_alt_1_rounded,
+                    ),
+                    const SizedBox(height: 18),
+                    _buildDriverDropdown(selectedConductorId, (value) {
+                      setModalState(() => selectedConductorId = value);
+                    }),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text(
+                              'Cancelar',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              if (selectedConductorId == null) return;
+
+                              final actualizado =
+                                  await ApiService.asignarConductorVehiculo(
+                                    vehiculoId: vehicle.idVehiculo,
+                                    idConductor: selectedConductorId!,
+                                  );
+
+                              if (!mounted) return;
+                              Navigator.pop(context);
+                              await _loadAllData();
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    actualizado != null
+                                        ? 'Conductor asignado correctamente'
+                                        : 'No se pudo asignar el conductor',
+                                  ),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _accentColor,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: const Text('Asignar'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildModalHeader({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: _accentColor.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: Colors.white, size: 22),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.close_rounded, color: Colors.white70),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModalInput(
+    String label,
+    TextEditingController controller, {
+    bool isNumber = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: controller,
+        keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+        style: const TextStyle(color: Colors.white, fontSize: 13),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.white70),
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.07),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: _accentColor),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOwnerDropdown(int? selectedValue, ValueChanged<int?> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<int>(
+        initialValue: selectedValue,
+        dropdownColor: const Color(0xFF151B47),
+        style: const TextStyle(color: Colors.white, fontSize: 13),
+        decoration: InputDecoration(
+          labelText: 'Propietario',
+          labelStyle: const TextStyle(color: Colors.white70),
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.07),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        items: _propietariosMap.entries.map((entry) {
+          return DropdownMenuItem<int>(
+            value: entry.key,
+            child: Text(
+              entry.value['nombre']?.toString() ?? 'Propietario ${entry.key}',
+              style: const TextStyle(color: Colors.white),
+            ),
+          );
+        }).toList(),
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _buildDriverDropdown(
+    int? selectedValue,
+    ValueChanged<int?> onChanged,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<int>(
+        initialValue: selectedValue,
+        dropdownColor: const Color(0xFF151B47),
+        style: const TextStyle(color: Colors.white, fontSize: 13),
+        decoration: InputDecoration(
+          labelText: 'Conductor',
+          labelStyle: const TextStyle(color: Colors.white70),
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.07),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        items: _conductoresMap.entries.map((entry) {
+          return DropdownMenuItem<int>(
+            value: entry.key,
+            child: Text(
+              entry.value['nombre']?.toString() ?? 'Conductor ${entry.key}',
+              style: const TextStyle(color: Colors.white),
+            ),
+          );
+        }).toList(),
+        onChanged: onChanged,
+      ),
+    );
+  }
+
   Map<String, int> get _statusCounts {
     final Map<String, int> counts = <String, int>{};
-    for (final _Vehicle vehicle in _vehicles) {
+
+    for (final _Vehicle vehicle in _vehiclesForCurrentUser) {
       counts.update(vehicle.statusKey, (value) => value + 1, ifAbsent: () => 1);
     }
+
     return counts;
+  }
+
+  List<_Vehicle> get _vehiclesForCurrentUser {
+    Iterable<_Vehicle> filtered = _vehicles;
+
+    if (_viendoPersona) {
+      filtered = filtered.where(_vehicleMatchesPersona);
+    } else if (widget.ownerId != null && widget.ownerId!.isNotEmpty) {
+      final int? currentId = _currentEntityIdByRole();
+
+      if (currentId != null) {
+        if (_isPropietario) {
+          filtered = filtered.where(
+            (vehicle) => vehicle.idPropietario == currentId,
+          );
+        } else if (_isConductor) {
+          filtered = filtered.where(
+            (vehicle) => vehicle.idConductor == currentId,
+          );
+        }
+      }
+    }
+
+    final result = filtered.toList();
+
+    result.sort((a, b) {
+      final int aRank = _statusOrderRank(a.statusKey);
+      final int bRank = _statusOrderRank(b.statusKey);
+
+      if (aRank != bRank) return aRank.compareTo(bRank);
+
+      return a.placa.compareTo(b.placa);
+    });
+
+    return result;
+  }
+
+  int _statusOrderRank(String status) {
+    final normalized = status.toUpperCase();
+
+    if (normalized == 'ACTIVO') return 0;
+
+    if (normalized == 'MANTENIMIENTO' ||
+        normalized == 'MANTENIMIENTO PROGRAMADO') {
+      return 1;
+    }
+
+    if (normalized == 'INACTIVO' || normalized == 'FUERA DE SERVICIO') {
+      return 2;
+    }
+
+    return 3;
   }
 
   Color _statusColor(String status) {
@@ -778,7 +1552,8 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     if (normalized == 'ACTIVO') {
       return _successColor;
     }
-    if (normalized == 'MANTENIMIENTO' || normalized == 'MANTENIMIENTO PROGRAMADO') {
+    if (normalized == 'MANTENIMIENTO' ||
+        normalized == 'MANTENIMIENTO PROGRAMADO') {
       return _warningColor;
     }
     if (normalized == 'INACTIVO' || normalized == 'FUERA DE SERVICIO') {
@@ -794,6 +1569,26 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     return status[0].toUpperCase() + status.substring(1).toLowerCase();
   }
 
+  Future<void> _desasignarConductor(_Vehicle vehicle) async {
+    final actualizado = await ApiService.desasignarConductorVehiculo(
+      vehiculoId: vehicle.idVehiculo,
+    );
+
+    await _loadAllData();
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          actualizado != null
+              ? 'Conductor desasignado correctamente'
+              : 'No se pudo desasignar el conductor',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_error != null && _vehicles.isEmpty) {
@@ -803,11 +1598,19 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline_rounded, color: Color(0xFFE66B6B), size: 48),
+              const Icon(
+                Icons.error_outline_rounded,
+                color: Color(0xFFE66B6B),
+                size: 48,
+              ),
               const SizedBox(height: 16),
               const Text(
                 'Error al cargar vehiculos',
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -833,30 +1636,44 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool isCompact = constraints.maxWidth < 620;
-        
+
         // Mostrar skeleton loading si está cargando
         if (_isLoading) {
           return _buildLoadingSkeletonGrid(isCompact);
         }
-        
+
         final List<_Vehicle> filtered = _filteredVehicles;
         final double paddingHorizontal = isCompact ? 16 : 24;
 
         return SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: paddingHorizontal, vertical: 24),
+          padding: EdgeInsets.symmetric(
+            horizontal: paddingHorizontal,
+            vertical: 24,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Vehiculos registrados',
-                style: TextStyle(color: Colors.white, fontSize: isCompact ? 18 : 20, fontWeight: FontWeight.w700),
+                _viendoPersona
+                    ? 'Vehículos de ${widget.personaNombre ?? 'la persona'}'
+                    : 'Vehículos registrados',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: isCompact ? 18 : 20,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 'Consulta la flota disponible y su estado operativo.',
-                style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 12),
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: isCompact ? 12 : 12,
+                ),
               ),
               const SizedBox(height: 14),
+              _buildVehicleTopActions(isCompact),
+              const SizedBox(height: 12),
               _buildFiltersRow(isCompact),
               const SizedBox(height: 12),
               _buildStatusChips(isCompact),
@@ -867,7 +1684,11 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                 _buildEmptyFilteredMessage(isCompact)
               else
                 Column(
-                  children: filtered.map((vehicle) => _buildVehicleListCard(vehicle, isCompact)).toList(),
+                  children: filtered
+                      .map(
+                        (vehicle) => _buildVehicleListCard(vehicle, isCompact),
+                      )
+                      .toList(),
                 ),
             ],
           ),
@@ -886,10 +1707,16 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
           style: TextButton.styleFrom(
             foregroundColor: Colors.white,
             backgroundColor: Colors.white.withValues(alpha: 0.08),
-            padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 10, vertical: isCompact ? 6 : 8),
+            padding: EdgeInsets.symmetric(
+              horizontal: isCompact ? 8 : 10,
+              vertical: isCompact ? 6 : 8,
+            ),
           ),
           icon: Icon(Icons.clear_all, size: isCompact ? 16 : 16),
-          label: Text('Limpiar', style: TextStyle(fontSize: isCompact ? 11 : 11)),
+          label: Text(
+            'Limpiar',
+            style: TextStyle(fontSize: isCompact ? 11 : 11),
+          ),
         ),
       ],
     );
@@ -904,10 +1731,17 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       decoration: InputDecoration(
         hintText: 'Buscar por placa, marca o modelo',
         hintStyle: const TextStyle(color: Colors.white54, fontSize: 11),
-        prefixIcon: Icon(Icons.search, color: Colors.white54, size: isCompact ? 16 : 18),
+        prefixIcon: Icon(
+          Icons.search,
+          color: Colors.white54,
+          size: isCompact ? 16 : 18,
+        ),
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.08),
-        contentPadding: EdgeInsets.symmetric(vertical: isCompact ? 4 : 6, horizontal: isCompact ? 10 : 14),
+        contentPadding: EdgeInsets.symmetric(
+          vertical: isCompact ? 4 : 6,
+          horizontal: isCompact ? 10 : 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(isCompact ? 16 : 18),
           borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
@@ -943,18 +1777,29 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: isCompact ? 10 : 12, vertical: isCompact ? 6 : 7),
+              padding: EdgeInsets.symmetric(
+                horizontal: isCompact ? 10 : 12,
+                vertical: isCompact ? 6 : 7,
+              ),
               decoration: BoxDecoration(
                 color: selected
-                  ? _statusColor(key).withValues(alpha: 0.28)
-                  : _statusColor(key).withValues(alpha: 0.18),
+                    ? _statusColor(key).withValues(alpha: 0.28)
+                    : _statusColor(key).withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: selected ? _statusColor(key) : _statusColor(key).withValues(alpha: 0.5)),
+                border: Border.all(
+                  color: selected
+                      ? _statusColor(key)
+                      : _statusColor(key).withValues(alpha: 0.5),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(selected ? Icons.check_circle : Icons.circle, color: _statusColor(key), size: 12),
+                  Icon(
+                    selected ? Icons.check_circle : Icons.circle,
+                    color: _statusColor(key),
+                    size: 12,
+                  ),
                   const SizedBox(width: 5),
                   Text(
                     _statusLabel(key),
@@ -967,7 +1812,11 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                   const SizedBox(width: 8),
                   Text(
                     counts[key].toString(),
-                    style: TextStyle(color: Colors.white, fontSize: isCompact ? 10 : 11, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: isCompact ? 10 : 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
@@ -989,7 +1838,10 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
-      padding: EdgeInsets.symmetric(horizontal: isCompact ? 14 : 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 14 : 16,
+        vertical: 12,
+      ),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
@@ -997,21 +1849,36 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       ),
       child: Row(
         children: [
-          Icon(Icons.filter_alt, color: Colors.white70, size: isCompact ? 18 : 20),
+          Icon(
+            Icons.filter_alt,
+            color: Colors.white70,
+            size: isCompact ? 18 : 20,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Wrap(
               spacing: 8,
               runSpacing: 6,
               children: badges
-                  .map((label) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(14),
+                  .map(
+                    (label) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isCompact ? 11 : 12,
                         ),
-                        child: Text(label, style: TextStyle(color: Colors.white, fontSize: isCompact ? 11 : 12)),
-                      ))
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
           ),
@@ -1029,12 +1896,25 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     final double paddingHorizontal = isCompact ? 16 : 24;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: paddingHorizontal, vertical: 24),
+      padding: EdgeInsets.symmetric(
+        horizontal: paddingHorizontal,
+        vertical: 24,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ShimmerSkeleton(width: 200, height: 24, borderRadius: 8, margin: const EdgeInsets.only(bottom: 8)),
-          ShimmerSkeleton(width: 350, height: 14, borderRadius: 6, margin: const EdgeInsets.only(bottom: 20)),
+          ShimmerSkeleton(
+            width: 200,
+            height: 24,
+            borderRadius: 8,
+            margin: const EdgeInsets.only(bottom: 8),
+          ),
+          ShimmerSkeleton(
+            width: 350,
+            height: 14,
+            borderRadius: 6,
+            margin: const EdgeInsets.only(bottom: 20),
+          ),
           ...List.generate(
             6,
             (index) => Padding(
@@ -1052,7 +1932,11 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                     Row(
                       children: [
                         Expanded(
-                          child: ShimmerSkeleton(width: 100, height: 18, borderRadius: 4),
+                          child: ShimmerSkeleton(
+                            width: 100,
+                            height: 18,
+                            borderRadius: 4,
+                          ),
                         ),
                         ShimmerSkeleton(width: 80, height: 18, borderRadius: 4),
                       ],
@@ -1076,7 +1960,10 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
   Widget _buildEmptyFilteredMessage(bool isCompact) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 20, vertical: 24),
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 16 : 20,
+        vertical: 24,
+      ),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
@@ -1085,11 +1972,21 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('No hay vehiculos con los filtros actuales', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+          const Text(
+            'No hay vehiculos con los filtros actuales',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 8),
           Text(
             'Prueba con otro estado, ajusta la busqueda o limpia los filtros.',
-            style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13),
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: isCompact ? 12 : 13,
+            ),
           ),
         ],
       ),
@@ -1102,9 +1999,14 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       builder: (BuildContext context) {
         return Dialog(
           backgroundColor: const Color(0xFF151B47),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Container(
-            constraints: BoxConstraints(maxWidth: isCompact ? 400 : 700, maxHeight: 800),
+            constraints: BoxConstraints(
+              maxWidth: isCompact ? 400 : 700,
+              maxHeight: 800,
+            ),
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -1120,17 +2022,27 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                         children: [
                           const Text(
                             'Información del Vehículo',
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             vehicle.placa,
-                            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             '${vehicle.marca} • ${vehicle.modelo}',
-                            style: const TextStyle(color: Colors.white70, fontSize: 13),
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
@@ -1148,25 +2060,43 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.1),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.info, color: Color(0xFF4F4CE8), size: 18),
+                            Icon(
+                              Icons.info,
+                              color: Color(0xFF4F4CE8),
+                              size: 18,
+                            ),
                             SizedBox(width: 10),
-                            Text('Detalles Principales', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                            Text(
+                              'Detalles Principales',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 12),
                         _buildInfoRow('Placa', vehicle.placa),
                         _buildInfoRow('Marca', vehicle.marca),
                         _buildInfoRow('Modelo', vehicle.modelo),
-                        if (vehicle.anio != null) _buildInfoRow('Año', vehicle.anio.toString()),
-                        if (vehicle.color != null) _buildInfoRow('Color', vehicle.color!),
-                        _buildInfoRow('Estado', _statusLabel(vehicle.estadoVehiculo)),
+                        if (vehicle.anio != null)
+                          _buildInfoRow('Año', vehicle.anio.toString()),
+                        if (vehicle.color != null)
+                          _buildInfoRow('Color', vehicle.color!),
+                        _buildInfoRow(
+                          'Estado',
+                          _statusLabel(vehicle.estadoVehiculo),
+                        ),
                       ],
                     ),
                   ),
@@ -1178,96 +2108,194 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.1),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.speed, color: Color(0xFF4F4CE8), size: 18),
+                            Icon(
+                              Icons.speed,
+                              color: Color(0xFF4F4CE8),
+                              size: 18,
+                            ),
                             SizedBox(width: 10),
-                            Text('Información Operativa', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                            Text(
+                              'Información Operativa',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 12),
-                        _buildInfoRow('Kilometraje', '${vehicle.kilometrajeActual} km'),
-                        if (vehicle.vin != null) _buildInfoRow('VIN', vehicle.vin!),
-                        if (vehicle.fechaCreacion != null) _buildInfoRow('Registrado', _dateFormat.format(vehicle.fechaCreacion!)),
+                        _buildInfoRow(
+                          'Kilometraje',
+                          '${vehicle.kilometrajeActual} km',
+                        ),
+                        if (vehicle.vin != null)
+                          _buildInfoRow('VIN', vehicle.vin!),
+                        if (vehicle.fechaCreacion != null)
+                          _buildInfoRow(
+                            'Registrado',
+                            _dateFormat.format(vehicle.fechaCreacion!),
+                          ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
 
                   // Información del Propietario
-                  if (vehicle.nombrePropietario != null && vehicle.nombrePropietario!.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(Icons.person, color: Colors.green, size: 18),
-                              SizedBox(width: 10),
-                              Text('Propietario', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-                            ],
+                  if (vehicle.nombrePropietario != null &&
+                      vehicle.nombrePropietario!.isNotEmpty)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        Navigator.pop(context);
+
+                        if (widget.onVerPropietario != null &&
+                            vehicle.idPropietario > 0) {
+                          widget.onVerPropietario!(
+                            propietarioId: vehicle.idPropietario,
+                          );
+                          return;
+                        }
+
+                        _showPersonaInfoModal(
+                          tipo: 'Información del propietario',
+                          nombre:
+                              vehicle.nombrePropietario ?? 'Sin propietario',
+                          telefono: vehicle.telefonoPropietario,
+                          correo: vehicle.emailPropietario,
+                          documento: vehicle.documentoPropietario,
+                          tipoDocumento: vehicle.tipoDocumentoPropietario,
+                          apellido: vehicle.apellidoPropietario,
+                          direccion: vehicle.direccionPropietario,
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.green.withValues(alpha: 0.2),
                           ),
-                          const SizedBox(height: 12),
-                          _buildInfoRow('Nombre', vehicle.nombrePropietario!),
-                          if (vehicle.documentoPropietario != null && vehicle.documentoPropietario!.isNotEmpty)
-                            _buildInfoRow('Documento', vehicle.documentoPropietario!),
-                          if (vehicle.telefonoPropietario != null && vehicle.telefonoPropietario!.isNotEmpty)
-                            _buildInfoRow('Teléfono', vehicle.telefonoPropietario!),
-                          if (vehicle.emailPropietario != null && vehicle.emailPropietario!.isNotEmpty)
-                            _buildInfoRow('Email', vehicle.emailPropietario!),
-                        ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.person,
+                                  color: Colors.green,
+                                  size: 18,
+                                ),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Propietario',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            _buildInfoRow('Nombre', vehicle.nombrePropietario!),
+                            if (vehicle.documentoPropietario != null &&
+                                vehicle.documentoPropietario!.isNotEmpty)
+                              _buildInfoRow(
+                                'Documento',
+                                vehicle.documentoPropietario!,
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   const SizedBox(height: 16),
 
                   // Información del Conductor
-                  if (vehicle.nombreConductor != null && vehicle.nombreConductor!.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(Icons.directions_car, color: Colors.blue, size: 18),
-                              SizedBox(width: 10),
-                              Text('Conductor Asignado', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-                            ],
+                  if (vehicle.nombreConductor != null &&
+                      vehicle.nombreConductor!.isNotEmpty)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        Navigator.pop(context);
+
+                        if (widget.onVerConductor != null &&
+                            vehicle.idConductor != null) {
+                          widget.onVerConductor!(
+                            conductorId: vehicle.idConductor!,
+                          );
+                          return;
+                        }
+
+                        _showPersonaInfoModal(
+                          tipo: 'Información del conductor',
+                          nombre: vehicle.nombreConductor ?? 'Sin conductor',
+                          telefono: vehicle.telefonoConductor,
+                          correo: vehicle.emailConductor,
+                          documento: vehicle.documentoConductor,
+                          tipoDocumento: vehicle.tipoDocumentoConductor,
+                          apellido: vehicle.apellidoConductor,
+                          direccion: vehicle.direccionConductor,
+                          licencia: vehicle.licenciaConductor,
+                          categoria: vehicle.categoriaConductor,
+                          vencimientoLicencia: vehicle.fechaVencimientoLicencia,
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.blue.withValues(alpha: 0.2),
                           ),
-                          const SizedBox(height: 12),
-                          _buildInfoRow('Nombre', vehicle.nombreConductor!),
-                          if (vehicle.telefonoConductor != null && vehicle.telefonoConductor!.isNotEmpty)
-                            _buildInfoRow('Teléfono', vehicle.telefonoConductor!),
-                          if (vehicle.emailConductor != null && vehicle.emailConductor!.isNotEmpty)
-                            _buildInfoRow('Email', vehicle.emailConductor!),
-                          if (vehicle.licenciaConductor != null && vehicle.licenciaConductor!.isNotEmpty)
-                            _buildInfoRow('Licencia', vehicle.licenciaConductor!),
-                          if (vehicle.categoriaConductor != null && vehicle.categoriaConductor!.isNotEmpty)
-                            _buildInfoRow('Categoría Licencia', vehicle.categoriaConductor!),
-                          if (vehicle.fechaVencimientoLicencia != null)
-                            _buildInfoRow(
-                              'Vencimiento Licencia',
-                              _dateFormat.format(vehicle.fechaVencimientoLicencia!),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.directions_car,
+                                  color: Colors.blue,
+                                  size: 18,
+                                ),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Conductor Asignado',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
-                        ],
+                            const SizedBox(height: 12),
+                            _buildInfoRow('Nombre', vehicle.nombreConductor!),
+                            if (vehicle.documentoConductor != null &&
+                                vehicle.documentoConductor!.isNotEmpty)
+                              _buildInfoRow(
+                                'Documento',
+                                vehicle.documentoConductor!,
+                              ),
+                          ],
+                        ),
                       ),
                     ),
+                  const SizedBox(height: 22),
+                  _buildVehicleActionButtons(vehicle),
                 ],
               ),
             ),
@@ -1277,14 +2305,203 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     );
   }
 
+  void _showPersonaInfoModal({
+    required String tipo,
+    required String nombre,
+    String? telefono,
+    String? correo,
+    String? documento,
+    String? tipoDocumento,
+    String? apellido,
+    String? direccion,
+    String? licencia,
+    String? categoria,
+    DateTime? vencimientoLicencia,
+  }) {
+    showDialog(
+      context: context,
+      builder: (_) {
+        return Dialog(
+          backgroundColor: const Color(0xFF151B47),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 520),
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildModalHeader(
+                  title: tipo,
+                  subtitle: nombre,
+                  icon: tipo.toLowerCase().contains('propietario')
+                      ? Icons.person_rounded
+                      : Icons.badge_rounded,
+                ),
+                const SizedBox(height: 18),
+
+                _buildPersonInfoRow('Nombre', nombre),
+                _buildPersonInfoRow('Apellido', apellido),
+                _buildPersonInfoRow('Tipo documento', tipoDocumento),
+                _buildPersonInfoRow('Dirección', direccion),
+                _buildPersonInfoRow('Teléfono', telefono),
+                _buildPersonInfoRow('Correo', correo),
+                _buildPersonInfoRow('Documento', documento),
+
+                if (licencia != null && licencia.trim().isNotEmpty)
+                  _buildPersonInfoRow('Licencia', licencia),
+
+                if (categoria != null && categoria.trim().isNotEmpty)
+                  _buildPersonInfoRow('Categoría', categoria),
+
+                if (vencimientoLicencia != null)
+                  _buildPersonInfoRow(
+                    'Vencimiento licencia',
+                    _dateFormat.format(vencimientoLicencia),
+                  ),
+
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _accentColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text('Cerrar'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPersonInfoRow(String label, String? value) {
+    final text = value?.trim() ?? '';
+
+    if (text.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVehicleActionButtons(_Vehicle vehicle) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+
+                  if (widget.onVerDocumentosVehiculo != null) {
+                    widget.onVerDocumentosVehiculo!.call(
+                      vehiculoId: vehicle.idVehiculo,
+                      placa: vehicle.placa,
+                    );
+                  }
+                },
+                icon: const Icon(Icons.description_rounded),
+                label: const Text('Ver documentos'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _accentColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+
+                  if (widget.onVerMantenimientosVehiculo != null) {
+                    widget.onVerMantenimientosVehiculo!.call(
+                      vehiculoId: vehicle.idVehiculo,
+                      placa: vehicle.placa,
+                    );
+                  }
+                },
+                icon: const Icon(Icons.build_rounded),
+                label: const Text('Ver mantenimientos'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _successColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -1310,23 +2527,30 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                 Expanded(
                   child: Text(
                     vehicle.placa,
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 _buildStatusTag(vehicle.estadoVehiculo, isCompact),
+                const SizedBox(width: 6),
+                _buildVehicleActionsMenu(vehicle),
               ],
             ),
             const SizedBox(height: 8),
-            
+
             // Marca y Modelo
             Text(
               '${vehicle.marca} • ${vehicle.modelo}${vehicle.anio != null ? ' • ${vehicle.anio}' : ''}',
               style: const TextStyle(color: Colors.white70, fontSize: 14),
             ),
             const SizedBox(height: 10),
-            
+
             // Propietario
-            if (vehicle.nombrePropietario != null && vehicle.nombrePropietario!.isNotEmpty) ...[
+            if (vehicle.nombrePropietario != null &&
+                vehicle.nombrePropietario!.isNotEmpty) ...[
               Row(
                 children: [
                   const Icon(Icons.person, color: _successColor, size: 18),
@@ -1334,7 +2558,10 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                   Expanded(
                     child: Text(
                       'Propietario: ${vehicle.nombrePropietario}',
-                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -1342,17 +2569,25 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
               ),
               const SizedBox(height: 6),
             ],
-            
+
             // Conductor
-            if (vehicle.nombreConductor != null && vehicle.nombreConductor!.isNotEmpty) ...[
+            if (vehicle.nombreConductor != null &&
+                vehicle.nombreConductor!.isNotEmpty) ...[
               Row(
                 children: [
-                  const Icon(Icons.directions_car, color: Color(0xFF9D84FF), size: 18),
+                  const Icon(
+                    Icons.directions_car,
+                    color: Color(0xFF9D84FF),
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Conductor: ${vehicle.nombreConductor}',
-                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -1360,9 +2595,10 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
               ),
               const SizedBox(height: 6),
             ],
-            
+
             // Color y Documentos
-            if ((vehicle.color != null && vehicle.color!.isNotEmpty) || vehicle.documentosVehiculo.isNotEmpty) ...[
+            if ((vehicle.color != null && vehicle.color!.isNotEmpty) ||
+                vehicle.documentosVehiculo.isNotEmpty) ...[
               Row(
                 children: [
                   if (vehicle.color != null && vehicle.color!.isNotEmpty) ...[
@@ -1371,7 +2607,10 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                     Expanded(
                       child: Text(
                         'Color: ${vehicle.color}',
-                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1382,7 +2621,10 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                     const SizedBox(width: 4),
                     Text(
                       '${vehicle.documentosVehiculo.length} docs',
-                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ],
@@ -1394,10 +2636,69 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     );
   }
 
+  Widget _buildVehicleActionsMenu(_Vehicle vehicle) {
+    if (!_canEditVehicleInfo && !_canManageDriverAssignment) {
+      return const SizedBox.shrink();
+    }
+
+    final bool hasDriver =
+        vehicle.nombreConductor != null &&
+        vehicle.nombreConductor!.trim().isNotEmpty;
+
+    return PopupMenuButton<String>(
+      color: const Color(0xFF151B47),
+      icon: const Icon(
+        Icons.more_vert_rounded,
+        color: Colors.white70,
+        size: 20,
+      ),
+      onSelected: (value) {
+        if (value == 'editar') {
+          _showEditVehicleModal(vehicle);
+        } else if (value == 'asignar') {
+          _showAssignDriverModal(vehicle);
+        } else if (value == 'desasignar') {
+          _desasignarConductor(vehicle);
+        }
+      },
+      itemBuilder: (context) => [
+        if (_canEditVehicleInfo)
+          const PopupMenuItem(
+            value: 'editar',
+            child: Text(
+              'Editar vehículo',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+
+        if (_canManageDriverAssignment && !hasDriver)
+          const PopupMenuItem(
+            value: 'asignar',
+            child: Text(
+              'Asignar conductor',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+
+        if (_canManageDriverAssignment && hasDriver)
+          const PopupMenuItem(
+            value: 'desasignar',
+            child: Text(
+              'Desasignar conductor',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildStatusTag(String status, bool isCompact) {
     final Color color = _statusColor(status);
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 10, vertical: isCompact ? 4 : 5),
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 8 : 10,
+        vertical: isCompact ? 4 : 5,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(isCompact ? 14 : 16),
@@ -1405,7 +2706,11 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       ),
       child: Text(
         _statusLabel(status),
-        style: TextStyle(color: Colors.white, fontSize: isCompact ? 10 : 11, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: isCompact ? 10 : 11,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

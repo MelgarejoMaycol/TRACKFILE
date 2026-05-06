@@ -114,8 +114,9 @@ final GoRouter appRouter = GoRouter(
   redirect: (context, state) async {
     final prefs = await SharedPreferences.getInstance();
 
-    final token = prefs.getString('token');
-    final rol = prefs.getString('rol');
+    final token = prefs.getString('auth_token') ?? prefs.getString('token');
+
+    final rol = prefs.getString('role') ?? prefs.getString('rol');
 
     final String rutaActual = state.uri.toString();
 
@@ -154,7 +155,12 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/dashboard',
       name: 'dashboard',
-      redirect: (context, state) => '/dashboard/empresa',
+      redirect: (context, state) async {
+        final prefs = await SharedPreferences.getInstance();
+        final rol =
+            prefs.getString('role') ?? prefs.getString('rol') ?? 'empresa';
+        return '/dashboard/${rol.toLowerCase()}';
+      },
       routes: [
         GoRoute(
           path: 'empresa',

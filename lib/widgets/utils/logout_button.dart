@@ -1,69 +1,42 @@
 import 'package:flutter/material.dart';
-import 'package:frontendproyecto/screens/login_screen.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class LogoutButton extends StatefulWidget {
-  const LogoutButton({super.key, this.expand = true});
+class LogoutButton extends StatelessWidget {
+  const LogoutButton({super.key});
 
-  final bool expand;
+  Future<void> _logout(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
 
-  @override
-  State<LogoutButton> createState() => _LogoutButtonState();
-}
+    await prefs.remove('auth_token');
+    await prefs.remove('token');
+    await prefs.remove('rol');
+    await prefs.remove('role');
+    await prefs.remove('user_id');
+    await prefs.remove('usuario_id');
+    await prefs.remove('empresa_id');
+    await prefs.remove('conductor_id');
+    await prefs.remove('propietario_id');
 
-class _LogoutButtonState extends State<LogoutButton> {
-  bool _loading = false;
+    if (!context.mounted) return;
 
-  Future<void> _handleLogout() async {
-    if (_loading) return;
-    setState(() => _loading = true);
-    try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.remove('auth_user');
-      await prefs.remove('auth_token');
-      await prefs.remove('user_id');
-
-      if (!mounted) return;
-      Navigator.of(
-        context,
-      ).pushNamedAndRemoveUntil(LoginScreen.route, (route) => false);
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo cerrar sesión: $error')),
-      );
-      setState(() => _loading = false);
-    }
+    context.goNamed('login');
   }
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-    final Widget button = FilledButton.icon(
-      onPressed: _loading ? null : _handleLogout,
-      icon: _loading
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            )
-          : const Icon(Icons.logout_rounded),
-      label: Text(_loading ? 'Cerrando…' : 'Cerrar sesión'),
-      style: FilledButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        backgroundColor: scheme.primary,
-        foregroundColor: scheme.onPrimary,
-        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+    return ElevatedButton.icon(
+      onPressed: () => _logout(context),
+      icon: const Icon(Icons.logout_rounded),
+      label: const Text('Cerrar sesión'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFFBFC7F5),
+        foregroundColor: const Color(0xFF1F255E),
+        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 18),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
       ),
     );
-
-    if (!widget.expand) {
-      return button;
-    }
-
-    return SizedBox(width: double.infinity, child: button);
   }
 }

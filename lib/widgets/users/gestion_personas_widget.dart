@@ -26,6 +26,13 @@ class GestionPersonasWidget extends StatefulWidget {
   })?
   onVerMantenimientosPersona;
 
+  final void Function({
+    required int usuarioId,
+    required String tipoPersona,
+    required String nombrePersona,
+  })?
+  onVerVehiculosPersona;
+
   const GestionPersonasWidget({
     super.key,
     this.tipoInicial = TipoGestionPersona.conductor,
@@ -33,6 +40,7 @@ class GestionPersonasWidget extends StatefulWidget {
     this.nombreEmpresa = '',
     this.onVerDocumentosPersona,
     this.onVerMantenimientosPersona,
+    this.onVerVehiculosPersona,
   });
 
   @override
@@ -366,6 +374,35 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
         const SnackBar(
           content: Text(
             'Configura la navegación hacia mantenimientos de la persona.',
+          ),
+        ),
+      );
+    }
+  }
+
+  void _verVehiculosPersona(Map<String, dynamic> item) {
+    final usuarioId = _obtenerUsuarioId(item);
+
+    if (usuarioId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se encontró el usuario de esta persona'),
+        ),
+      );
+      return;
+    }
+
+    if (widget.onVerVehiculosPersona != null) {
+      widget.onVerVehiculosPersona!.call(
+        usuarioId: usuarioId,
+        tipoPersona: _esConductor ? 'CONDUCTOR' : 'PROPIETARIO',
+        nombrePersona: _nombreCompleto(item),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Configura la navegación hacia vehículos de la persona.',
           ),
         ),
       );
@@ -1539,6 +1576,11 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                       _menuItem(2, Icons.edit_rounded, 'Editar información'),
                       _menuItem(3, Icons.folder_copy_rounded, 'Ver documentos'),
                       _menuItem(4, Icons.build_rounded, 'Ver mantenimientos'),
+                      _menuItem(
+                        5,
+                        Icons.directions_car_rounded,
+                        'Ver vehículos',
+                      ),
                     ],
                     onSelected: (value) {
                       switch (value) {
@@ -1553,6 +1595,9 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                           break;
                         case 4:
                           _verMantenimientosPersona(item);
+                          break;
+                        case 5:
+                          _verVehiculosPersona(item);
                           break;
                       }
                     },
