@@ -900,30 +900,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
         '';
   }
 
-  int? _idFromMap(Map<String, dynamic>? data, String tipo) {
-    if (data == null) return null;
-
-    if (tipo == 'PROPIETARIO') {
-      return int.tryParse(
-        data['id']?.toString() ??
-            data['idPropietario']?.toString() ??
-            data['id_propietario']?.toString() ??
-            '',
-      );
-    }
-
-    if (tipo == 'CONDUCTOR') {
-      return int.tryParse(
-        data['id']?.toString() ??
-            data['idConductor']?.toString() ??
-            data['id_conductor']?.toString() ??
-            '',
-      );
-    }
-
-    return null;
-  }
-
   int? _currentEntityIdByRole() {
     final rawId = widget.ownerId?.trim() ?? '';
     if (rawId.isEmpty) return null;
