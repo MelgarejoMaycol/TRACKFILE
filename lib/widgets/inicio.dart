@@ -126,9 +126,9 @@ class _InicioWidgetState extends State<InicioWidget> {
             });
           }
 
-          debugPrint(
-            '✅ EMPRESA: ${backendDocs.length} documentos, ${vehiculos.length} vehículos, ${propietarios.length} propietarios',
-          );
+          // debugPrint(
+          //   '✅ EMPRESA: ${backendDocs.length} documentos, ${vehiculos.length} vehículos, ${propietarios.length} propietarios',
+          // );
           break;
 
         case 'conductor':
@@ -204,9 +204,9 @@ class _InicioWidgetState extends State<InicioWidget> {
             'maintenanceSuggested': sugeridosCond,
           };
 
-          debugPrint(
-            '✅ CONDUCTOR: ${backendDocs.length} documentos, ${fleet.length} vehículos',
-          );
+          // debugPrint(
+          //   '✅ CONDUCTOR: ${backendDocs.length} documentos, ${fleet.length} vehículos',
+          // );
           break;
 
         case 'propietario':
@@ -281,18 +281,18 @@ class _InicioWidgetState extends State<InicioWidget> {
             'maintenanceSuggested': sugeridosProp,
           };
 
-          debugPrint(
-            '✅ PROPIETARIO: ${backendDocsP.length} documentos, ${fleet.length} vehículos',
-          );
+          // debugPrint(
+          //   '✅ PROPIETARIO: ${backendDocsP.length} documentos, ${fleet.length} vehículos',
+          // );
           break;
 
         case 'secretaria':
           // Secretaria: documentos de la empresa (ya están filtrados por empresa en backend)
           final backendDocsS = await ApiService.getDocumentosEmpresa();
           _processDocuments(backendDocsS, docs, docDetails);
-          debugPrint(
-            '✅ SECRETARIA: ${backendDocsS.length} documentos cargados',
-          );
+          // debugPrint(
+          //   '✅ SECRETARIA: ${backendDocsS.length} documentos cargados',
+          // );
           break;
 
         case 'admin':
@@ -307,7 +307,7 @@ class _InicioWidgetState extends State<InicioWidget> {
             'totalVehicles': vehiculos.length,
             'documentsExpired': vencidos.length,
           };
-          debugPrint('✅ ADMIN: ${backendDocs.length} documentos cargados');
+          //debugPrint('✅ ADMIN: ${backendDocs.length} documentos cargados');
           break;
 
         default:
@@ -544,9 +544,10 @@ class _InicioWidgetState extends State<InicioWidget> {
         final bool exists = await _assetExists(rawImage);
         if (exists) {
           profileImageCandidate = rawImage;
-        } else {
-          debugPrint('Imagen de perfil no encontrada: $rawImage');
         }
+        // } else {
+        //   debugPrint('Imagen de perfil no encontrada: $rawImage');
+        // }
       }
 
       final String resolvedName =
@@ -831,9 +832,9 @@ class _InicioWidgetState extends State<InicioWidget> {
     );
 
     // Debug
-    debugPrint(
-      '📊 CONDUCTOR PANEL: Documents=${_documents.length}, Vehicles=${_fleetVehicles.length}, Summary=$_summaryMetrics',
-    );
+    // debugPrint(
+    //   '📊 CONDUCTOR PANEL: Documents=${_documents.length}, Vehicles=${_fleetVehicles.length}, Summary=$_summaryMetrics',
+    // );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(vertical: 20),

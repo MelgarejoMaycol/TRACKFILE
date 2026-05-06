@@ -49,7 +49,7 @@ class _PropietariosWidgetState extends State<PropietariosWidget> {
       }
 
       final uri = ApiConfig.resolve(_baseUrl, '/api/propietarios');
-      debugPrint('🔗 Llamando a: $uri');
+      //debugPrint('🔗 Llamando a: $uri');
 
       final response = await http.get(
         uri,
@@ -59,7 +59,7 @@ class _PropietariosWidgetState extends State<PropietariosWidget> {
         },
       ).timeout(const Duration(seconds: 10));
 
-      debugPrint('📡 Respuesta: ${response.statusCode}');
+      //debugPrint('📡 Respuesta: ${response.statusCode}');
 
       if (!mounted) return;
 
@@ -74,7 +74,7 @@ class _PropietariosWidgetState extends State<PropietariosWidget> {
           _isLoading = false;
         });
         
-        debugPrint('✅ ${propietarios.length} propietarios cargados');
+        //debugPrint('✅ ${propietarios.length} propietarios cargados');
       } else if (response.statusCode == 403) {
         throw Exception('Acceso denegado. No tienes permisos para ver los propietarios.');
       } else if (response.statusCode == 404) {
@@ -82,7 +82,7 @@ class _PropietariosWidgetState extends State<PropietariosWidget> {
           _propietarios = [];
           _isLoading = false;
         });
-        debugPrint('⚠️ No se encontraron propietarios');
+        //debugPrint('⚠️ No se encontraron propietarios');
       } else {
         throw Exception('Error ${response.statusCode}: ${response.body}');
       }
@@ -106,7 +106,7 @@ class _PropietariosWidgetState extends State<PropietariosWidget> {
       }
 
       final uri = ApiConfig.resolve(_baseUrl, '/api/propietarios/$ownerId/detalle');
-      debugPrint('🔗 Llamando a: $uri');
+      //debugPrint('🔗 Llamando a: $uri');
 
       final response = await http.get(
         uri,

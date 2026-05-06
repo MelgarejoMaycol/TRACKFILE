@@ -277,8 +277,8 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       final token = prefs.getString('auth_token');
       final userId = widget.userId ?? prefs.getString('user_id');
 
-      debugPrint('🔧 Cargando datos desde backend...');
-      debugPrint('   Role: ${widget.role}, UserId: $userId');
+      //debugPrint('🔧 Cargando datos desde backend...');
+      //debugPrint('   Role: ${widget.role}, UserId: $userId');
 
       // Cargar datos en paralelo
       final results = await Future.wait([
@@ -302,13 +302,13 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       final tiposData = results[1];
       final vehiculosData = results[2];
 
-      debugPrint('✅ Datos obtenidos:');
-      debugPrint('   Mantenimientos: ${mantenimientosData.length}');
-      debugPrint('   Tipos: ${tiposData.length}');
-      debugPrint('   Vehículos: ${vehiculosData.length}');
-      debugPrint('TIPOS DATA: $tiposData');
-      debugPrint('VEHICULOS DATA: $vehiculosData');
-      debugPrint('🧪 MANTENIMIENTOS RAW: $mantenimientosData');
+      //debugPrint('✅ Datos obtenidos:');
+      //debugPrint('   Mantenimientos: ${mantenimientosData.length}');
+      //debugPrint('   Tipos: ${tiposData.length}');
+      //debugPrint('   Vehículos: ${vehiculosData.length}');
+      //debugPrint('TIPOS DATA: $tiposData');
+      //debugPrint('VEHICULOS DATA: $vehiculosData');
+      //debugPrint('🧪 MANTENIMIENTOS RAW: $mantenimientosData');
 
       // Convertir tipos de mantenimiento
       final tipos = tiposData
@@ -484,7 +484,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     }
 
     if (_vehiculos.isEmpty) {
-      debugPrint('⚠️ No hay vehículos para filtrar mantenimientos.');
+      //debugPrint('⚠️ No hay vehículos para filtrar mantenimientos.');
       return todos;
     }
 
@@ -499,7 +499,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           0;
     }).toSet();
 
-    debugPrint('🚗 Vehículos del usuario: $vehiculoIds');
+    //debugPrint('🚗 Vehículos del usuario: $vehiculoIds');
 
     return todos.where((detalle) {
       return vehiculoIds.contains(detalle.mantenimiento.vehiculoId);
@@ -515,7 +515,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     }
 
     if (vehiculosData.isEmpty) {
-      debugPrint('⚠️ No hay vehículos asignados al usuario.');
+      //debugPrint('⚠️ No hay vehículos asignados al usuario.');
       return [];
     }
 
@@ -530,7 +530,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           0;
     }).toSet();
 
-    debugPrint('🚗 Vehículos asignados: $vehiculoIds');
+    //debugPrint('🚗 Vehículos asignados: $vehiculoIds');
 
     return todos.where((detalle) {
       return vehiculoIds.contains(detalle.mantenimiento.vehiculoId);
