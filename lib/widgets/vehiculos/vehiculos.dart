@@ -1075,6 +1075,8 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () async {
+                                final navigator = Navigator.of(context);
+                                final messenger = ScaffoldMessenger.of(context);
                                 if (selectedPropietarioId == null) return;
 
                                 final creado = await ApiService.createVehiculo(
@@ -1090,10 +1092,13 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                                 );
 
                                 if (!mounted) return;
-                                Navigator.pop(context);
+                                navigator.pop();
+
                                 await _loadAllData();
 
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                if (!mounted) return;
+
+                                messenger.showSnackBar(
                                   SnackBar(
                                     content: Text(
                                       creado != null
@@ -1187,6 +1192,8 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () async {
+                            final navigator = Navigator.of(context);
+                            final messenger = ScaffoldMessenger.of(context);
                             final actualizado = await ApiService.updateVehiculo(
                               vehiculoId: vehicle.idVehiculo,
                               placa: placaCtrl.text,
@@ -1199,10 +1206,13 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                             );
 
                             if (!mounted) return;
-                            Navigator.pop(context);
+                            navigator.pop();
+
                             await _loadAllData();
 
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            if (!mounted) return;
+
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text(
                                   actualizado != null
@@ -1280,7 +1290,8 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () async {
-                              if (selectedConductorId == null) return;
+                              final navigator = Navigator.of(context);
+                              final messenger = ScaffoldMessenger.of(context);
 
                               final actualizado =
                                   await ApiService.asignarConductorVehiculo(
@@ -1289,10 +1300,13 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                                   );
 
                               if (!mounted) return;
-                              Navigator.pop(context);
+                              navigator.pop();
+
                               await _loadAllData();
 
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              if (!mounted) return;
+
+                              messenger.showSnackBar(
                                 SnackBar(
                                   content: Text(
                                     actualizado != null
