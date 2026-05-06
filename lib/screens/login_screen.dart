@@ -1,15 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
-import 'package:file_picker/file_picker.dart';
-import 'package:http_parser/http_parser.dart';
+import 'package:frontendproyecto/services/api_link.dart';
 import 'package:frontendproyecto/utils/api_config.dart';
 import 'package:frontendproyecto/utils/role_router.dart';
-import 'package:frontendproyecto/services/api_link.dart';
+import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   static const route = '/login';
@@ -48,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen>
     _tabController = TabController(length: 2, vsync: this);
     // Usar directamente getApiLink() en lugar de cargar desde SharedPreferences
     _baseUrl = getApiLink();
-    debugPrint('🌐 [LoginScreen] Base URL: $_baseUrl');
+    //debugPrint('🌐 [LoginScreen] Base URL: $_baseUrl');
     // Listen to inputs to update button states
     _nameCtrl.addListener(_validateForms);
     _nitCtrl.addListener(_validateForms);
@@ -429,6 +431,35 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
+  String _roleToRoute(dynamic role) {
+    final normalized = _stringValue(role)?.toUpperCase() ?? '';
+
+    switch (normalized) {
+      case 'EMPRESA':
+      case 'ROLE_EMPRESA':
+        return 'empresa';
+
+      case 'PROPIETARIO':
+      case 'ROLE_PROPIETARIO':
+        return 'propietario';
+
+      case 'CONDUCTOR':
+      case 'ROLE_CONDUCTOR':
+        return 'conductor';
+
+      case 'ADMIN':
+      case 'ROLE_ADMIN':
+        return 'admin';
+
+      case 'SECRETARIA':
+      case 'ROLE_SECRETARIA':
+        return 'secretaria';
+
+      default:
+        return '';
+    }
+  }
+
   Future<void> _doLogin() async {
     if (!_isLoginValid || _loginLoading) return;
     setState(() => _loginLoading = true);
@@ -460,8 +491,9 @@ class _LoginScreenState extends State<LoginScreen>
           final bool emailConfirmado = loginData['emailConfirmado'] == true;
           final String email =
               _stringValue(loginData['correo']) ?? _userCtrl.text.trim();
-          final String? verificationLink =
-              _resolveVerificationLink(loginData['verificationLink']);
+          final String? verificationLink = _resolveVerificationLink(
+            loginData['verificationLink'],
+          );
 
           if (!emailConfirmado) {
             await _showVerificationPendingDialog(
@@ -487,7 +519,7 @@ class _LoginScreenState extends State<LoginScreen>
           }
 
           final String? token = _stringValue(loginData['token']);
-          debugPrint('🔐 Token recibido: $token');
+          //debugPrint('🔐 Token recibido: $token');
           final Map<String, dynamic>? profile = await _fetchUserDetails(
             usuarioId,
             token: token,
@@ -508,10 +540,23 @@ class _LoginScreenState extends State<LoginScreen>
 
           // Validación de estado de empresa removida - no es requerida por el backend
           await persistSession(sessionData);
-          if (!mounted) return;
 
-          final target = screenForRole(sessionData);
-          if (target == null) {
+          // Guardar también los datos que usa app_router.dart
+          final prefs = await SharedPreferences.getInstance();
+
+          final String? tokenSesion = _stringValue(sessionData['token']);
+          final String rolRuta = _roleToRoute(sessionData['rol']);
+
+          if (tokenSesion == null || tokenSesion.isEmpty) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No se recibió token de sesión.')),
+            );
+            return;
+          }
+
+          if (rolRuta.isEmpty) {
+            if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Rol no reconocido para este usuario.'),
@@ -520,10 +565,12 @@ class _LoginScreenState extends State<LoginScreen>
             return;
           }
 
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => target),
-            (route) => false,
-          );
+          await prefs.setString('token', tokenSesion);
+          await prefs.setString('rol', rolRuta);
+
+          if (!mounted) return;
+
+          context.go('/dashboard/$rolRuta');
         } on FormatException {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Respuesta del servidor inválida.')),
@@ -625,9 +672,9 @@ class _LoginScreenState extends State<LoginScreen>
     final String? token = _stringValue(loginData['token']);
     if (token != null && token.isNotEmpty) {
       session['token'] = token;
-      debugPrint('✅ Token JWT copiado a sesión (${token.length} chars)');
+      //debugPrint('✅ Token JWT copiado a sesión (${token.length} chars)');
     } else {
-      debugPrint('⚠️ Advertencia: No se encontró token en loginData');
+      //debugPrint('⚠️ Advertencia: No se encontró token en loginData');
     }
 
     final int? empresaId =
@@ -691,13 +738,16 @@ class _LoginScreenState extends State<LoginScreen>
     return '$base$sanitized';
   }
 
-  Future<Map<String, dynamic>?> _fetchUserDetails(int userId, {String? token}) async {
+  Future<Map<String, dynamic>?> _fetchUserDetails(
+    int userId, {
+    String? token,
+  }) async {
     try {
       final Map<String, String> headers = {'Content-Type': 'application/json'};
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       }
-      
+
       final response = await http
           .get(_endpoint('/api/usuarios/$userId'), headers: headers)
           .timeout(const Duration(seconds: 20));
@@ -763,7 +813,10 @@ class _LoginScreenState extends State<LoginScreen>
 
         return Dialog(
           backgroundColor: const Color.fromARGB(0, 255, 255, 255),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 26,
+            vertical: 24,
+          ),
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -788,7 +841,9 @@ class _LoginScreenState extends State<LoginScreen>
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -799,7 +854,11 @@ class _LoginScreenState extends State<LoginScreen>
                           shape: BoxShape.circle,
                         ),
                         padding: const EdgeInsets.all(13),
-                        child: const Icon(Icons.mark_email_unread, color: Colors.white, size: 28),
+                        child: const Icon(
+                          Icons.mark_email_unread,
+                          color: Colors.white,
+                          size: 28,
+                        ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -838,13 +897,17 @@ class _LoginScreenState extends State<LoginScreen>
                       Text(
                         'Hemos enviado un enlace de verificación a $email. '
                         'Completa la verificación desde tu correo electrónico antes de iniciar sesión.',
-                        style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          height: 1.4,
+                        ),
                       ),
                       if (verificationLink != null) ...[
                         const SizedBox(height: 18),
                         Text(
                           '¿No lo encuentras?',
-                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         Text(
@@ -854,11 +917,15 @@ class _LoginScreenState extends State<LoginScreen>
                         const SizedBox(height: 10),
                         DecoratedBox(
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                            color: theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
                             child: SelectableText(
                               verificationLink,
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -877,8 +944,13 @@ class _LoginScreenState extends State<LoginScreen>
                             style: FilledButton.styleFrom(
                               backgroundColor: primary,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                              textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 12,
+                              ),
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
@@ -890,8 +962,9 @@ class _LoginScreenState extends State<LoginScreen>
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
                   decoration: BoxDecoration(
                     color: footerColor,
-                    borderRadius:
-                        const BorderRadius.vertical(bottom: Radius.circular(24)),
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(24),
+                    ),
                     border: Border(
                       top: BorderSide(
                         color: isDark
@@ -906,8 +979,10 @@ class _LoginScreenState extends State<LoginScreen>
                       onPressed: () => Navigator.of(ctx).pop(),
                       style: TextButton.styleFrom(
                         foregroundColor: primary,
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 12,
+                        ),
                         textStyle: const TextStyle(
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.2,
@@ -975,12 +1050,12 @@ class _LoginScreenState extends State<LoginScreen>
     // Desktop: use a narrower factor (33%) and cap the width so the
     // card doesn't become too wide on very large screens.
     final double cardWidthFactor = isDesktop
-      ? 0.33
-      : (isCompactWidth
-        ? 0.92
-        : (size.width <= 420 ? 0.86 : 0.80));
+        ? 0.33
+        : (isCompactWidth ? 0.92 : (size.width <= 420 ? 0.86 : 0.80));
     final double cardWidth = size.width * cardWidthFactor;
-    final double cardWidthLimited = isDesktop ? (cardWidth > 720 ? 720 : cardWidth) : cardWidth;
+    final double cardWidthLimited = isDesktop
+        ? (cardWidth > 720 ? 720 : cardWidth)
+        : cardWidth;
     // Increased height for better visibility of all inputs and buttons
     final double cardHeight = size.height * (size.height < 720 ? 0.92 : 0.88);
 
@@ -1315,26 +1390,6 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
         const SizedBox(height: 8),
-        // Row(
-        //   children: [
-        //     Expanded(
-        //       child: Text(
-        //         _baseUrl,
-        //         maxLines: 1,
-        //         overflow: TextOverflow.ellipsis,
-        //         style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
-        //       ),
-        //     ),
-        //     IconButton(
-        //       icon: const Icon(Icons.settings_ethernet_outlined, size: 20),
-        //       tooltip: 'Cambiar servidor',
-        //       onPressed: (_loginLoading || _signUpLoading)
-        //           ? null
-        //           : _promptBaseUrlChange,
-        //     ),
-        //   ],
-        // ),
-        const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
@@ -1423,31 +1478,20 @@ class _LoginScreenState extends State<LoginScreen>
       fillColor: const Color(0xFFF5F7FA),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(
-          color: Color(0xFFE0E0E0),
-          width: 1.5,
-        ),
+        borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1.5),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(
-          color: Color(0xFFD0D0D0),
-          width: 1.5,
-        ),
+        borderSide: const BorderSide(color: Color(0xFFD0D0D0), width: 1.5),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(
-          color: Color(0xFF06135E),
-          width: 2,
-        ),
+        borderSide: const BorderSide(color: Color(0xFF06135E), width: 2),
       ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
+
   Widget _buildRoleShortcutButtons() {
     return Column(
       children: [
@@ -1467,28 +1511,26 @@ class _LoginScreenState extends State<LoginScreen>
               spacing: 12,
               runSpacing: 12,
               alignment: WrapAlignment.center,
-              children: [
-                _buildDirectAccessButton(
-                  context: context,
-                  label: 'Empresa',
-                  role: 'ROLE_EMPRESA',
-                ),
-                _buildDirectAccessButton(
-                  context: context,
-                  label: 'Propietario',
-                  role: 'ROLE_PROPIETARIO',
-                ),
-                _buildDirectAccessButton(
-                  context: context,
-                  label: 'Conductor',
-                  role: 'ROLE_CONDUCTOR',
-                ),
-              ].map((button) {
-                return SizedBox(
-                  width: buttonWidth,
-                  child: button,
-                );
-              }).toList(),
+              children:
+                  [
+                    _buildDirectAccessButton(
+                      context: context,
+                      label: 'Empresa',
+                      role: 'ROLE_EMPRESA',
+                    ),
+                    _buildDirectAccessButton(
+                      context: context,
+                      label: 'Propietario',
+                      role: 'ROLE_PROPIETARIO',
+                    ),
+                    _buildDirectAccessButton(
+                      context: context,
+                      label: 'Conductor',
+                      role: 'ROLE_CONDUCTOR',
+                    ),
+                  ].map((button) {
+                    return SizedBox(width: buttonWidth, child: button);
+                  }).toList(),
             );
           },
         ),
@@ -1509,15 +1551,10 @@ class _LoginScreenState extends State<LoginScreen>
         backgroundColor: const Color(0xFF06135E),
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       icon: const Icon(Icons.arrow_forward_ios, size: 16),
-      label: Text(
-        label,
-        overflow: TextOverflow.ellipsis,
-      ),
+      label: Text(label, overflow: TextOverflow.ellipsis),
     );
   }
 
@@ -1558,10 +1595,11 @@ class _LoginScreenState extends State<LoginScreen>
           },
         };
 
-        final Widget? target = screenForRole(demoUser);
-        if (target == null) return;
+        final String rolRuta = _roleToRoute(demoUser['rol']);
 
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => target));
+        if (rolRuta.isEmpty) return;
+
+        context.go('/dashboard/$rolRuta');
     }
   }
 }
