@@ -1,0 +1,56 @@
+{
+  "vehiculos": [
+    {
+      "id_vehiculo": 501,
+      "id_propietario": 12,
+      "placa": "ABC123",
+      "vin": "1HGCM82633A004352",
+      "marca": "Toyota",
+      "modelo": "Hilux",
+      "anio": 2022,
+      "color": "Blanco",
+      "kilometraje_actual": 45200,
+      "estado_vehiculo": "ACTIVO",
+      "fecha_creacion": "2023-05-12T09:30:00Z"
+    },
+    {
+      "id_vehiculo": 502,
+      "id_propietario": 12,
+      "placa": "XYZ789",
+      "vin": "JHMCM56557C404453",
+      "marca": "Chevrolet",
+      "modelo": "NQR",
+      "anio": 2021,
+      "color": "Azul",
+      "kilometraje_actual": 73500,
+      "estado_vehiculo": "MANTENIMIENTO",
+      "fecha_creacion": "2022-11-02T14:10:00Z"
+    },
+    {
+      "id_vehiculo": 503,
+      "id_propietario": 34,
+      "placa": "JKL456",
+      "vin": "3CZRE4H59BG704912",
+      "marca": "Hyundai",
+      "modelo": "County",
+      "anio": 2020,
+      "color": "Rojo",
+      "kilometraje_actual": 128900,
+      "estado_vehiculo": "INACTIVO",
+      "fecha_creacion": "2021-03-22T10:45:00Z"
+    },
+    {
+      "id_vehiculo": 504,
+      "id_propietario": 58,
+      "placa": "MNO321",
+      "vin": "5TDZK3EH9CS106874",
+      "marca": "Mercedes Benz",
+      "modelo": "Sprinter",
+      "anio": 2019,
+      "color": "Gris",
+      "kilometraje_actual": 168400,
+      "estado_vehiculo": "ACTIVO",
+      "fecha_creacion": "2020-07-18T08:20:00Z"
+    }
+  ]
+}
