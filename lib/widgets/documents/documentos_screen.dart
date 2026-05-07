@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:frontendproyecto/services/api_service.dart';
-import 'package:frontendproyecto/services/document_service.dart';
-import 'package:frontendproyecto/widgets/documents/document_preview_modal.dart';
-import 'package:frontendproyecto/widgets/documents/upload_document_modal.dart';
-import 'package:frontendproyecto/widgets/utils/shimmer_skeleton.dart';
+import 'package:trackfile/services/api_service.dart';
+import 'package:trackfile/services/document_service.dart';
+import 'package:trackfile/widgets/documents/document_preview_modal.dart';
+import 'package:trackfile/widgets/documents/upload_document_modal.dart';
+import 'package:trackfile/widgets/utils/shimmer_skeleton.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DocumentosScreen extends StatefulWidget {

@@ -8,7 +8,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:frontendproyecto/main.dart'; // asegúrate que coincide con el "name:" de pubspec.yaml
+import 'package:trackfile/main.dart'; // asegúrate que coincide con el "name:" de pubspec.yaml
 
 void main() {
   setUp(() {

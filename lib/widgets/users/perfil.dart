@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:frontendproyecto/services/api_service.dart';
-import 'package:frontendproyecto/widgets/utils/logout_button.dart';
-import 'package:frontendproyecto/widgets/utils/shimmer_skeleton.dart';
+import 'package:trackfile/services/api_service.dart';
+import 'package:trackfile/widgets/utils/logout_button.dart';
+import 'package:trackfile/widgets/utils/shimmer_skeleton.dart';
 
 class PerfilWidget extends StatefulWidget {
   final String? userId;

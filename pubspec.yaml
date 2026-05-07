@@ -1,5 +1,5 @@
-name: frontendproyecto
-description: "A new Flutter project."
+name: trackfile
+description: "Aplicación para la gestión de documentos, vehículos y mantenimientos."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -32,6 +32,7 @@ dependencies:
   flutter:
     sdk: flutter
 
+  cupertino_icons: ^1.0.8
   shared_preferences: ^2.2.2
   smooth_page_indicator: ^1.1.0
   google_fonts: ^6.2.1
