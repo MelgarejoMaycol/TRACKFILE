@@ -802,7 +802,6 @@ class _ConductorScreenState extends State<ConductorScreen> {
         return CertificacionesWidget(
           role: 'Conductor',
           userId: widget.userId ?? '1',
-          jsonPath: 'assets/certificaciones_data.json',
         );
       case 'Perfil':
         return PerfilWidget(

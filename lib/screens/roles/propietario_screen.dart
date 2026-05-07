@@ -1150,7 +1150,6 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         return CertificacionesWidget(
           role: 'Propietario',
           userId: widget.userId ?? '1',
-          jsonPath: 'assets/certificaciones_data.json',
         );
       case 'Perfil':
         return PerfilWidget(

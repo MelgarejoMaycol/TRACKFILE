@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -905,6 +906,253 @@ class ApiService {
       );
     } catch (e) {
       debugPrint('❌ Error al actualizar empresa: $e');
+    }
+
+    return false;
+  }
+
+  // ==================== CERTIFICACIONES / SOLICITUDES ====================
+
+  static Future<List<Map<String, dynamic>>> getTiposSolicitud() async {
+    try {
+      final headers = await _buildHeaders();
+
+      final response = await http
+          .get(Uri.parse('$_baseUrl/api/tipos-solicitud'), headers: headers)
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+
+        if (decoded is List) {
+          return decoded
+              .map(
+                (item) =>
+                    item is Map<String, dynamic> ? item : <String, dynamic>{},
+              )
+              .toList();
+        }
+      }
+
+      debugPrint(
+        '❌ Error tipos solicitud ${response.statusCode}: ${response.body}',
+      );
+    } catch (e) {
+      debugPrint('❌ Error getTiposSolicitud: $e');
+    }
+
+    return [];
+  }
+
+  static Future<List<Map<String, dynamic>>> getSolicitudes() async {
+    try {
+      final headers = await _buildHeaders();
+
+      final response = await http
+          .get(Uri.parse('$_baseUrl/api/solicitudes'), headers: headers)
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        debugPrint('📌 SOLICITUDES RAW: ${response.body}');
+
+        final decoded = jsonDecode(response.body);
+        debugPrint('📌 SOLICITUDES RAW: ${response.body}');
+
+        if (decoded is List) {
+          return decoded
+              .map(
+                (item) =>
+                    item is Map<String, dynamic> ? item : <String, dynamic>{},
+              )
+              .toList();
+        }
+      }
+
+      debugPrint(
+        '❌ Error solicitudes ${response.statusCode}: ${response.body}',
+      );
+    } catch (e) {
+      debugPrint('❌ Error getSolicitudes: $e');
+    }
+
+    return [];
+  }
+
+  static Future<List<Map<String, dynamic>>> getHistorialSolicitud(
+    int solicitudId,
+  ) async {
+    try {
+      final headers = await _buildHeaders();
+
+      final response = await http
+          .get(
+            Uri.parse('$_baseUrl/api/solicitudes/$solicitudId/historial'),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+
+        if (decoded is List) {
+          return decoded
+              .map(
+                (item) =>
+                    item is Map<String, dynamic> ? item : <String, dynamic>{},
+              )
+              .toList();
+        }
+      }
+
+      debugPrint('❌ Error historial ${response.statusCode}: ${response.body}');
+    } catch (e) {
+      debugPrint('❌ Error getHistorialSolicitud: $e');
+    }
+
+    return [];
+  }
+
+  static Future<Map<String, dynamic>?> crearSolicitud({
+    required int tipoSolicitudId,
+    required String descripcion,
+    int? vehiculoId,
+    int? documentoId,
+  }) async {
+    try {
+      final token = await _getToken();
+
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$_baseUrl/api/solicitudes'),
+      );
+
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+
+      request.fields['tipoSolicitudId'] = tipoSolicitudId.toString();
+
+      if (descripcion.trim().isNotEmpty) {
+        request.fields['descripcion'] = descripcion.trim();
+      }
+
+      if (vehiculoId != null) {
+        request.fields['vehiculoId'] = vehiculoId.toString();
+      }
+
+      if (documentoId != null) {
+        request.fields['documentoId'] = documentoId.toString();
+      }
+
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 30),
+      );
+
+      final responseBody = await streamedResponse.stream.bytesToString();
+
+      if (streamedResponse.statusCode == 200 ||
+          streamedResponse.statusCode == 201) {
+        final decoded = jsonDecode(responseBody);
+        return decoded is Map<String, dynamic> ? decoded : null;
+      }
+
+      debugPrint(
+        '❌ Error crearSolicitud ${streamedResponse.statusCode}: $responseBody',
+      );
+    } catch (e) {
+      debugPrint('❌ Error crearSolicitud: $e');
+    }
+
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> subirArchivoSolicitud({
+    required int solicitudId,
+    required String descripcion,
+    required PlatformFile archivo,
+    int? tipoSolicitudId,
+  }) async {
+    try {
+      final token = await _getToken();
+
+      final request = http.MultipartRequest(
+        'PUT',
+        Uri.parse('$_baseUrl/api/solicitudes/$solicitudId'),
+      );
+
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+
+      request.fields['descripcion'] = descripcion;
+
+      if (tipoSolicitudId != null) {
+        request.fields['tipoSolicitudId'] = tipoSolicitudId.toString();
+      }
+
+      if (archivo.bytes == null) {
+        debugPrint('❌ El archivo no tiene bytes');
+        return null;
+      }
+
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'archivo',
+          archivo.bytes!,
+          filename: archivo.name,
+        ),
+      );
+
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 30),
+      );
+
+      final responseBody = await streamedResponse.stream.bytesToString();
+
+      if (streamedResponse.statusCode == 200) {
+        final decoded = jsonDecode(responseBody);
+        return decoded is Map<String, dynamic> ? decoded : null;
+      }
+
+      debugPrint(
+        '❌ Error subirArchivoSolicitud ${streamedResponse.statusCode}: $responseBody',
+      );
+    } catch (e) {
+      debugPrint('❌ Error subirArchivoSolicitud: $e');
+    }
+
+    return null;
+  }
+
+  static Future<bool> cambiarEstadoSolicitud({
+    required int solicitudId,
+    required String estado,
+    required String observaciones,
+  }) async {
+    try {
+      final headers = await _buildHeaders();
+      headers['Content-Type'] = 'application/json';
+
+      final response = await http
+          .put(
+            Uri.parse('$_baseUrl/api/solicitudes/$solicitudId/estado'),
+            headers: headers,
+            body: jsonEncode({
+              'estado': estado,
+              'observaciones': observaciones,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        return true;
+      }
+
+      debugPrint(
+        '❌ Error cambiarEstadoSolicitud ${response.statusCode}: ${response.body}',
+      );
+    } catch (e) {
+      debugPrint('❌ Error cambiarEstadoSolicitud: $e');
     }
 
     return false;

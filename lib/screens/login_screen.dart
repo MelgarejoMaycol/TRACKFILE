@@ -5,13 +5,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:trackfile/services/api_link.dart';
-import 'package:trackfile/utils/api_config.dart';
-import 'package:trackfile/utils/role_router.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:trackfile/services/api_link.dart';
+import 'package:trackfile/utils/api_config.dart';
+import 'package:trackfile/utils/role_router.dart';
 
 class LoginScreen extends StatefulWidget {
   static const route = '/login';
@@ -48,6 +48,9 @@ class _LoginScreenState extends State<LoginScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
     // Usar directamente getApiLink() en lugar de cargar desde SharedPreferences
     _baseUrl = getApiLink();
     //debugPrint('🌐 [LoginScreen] Base URL: $_baseUrl');
@@ -1077,11 +1080,16 @@ class _LoginScreenState extends State<LoginScreen>
         ? 0.33
         : (isCompactWidth ? 0.92 : (size.width <= 420 ? 0.86 : 0.80));
     final double cardWidth = size.width * cardWidthFactor;
+
     final double cardWidthLimited = isDesktop
-        ? (cardWidth > 720 ? 720 : cardWidth)
-        : cardWidth;
-    // Increased height for better visibility of all inputs and buttons
-    final double cardHeight = size.height * (size.height < 720 ? 0.92 : 0.88);
+        ? cardWidth.clamp(360.0, 520.0)
+        : cardWidth.clamp(300.0, 430.0);
+
+    final double horizontalPadding = size.width < 380 ? 12 : 16;
+
+    final double tabContentHeight = _tabController.index == 0
+        ? (size.height * 0.50).clamp(390.0, 470.0)
+        : (size.height * 0.38).clamp(290.0, 360.0);
 
     // More responsive and smaller logo with better scaling for web
     final double logoFactor = isDesktop ? 0.18 : 0.25;
@@ -1105,8 +1113,11 @@ class _LoginScreenState extends State<LoginScreen>
                   children: [
                     Container(
                       width: cardWidthLimited,
-                      height: cardHeight,
                       margin: EdgeInsets.only(top: logoRadius * 1.2),
+                      constraints: BoxConstraints(
+                        minHeight: 0,
+                        maxHeight: size.height * 0.76,
+                      ),
                       child: Card(
                         color: Colors.white,
                         elevation: 0,
@@ -1115,53 +1126,55 @@ class _LoginScreenState extends State<LoginScreen>
                           borderRadius: BorderRadius.circular(16),
                           side: BorderSide.none,
                         ),
-                        child: SizedBox.expand(
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              top: 16,
-                              left: 16,
-                              right: 16,
-                              bottom: 16,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.max,
-                              children: [
-                                // Simple TabBar without any visible selection indicator
-                                TabBar(
-                                  controller: _tabController,
-                                  labelColor: darkBlue,
-                                  unselectedLabelColor: darkBlue.withValues(
-                                    alpha: 0.6,
-                                  ),
-                                  labelStyle: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 15,
-                                  ),
-                                  unselectedLabelStyle: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 15,
-                                  ),
-                                  // Ensure the TabBar does not draw any underline or indicator
-                                  indicator: const UnderlineTabIndicator(
-                                    borderSide: BorderSide(
-                                      color: Colors.transparent,
-                                      width: 0,
-                                    ),
-                                  ),
-                                  indicatorWeight: 0,
-                                  indicatorPadding: EdgeInsets.zero,
-                                  indicatorSize: TabBarIndicatorSize.tab,
-                                  overlayColor: WidgetStatePropertyAll<Color>(
-                                    Colors.transparent,
-                                  ),
-                                  tabs: const [
-                                    Tab(text: 'ÚNETE'),
-                                    Tab(text: 'INICIA SESIÓN'),
-                                  ],
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            horizontalPadding,
+                            16,
+                            horizontalPadding,
+                            16,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Simple TabBar without any visible selection indicator
+                              TabBar(
+                                controller: _tabController,
+                                labelColor: darkBlue,
+                                unselectedLabelColor: darkBlue.withValues(
+                                  alpha: 0.6,
                                 ),
-                                const SizedBox(height: 8),
-                                // Let the TabBarView expand to fill available space inside the card
-                                Expanded(
+                                labelStyle: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                                unselectedLabelStyle: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 15,
+                                ),
+                                // Ensure the TabBar does not draw any underline or indicator
+                                indicator: const UnderlineTabIndicator(
+                                  borderSide: BorderSide(
+                                    color: Colors.transparent,
+                                    width: 0,
+                                  ),
+                                ),
+                                indicatorWeight: 0,
+                                indicatorPadding: EdgeInsets.zero,
+                                indicatorSize: TabBarIndicatorSize.tab,
+                                overlayColor: WidgetStatePropertyAll<Color>(
+                                  Colors.transparent,
+                                ),
+                                tabs: const [
+                                  Tab(text: 'ÚNETE'),
+                                  Tab(text: 'INICIA SESIÓN'),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              // Let the TabBarView expand to fill available space inside the card
+                              Flexible(
+                                fit: FlexFit.loose,
+                                child: SizedBox(
+                                  height: tabContentHeight,
                                   child: TabBarView(
                                     controller: _tabController,
                                     children: [
@@ -1170,8 +1183,8 @@ class _LoginScreenState extends State<LoginScreen>
                                     ],
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -1213,13 +1226,12 @@ class _LoginScreenState extends State<LoginScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 10),
-        const SizedBox(height: 8),
+        const SizedBox(height: 2),
         TextField(
           controller: _nameCtrl,
           decoration: _inputDecoration('Nombre de Empresa'),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         TextField(
           controller: _nitCtrl,
           keyboardType: TextInputType.number,
@@ -1232,12 +1244,12 @@ class _LoginScreenState extends State<LoginScreen>
                       : 'El NIT debe contener solo números'),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         TextField(
           controller: _repCtrl,
           decoration: _inputDecoration('Representante legal C.C'),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         TextField(
           controller: _emailCtrl,
           keyboardType: TextInputType.emailAddress,
@@ -1249,7 +1261,7 @@ class _LoginScreenState extends State<LoginScreen>
                       : 'Correo inválido'),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         TextField(
           controller: _signupPassCtrl,
           obscureText: _signupPassObscure,
@@ -1271,7 +1283,7 @@ class _LoginScreenState extends State<LoginScreen>
                       : 'Debe tener mayúscula, número y sin caracteres especiales'),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         TextField(
           controller: _confirmPassCtrl,
           obscureText: _confirmPassObscure,
@@ -1290,7 +1302,7 @@ class _LoginScreenState extends State<LoginScreen>
                       : 'Las contraseñas no coinciden'),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Row(
           children: [
             Expanded(
@@ -1321,7 +1333,7 @@ class _LoginScreenState extends State<LoginScreen>
             style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
@@ -1375,7 +1387,7 @@ class _LoginScreenState extends State<LoginScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         const SizedBox(height: 12),
         TextField(
           controller: _userCtrl,
@@ -1462,23 +1474,9 @@ class _LoginScreenState extends State<LoginScreen>
 
   // Wrap a section so it centers vertically when there's extra space, and scrolls when content is large
   Widget _wrapCenter(Widget child) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 0),
-                  child: child,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(top: 4, bottom: 4),
+      child: child,
     );
   }
 
@@ -1512,7 +1510,7 @@ class _LoginScreenState extends State<LoginScreen>
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Color(0xFF06135E), width: 2),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
     );
   }
 
@@ -1530,7 +1528,9 @@ class _LoginScreenState extends State<LoginScreen>
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
-            final buttonWidth = (constraints.maxWidth - 48) / 2;
+            final buttonWidth = constraints.maxWidth < 420
+                ? constraints.maxWidth * 0.92
+                : 180.0;
             return Wrap(
               spacing: 12,
               runSpacing: 12,
