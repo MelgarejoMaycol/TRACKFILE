@@ -150,7 +150,6 @@ class _AlertUrgencyX {
 }
 
 class _MensajesWidgetState extends State<MensajesWidget> {
-
   bool _isLoading = true;
   late String _role;
   List<_AlertNotification> _alerts = const [];
@@ -354,11 +353,13 @@ class _MensajesWidgetState extends State<MensajesWidget> {
           alignment: Alignment.centerRight,
           child: TextButton.icon(
             onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+
               try {
                 await NotificacionesService.marcarTodasComoLeidas();
                 await _loadThreads();
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(
                     content: Text('No se pudieron marcar todas como leídas'),
                     backgroundColor: Colors.redAccent,
@@ -445,11 +446,13 @@ class _MensajesWidgetState extends State<MensajesWidget> {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () async {
+        final messenger = ScaffoldMessenger.of(context);
+
         try {
           await NotificacionesService.marcarComoLeida(alert.id);
           await _loadThreads();
         } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger.showSnackBar(
             const SnackBar(
               content: Text('No se pudo marcar la notificación como leída'),
               backgroundColor: Colors.redAccent,

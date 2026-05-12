@@ -990,6 +990,8 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
 
               if (!context.mounted) return;
 
+              if (!mounted) return;
+
               DocumentPreviewModal.show(
                 context: context,
                 documentName: doc.name,
