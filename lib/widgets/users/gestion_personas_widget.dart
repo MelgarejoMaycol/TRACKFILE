@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:trackfile/utils/api_config.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:trackfile/utils/api_config.dart';
 
 enum TipoGestionPersona { conductor, propietario }
 
@@ -33,6 +33,13 @@ class GestionPersonasWidget extends StatefulWidget {
   })?
   onVerVehiculosPersona;
 
+  final void Function({
+    required int usuarioId,
+    required String tipoPersona,
+    required String nombrePersona,
+  })?
+  onVerCertificadosPersona;
+
   const GestionPersonasWidget({
     super.key,
     this.tipoInicial = TipoGestionPersona.conductor,
@@ -41,6 +48,7 @@ class GestionPersonasWidget extends StatefulWidget {
     this.onVerDocumentosPersona,
     this.onVerMantenimientosPersona,
     this.onVerVehiculosPersona,
+    this.onVerCertificadosPersona,
   });
 
   @override
@@ -403,6 +411,35 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
         const SnackBar(
           content: Text(
             'Configura la navegación hacia vehículos de la persona.',
+          ),
+        ),
+      );
+    }
+  }
+
+  void _verCertificadosPersona(Map<String, dynamic> item) {
+    final usuarioId = _obtenerUsuarioId(item);
+
+    if (usuarioId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se encontró el usuario de esta persona'),
+        ),
+      );
+      return;
+    }
+
+    if (widget.onVerCertificadosPersona != null) {
+      widget.onVerCertificadosPersona!.call(
+        usuarioId: usuarioId,
+        tipoPersona: _esConductor ? 'CONDUCTOR' : 'PROPIETARIO',
+        nombrePersona: _nombreCompleto(item),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Configura la navegación hacia certificados de la persona.',
           ),
         ),
       );
@@ -1612,6 +1649,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                         Icons.directions_car_rounded,
                         'Ver vehículos',
                       ),
+                      _menuItem(6, Icons.verified_rounded, 'Ver certificados'),
                     ],
                     onSelected: (value) {
                       switch (value) {
@@ -1629,6 +1667,9 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                           break;
                         case 5:
                           _verVehiculosPersona(item);
+                          break;
+                        case 6:
+                          _verCertificadosPersona(item);
                           break;
                       }
                     },

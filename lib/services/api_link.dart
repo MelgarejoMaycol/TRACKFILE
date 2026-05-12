@@ -1,5 +1,5 @@
-//solo una funcion que retorne el link del la api
-String getApiLink() {
-  return 'https://trackfile-backend.onrender.com';
-}
+const String apiBaseUrl = 'https://trackfile-backend.onrender.com';
 
+String getApiLink() {
+  return apiBaseUrl;
+}

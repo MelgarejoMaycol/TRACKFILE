@@ -1,53 +1,16 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
+import '../../services/notificaciones_service.dart';
 
 class MensajesWidget extends StatefulWidget {
   final String? role;
   final String? jsonPath;
   final String? userId;
 
-  const MensajesWidget({
-    super.key,
-    this.role,
-    this.jsonPath,
-    this.userId,
-  });
+  const MensajesWidget({super.key, this.role, this.jsonPath, this.userId});
 
   @override
   State<MensajesWidget> createState() => _MensajesWidgetState();
-}
-
-class _CompanyMessage {
-  final String id;
-  final String title;
-  final String preview;
-  final DateTime timestamp;
-  final int unread;
-  final String category;
-  final String? status;
-
-  const _CompanyMessage({
-    required this.id,
-    required this.title,
-    required this.preview,
-    required this.timestamp,
-    required this.unread,
-    required this.category,
-    this.status,
-  });
-
-  factory _CompanyMessage.fromMap(Map<String, dynamic> map) {
-    return _CompanyMessage(
-      id: (map['id'] ?? '').toString(),
-      title: (map['title'] ?? 'Conversación').toString(),
-      preview: (map['preview'] ?? 'Sin contenido').toString(),
-      timestamp: DateTime.tryParse((map['timestamp'] ?? '').toString()) ?? DateTime.now(),
-      unread: int.tryParse((map['unread'] ?? '0').toString()) ?? 0,
-      category: (map['category'] ?? 'general').toString(),
-      status: map['status']?.toString(),
-    );
-  }
 }
 
 class _AlertNotification {
@@ -60,6 +23,8 @@ class _AlertNotification {
   final _AlertUrgency urgency;
   final bool pushSent;
   final bool emailSent;
+  final String? idUsuario;
+  final String? rolUsuario;
 
   const _AlertNotification({
     required this.id,
@@ -71,21 +36,46 @@ class _AlertNotification {
     required this.urgency,
     required this.pushSent,
     required this.emailSent,
+    this.idUsuario,
+    this.rolUsuario,
   });
 
   factory _AlertNotification.fromMap(Map<String, dynamic> map) {
-    final DateTime? createdAt = DateTime.tryParse((map['fecha_envio'] ?? map['createdAt'] ?? '').toString());
-    final DateTime? dueDate = DateTime.tryParse((map['fecha_vencimiento'] ?? map['dueDate'] ?? '').toString());
+    final DateTime? createdAt = DateTime.tryParse(
+      (map['fechaEnvio'] ?? map['fecha_envio'] ?? map['createdAt'] ?? '')
+          .toString(),
+    );
+
+    final DateTime? dueDate = DateTime.tryParse(
+      (map['fechaVencimiento'] ??
+              map['fecha_vencimiento'] ??
+              map['dueDate'] ??
+              '')
+          .toString(),
+    );
+
     return _AlertNotification(
-      id: (map['id'] ?? map['id_notificacion'] ?? '').toString(),
-      title: (map['titulo'] ?? map['title'] ?? 'Alerta').toString(),
+      id: (map['idNotificacion'] ?? map['id_notificacion'] ?? map['id'] ?? '')
+          .toString(),
+      title: (map['titulo'] ?? map['title'] ?? 'Notificación').toString(),
       message: (map['mensaje'] ?? map['message'] ?? 'Sin detalles').toString(),
       createdAt: createdAt ?? DateTime.now(),
       dueDate: dueDate,
-      type: _AlertTypeX.parse((map['tipo_alerta'] ?? map['type'] ?? 'OTRO').toString()),
-      urgency: _AlertUrgencyX.parse((map['urgencia'] ?? map['urgency'] ?? 'MEDIA').toString()),
-      pushSent: (map['push_enviado'] ?? map['pushSent'] ?? false) == true,
-      emailSent: (map['email_enviado'] ?? map['emailSent'] ?? false) == true,
+      type: _AlertTypeX.parse(
+        (map['tipoAlerta'] ?? map['tipo_alerta'] ?? map['type'] ?? 'SISTEMA')
+            .toString(),
+      ),
+      urgency: _AlertUrgencyX.parse(
+        (map['urgencia'] ?? map['urgency'] ?? 'MEDIA').toString(),
+      ),
+      pushSent: (map['pushEnviado'] ?? map['push_enviado'] ?? false) == true,
+      emailSent: (map['emailEnviado'] ?? map['email_enviado'] ?? false) == true,
+      idUsuario:
+          (map['idUsuario'] ?? map['id_usuario'] ?? map['usuarioId'] ?? '')
+              .toString(),
+      rolUsuario: (map['rolUsuario'] ?? map['rol_usuario'] ?? map['rol'] ?? '')
+          .toString()
+          .toLowerCase(),
     );
   }
 
@@ -100,7 +90,7 @@ class _AlertNotification {
 
 enum _AlertType { vencimiento, mantenimiento, recordatorio, otro }
 
-enum _AlertUrgency { baja, media, alta }
+enum _AlertUrgency { baja, media, alta, critica }
 
 class _AlertTypeX {
   static _AlertType parse(String raw) {
@@ -133,6 +123,8 @@ class _AlertTypeX {
 class _AlertUrgencyX {
   static _AlertUrgency parse(String raw) {
     switch (raw.toUpperCase()) {
+      case 'CRITICA':
+        return _AlertUrgency.critica;
       case 'ALTA':
         return _AlertUrgency.alta;
       case 'BAJA':
@@ -151,19 +143,17 @@ class _AlertUrgencyX {
         return 'Baja';
       case _AlertUrgency.media:
         return 'Media';
+      case _AlertUrgency.critica:
+        return 'Crítica';
     }
   }
 }
 
 class _MensajesWidgetState extends State<MensajesWidget> {
-  static const Color _accentColor = Color(0xFF4F4CE8);
-  static const Color _surfaceColor = Color(0xFF1B1F6B);
 
   bool _isLoading = true;
   late String _role;
-  List<_CompanyMessage> _messages = const [];
   List<_AlertNotification> _alerts = const [];
-  String _activeFilter = 'todos';
 
   @override
   void initState() {
@@ -173,142 +163,50 @@ class _MensajesWidgetState extends State<MensajesWidget> {
   }
 
   Future<void> _loadThreads() async {
-    List<_CompanyMessage> parsedMessages = [];
-    List<_AlertNotification> parsedAlerts = [];
-    if (widget.jsonPath != null) {
-      try {
-        final String jsonString = await rootBundle.loadString(widget.jsonPath!);
-        final dynamic decoded = json.decode(jsonString);
-        if (decoded is Map<String, dynamic>) {
-          final List<dynamic>? alertsRaw = decoded['alerts'] as List<dynamic>?;
-          final List<dynamic>? messagesRaw = decoded['messages'] as List<dynamic>?;
-          if (alertsRaw != null) {
-            parsedAlerts = alertsRaw.map((dynamic item) {
-              if (item is Map<String, dynamic>) {
-                return _AlertNotification.fromMap(item);
-              }
-              return null;
-            }).whereType<_AlertNotification>().toList();
-          }
-          if (messagesRaw != null) {
-            parsedMessages = messagesRaw.map((dynamic item) {
-              if (item is Map<String, dynamic>) {
-                return _CompanyMessage.fromMap(item);
-              }
-              return null;
-            }).whereType<_CompanyMessage>().toList();
-          }
-        }
-      } catch (e) {
-        debugPrint('Error cargando mensajes: $e');
-      }
-    }
+    try {
+      final data = await NotificacionesService.listar();
 
-    if (parsedAlerts.isEmpty) {
-      parsedAlerts = _exampleAlerts();
-    }
-    if (parsedMessages.isEmpty) {
-      parsedMessages = _exampleMessages();
-    }
+      final parsedAlerts = data
+          .map((item) => _AlertNotification.fromMap(item))
+          .toList();
 
-    parsedAlerts.sort((a, b) {
-      if (a.dueDate != null && b.dueDate != null) {
-        return a.dueDate!.compareTo(b.dueDate!);
-      }
-      if (a.dueDate != null) return -1;
-      if (b.dueDate != null) return 1;
-      return b.createdAt.compareTo(a.createdAt);
-    });
-    parsedMessages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      final filteredAlerts = _filtrarPorRol(parsedAlerts);
 
-    if (mounted) {
+      filteredAlerts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      if (!mounted) return;
+
       setState(() {
-        _alerts = parsedAlerts;
-        _messages = parsedMessages;
+        _alerts = filteredAlerts;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error cargando notificaciones: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        _alerts = const [];
         _isLoading = false;
       });
     }
   }
 
-  List<_CompanyMessage> _exampleMessages() {
-    final DateTime now = DateTime.now();
-    return [
-      _CompanyMessage(
-        id: '1',
-        title: 'Coordinador Operativo',
-        preview: 'Recuerda reportar el estado del vehículo antes de las 6 pm.',
-        timestamp: now.subtract(const Duration(minutes: 12)),
-        unread: 2,
-        category: 'importante',
-        status: 'Pendiente',
-      ),
-      _CompanyMessage(
-        id: '2',
-        title: 'Mantenimiento Taller Norte',
-        preview: 'Se confirmó la cita para el mantenimiento preventivo.',
-        timestamp: now.subtract(const Duration(hours: 3)),
-        unread: 0,
-        category: 'servicio',
-        status: 'Programado',
-      ),
-      _CompanyMessage(
-        id: '3',
-        title: 'Seguridad en ruta',
-        preview: 'Nueva guía de seguridad disponible para lectura.',
-        timestamp: now.subtract(const Duration(days: 1, hours: 2)),
-        unread: 1,
-        category: 'informativo',
-        status: null,
-      ),
-      _CompanyMessage(
-        id: '4',
-        title: 'Administración Empresa',
-        preview: 'Tu liquidación semanal ya está disponible.',
-        timestamp: now.subtract(const Duration(days: 2, hours: 5)),
-        unread: 0,
-        category: 'pagos',
-        status: 'Liquidadas',
-      ),
-    ];
-  }
+  List<_AlertNotification> _filtrarPorRol(List<_AlertNotification> lista) {
+    final String rol = _role.toLowerCase();
+    final String? userId = widget.userId?.toString();
 
-  List<_AlertNotification> _exampleAlerts() {
-    final DateTime now = DateTime.now();
-    return [
-      _AlertNotification(
-        id: '101',
-        title: 'SOAT camión ABC-123',
-        message: 'El seguro obligatorio vence pronto. Renueva antes de la fecha límite.',
-        createdAt: now.subtract(const Duration(hours: 6)),
-        dueDate: now.add(const Duration(days: 3)),
-        type: _AlertType.vencimiento,
-        urgency: _AlertUrgency.alta,
-        pushSent: true,
-        emailSent: false,
-      ),
-      _AlertNotification(
-        id: '102',
-        title: 'Mantenimiento preventivo',
-        message: 'Agenda el mantenimiento del vehículo JKL-456 para evitar novedades.',
-        createdAt: now.subtract(const Duration(days: 1, hours: 4)),
-        dueDate: now.add(const Duration(days: 10)),
-        type: _AlertType.mantenimiento,
-        urgency: _AlertUrgency.media,
-        pushSent: false,
-        emailSent: false,
-      ),
-      _AlertNotification(
-        id: '103',
-        title: 'Recordatorio capacitación',
-        message: 'Sesión virtual de seguridad vial este viernes a las 8 a.m.',
-        createdAt: now.subtract(const Duration(days: 2)),
-        dueDate: now.add(const Duration(days: 1)),
-        type: _AlertType.recordatorio,
-        urgency: _AlertUrgency.media,
-        pushSent: true,
-        emailSent: true,
-      ),
-    ];
+    if (rol == 'empresa' || rol == 'admin') {
+      return lista;
+    }
+
+    if (userId == null || userId.isEmpty) {
+      return lista;
+    }
+
+    return lista.where((alerta) {
+      return alerta.idUsuario == userId;
+    }).toList();
   }
 
   @override
@@ -333,111 +231,44 @@ class _MensajesWidgetState extends State<MensajesWidget> {
   }
 
   Widget _conductorMensajes() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool isCompact = constraints.maxWidth < 600;
-        final List<_CompanyMessage> filtered = _applyFilter(_messages);
-
-        return SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 24, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Centro de notificaciones',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: isCompact ? 18 : 20,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Consulta las alertas automáticas y los mensajes emitidos por tu empresa.',
-                style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13),
-              ),
-              const SizedBox(height: 20),
-              _buildSummaryRow(isCompact: isCompact),
-              const SizedBox(height: 24),
-              _buildAlertsSection(isCompact: isCompact),
-              const SizedBox(height: 28),
-              Text(
-                'Mensajes de la empresa',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: isCompact ? 16 : 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Recordatorios, coordinaciones y novedades internas.',
-                style: TextStyle(color: Colors.white60, fontSize: isCompact ? 11 : 12),
-              ),
-              const SizedBox(height: 18),
-              _buildFilterRow(isCompact: isCompact),
-              const SizedBox(height: 18),
-              if (filtered.isEmpty)
-                _buildEmptyState()
-              else
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 750),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) => SizedBox(height: isCompact ? 8 : 1),
-                      itemBuilder: (_, index) => _buildMessageCard(filtered[index], isCompact: isCompact),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  List<_CompanyMessage> _applyFilter(List<_CompanyMessage> source) {
-    if (_activeFilter == 'todos') {
-      return source;
-    }
-    return source.where((thread) => thread.category == _activeFilter).toList();
+    return _buildMensajesGeneral('Conductor');
   }
 
   Widget _buildSummaryRow({required bool isCompact}) {
     final int totalAlerts = _alerts.length;
-    final int urgentAlerts = _alerts.where((alert) => alert.urgency == _AlertUrgency.alta).length;
-    final int totalUnread = _messages.fold<int>(0, (prev, item) => prev + item.unread);
-    final _CompanyMessage? latest = _messages.isNotEmpty ? _messages.first : null;
+    final int urgentAlerts = _alerts
+        .where(
+          (alert) =>
+              alert.urgency == _AlertUrgency.alta ||
+              alert.urgency == _AlertUrgency.critica,
+        )
+        .length;
+
+    final _AlertNotification? latest = _alerts.isNotEmpty
+        ? _alerts.first
+        : null;
 
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
         _buildSummaryCard(
-          label: 'Alertas activas',
+          label: 'Notificaciones',
           value: '$totalAlerts',
           icon: Icons.notifications_active_rounded,
           color: const Color(0xFFFFC857),
         ),
         _buildSummaryCard(
-          label: 'Alertas urgentes',
+          label: 'Urgentes',
           value: '$urgentAlerts',
           icon: Icons.report_rounded,
           color: const Color(0xFFFF6B6B),
         ),
         _buildSummaryCard(
-          label: 'Mensajes sin leer',
-          value: '$totalUnread',
-          icon: Icons.mark_email_unread_rounded,
-          color: const Color(0xFF4F4CE8),
-        ),
-        _buildSummaryCard(
-          label: 'Último mensaje',
-          value: latest != null ? _formatTimestamp(latest.timestamp) : 'Sin actividad',
+          label: 'Última alerta',
+          value: latest != null
+              ? _formatTimestamp(latest.createdAt)
+              : 'Sin actividad',
           icon: Icons.schedule_rounded,
           color: const Color(0xFF16C79A),
         ),
@@ -474,9 +305,19 @@ class _MensajesWidgetState extends State<MensajesWidget> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+              Text(
+                label,
+                style: const TextStyle(color: Colors.white70, fontSize: 11),
+              ),
             ],
           ),
         ],
@@ -503,9 +344,36 @@ class _MensajesWidgetState extends State<MensajesWidget> {
         const SizedBox(height: 6),
         Text(
           'Revisa vencimientos y mantenimientos con prioridad.',
-          style: TextStyle(color: Colors.white60, fontSize: isCompact ? 11 : 12),
+          style: TextStyle(
+            color: Colors.white60,
+            fontSize: isCompact ? 11 : 12,
+          ),
         ),
         const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () async {
+              try {
+                await NotificacionesService.marcarTodasComoLeidas();
+                await _loadThreads();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('No se pudieron marcar todas como leídas'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.done_all_rounded, color: Colors.white),
+            label: const Text(
+              'Marcar todas como leídas',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
         ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -523,12 +391,19 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       children: [
         Text(
           'Alertas emitidas',
-          style: TextStyle(color: Colors.white, fontSize: isCompact ? 16 : 18, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: isCompact ? 16 : 18,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 6),
         Text(
           'No hay alertas activas en este momento.',
-          style: TextStyle(color: Colors.white60, fontSize: isCompact ? 11 : 12),
+          style: TextStyle(
+            color: Colors.white60,
+            fontSize: isCompact ? 11 : 12,
+          ),
         ),
         const SizedBox(height: 12),
         Container(
@@ -541,11 +416,18 @@ class _MensajesWidgetState extends State<MensajesWidget> {
           ),
           child: Column(
             children: [
-              const Icon(Icons.celebration_rounded, color: Colors.white38, size: 40),
+              const Icon(
+                Icons.celebration_rounded,
+                color: Colors.white38,
+                size: 40,
+              ),
               const SizedBox(height: 10),
               Text(
                 'Todo en orden. Sin alertas activas.',
-                style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13),
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: isCompact ? 12 : 13,
+                ),
               ),
             ],
           ),
@@ -560,78 +442,117 @@ class _MensajesWidgetState extends State<MensajesWidget> {
     final String dueLabel = _dueDateLabel(alert.dueDate);
     final Color urgencyColor = _urgencyColor(alert.urgency);
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [baseColor.withValues(alpha: 0.92), baseColor.withValues(alpha: 0.65)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () async {
+        try {
+          await NotificacionesService.marcarComoLeida(alert.id);
+          await _loadThreads();
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No se pudo marcar la notificación como leída'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              baseColor.withValues(alpha: 0.92),
+              baseColor.withValues(alpha: 0.65),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          boxShadow: [
+            BoxShadow(
+              color: baseColor.withValues(alpha: 0.18),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        boxShadow: [
-          BoxShadow(
-            color: baseColor.withValues(alpha: 0.18),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  shape: BoxShape.circle,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 12),
                 ),
-                child: Icon(icon, color: Colors.white, size: 12),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      alert.title,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 9.5),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      _formatTimestamp(alert.createdAt),
-                      style: const TextStyle(color: Colors.white70, fontSize: 8.5),
-                    ),
-                  ],
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        alert.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 9.5,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        _formatTimestamp(alert.createdAt),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 8.5,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              alert.message,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 8.5,
+                height: 1.1,
               ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Text(
-            alert.message,
-            style: const TextStyle(color: Colors.white, fontSize: 8.5, height: 1.1),
-          ),
-          const SizedBox(height: 2),
-          Wrap(
-            spacing: 3,
-            runSpacing: 1,
-            children: [
-              _buildAlertChip(_AlertTypeX.label(alert.type)),
-              _buildAlertChip('Urgencia ${_AlertUrgencyX.label(alert.urgency)}', color: urgencyColor),
-              _buildAlertChip(dueLabel, color: Colors.white.withValues(alpha: 0.25)),
-              if (alert.isDueSoon)
-                _buildAlertChip('Atención esta semana', color: Colors.white.withValues(alpha: 0.35)),
-              if (alert.isExpired)
-                _buildAlertChip('Vencida', color: const Color(0xFFFF6B6B)),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 2),
+            Wrap(
+              spacing: 3,
+              runSpacing: 1,
+              children: [
+                _buildAlertChip(_AlertTypeX.label(alert.type)),
+                _buildAlertChip(
+                  'Urgencia ${_AlertUrgencyX.label(alert.urgency)}',
+                  color: urgencyColor,
+                ),
+                _buildAlertChip(
+                  dueLabel,
+                  color: Colors.white.withValues(alpha: 0.25),
+                ),
+                if (alert.isDueSoon)
+                  _buildAlertChip(
+                    'Atención esta semana',
+                    color: Colors.white.withValues(alpha: 0.35),
+                  ),
+                if (alert.isExpired)
+                  _buildAlertChip('Vencida', color: const Color(0xFFFF6B6B)),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -647,7 +568,11 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       ),
       child: Text(
         text,
-        style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w500),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 7,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
@@ -686,6 +611,8 @@ class _MensajesWidgetState extends State<MensajesWidget> {
         return const Color(0xFF7ED957);
       case _AlertUrgency.media:
         return Colors.white.withValues(alpha: 0.22);
+      case _AlertUrgency.critica:
+        return const Color(0xFFFF3B30);
     }
   }
 
@@ -716,191 +643,6 @@ class _MensajesWidgetState extends State<MensajesWidget> {
     return '$day/$month';
   }
 
-  Widget _buildFilterRow({required bool isCompact}) {
-    final List<String> filters = ['todos', 'importante', 'servicio', 'informativo', 'pagos'];
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: filters.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (_, index) {
-          final String filter = filters[index];
-          final bool isActive = _activeFilter == filter;
-          return ChoiceChip(
-            label: Text(filter[0].toUpperCase() + filter.substring(1)),
-            selected: isActive,
-            onSelected: (_) {
-              setState(() {
-                _activeFilter = filter;
-              });
-            },
-            selectedColor: _accentColor,
-            backgroundColor: _accentColor.withValues(alpha: 0.14),
-            showCheckmark: false,
-            labelStyle: TextStyle(
-              color: Colors.white,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            ),
-            side: BorderSide(color: isActive ? Colors.white : Colors.white24),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildMessageCard(_CompanyMessage message, {bool isCompact = false}) {
-    final bool hasUnread = message.unread > 0;
-    final double verticalPadding = isCompact ? 10 : 0;
-    final double horizontalPadding = isCompact ? 12 : 1;
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Abrir conversación con ${message.title}'),
-              backgroundColor: _accentColor,
-            ),
-          );
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: _surfaceColor.withValues(alpha: 0.82),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: isCompact ? 36 : 10,
-                height: isCompact ? 36 : 10,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.08),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  message.title.isNotEmpty ? message.title.characters.first.toUpperCase() : 'C',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: isCompact ? 14 : 3),
-                ),
-              ),
-              SizedBox(width: isCompact ? 10 : 1),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            message.title,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: isCompact ? 13 : 6,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          _formatTimestamp(message.timestamp),
-                          style: TextStyle(color: Colors.white60, fontSize: isCompact ? 10 : 5),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: isCompact ? 3 : 0),
-                    Text(
-                      message.preview,
-                      style: TextStyle(color: Colors.white70, fontSize: isCompact ? 11 : 5.5, height: 1),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    SizedBox(height: isCompact ? 6 : 0),
-                    Wrap(
-                      spacing: isCompact ? 6 : 1,
-                      runSpacing: isCompact ? 4 : 0,
-                      children: [
-                        _buildTag(message.category),
-                        if (message.status != null && message.status!.isNotEmpty)
-                          _buildTag(message.status!, type: _TagType.status),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              if (hasUnread)
-                Padding(
-                  padding: EdgeInsets.only(left: isCompact ? 8 : 1),
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: isCompact ? 7 : 1, vertical: isCompact ? 4 : 0),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF6B6B),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      '${message.unread}',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isCompact ? 10 : 4.5),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTag(String text, { _TagType type = _TagType.category }) {
-    Color background;
-    Color border;
-    switch (type) {
-      case _TagType.status:
-        background = Colors.white.withValues(alpha: 0.14);
-        border = Colors.white24;
-        break;
-      case _TagType.category:
-        background = _accentColor.withValues(alpha: 0.16);
-        border = Colors.white24;
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: border),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w500),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Column(
-        children: const [
-          Icon(Icons.inbox_rounded, color: Colors.white38, size: 40),
-          SizedBox(height: 12),
-          Text('Sin mensajes en esta categoría', style: TextStyle(color: Colors.white70)),
-        ],
-      ),
-    );
-  }
-
   Widget _empresaMensajes() {
     return _buildMensajesGeneral('Empresa');
   }
@@ -921,10 +663,12 @@ class _MensajesWidgetState extends State<MensajesWidget> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool isCompact = constraints.maxWidth < 600;
-        final List<_CompanyMessage> filtered = _applyFilter(_messages);
 
         return SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 24, vertical: 24),
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 16 : 24,
+            vertical: 24,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -939,40 +683,18 @@ class _MensajesWidgetState extends State<MensajesWidget> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Consulta las alertas automáticas y los mensajes emitidos por tu empresa.',
-                style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13),
+                roleLabel == 'Empresa'
+                    ? 'Consulta las alertas generadas para los usuarios de tu empresa.'
+                    : 'Consulta tus alertas personales y vencimientos importantes.',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: isCompact ? 12 : 13,
+                ),
               ),
               const SizedBox(height: 20),
               _buildSummaryRow(isCompact: isCompact),
               const SizedBox(height: 24),
               _buildAlertsSection(isCompact: isCompact),
-              const SizedBox(height: 28),
-              Text(
-                'Mensajes de la empresa',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: isCompact ? 16 : 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Recordatorios, coordinaciones y novedades internas.',
-                style: TextStyle(color: Colors.white60, fontSize: isCompact ? 11 : 12),
-              ),
-              const SizedBox(height: 18),
-              _buildFilterRow(isCompact: isCompact),
-              const SizedBox(height: 18),
-              if (filtered.isEmpty)
-                _buildEmptyState()
-              else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, __) => SizedBox(height: isCompact ? 8 : 0),
-                  itemBuilder: (_, index) => _buildMessageCard(filtered[index], isCompact: isCompact),
-                ),
             ],
           ),
         );
@@ -982,7 +704,9 @@ class _MensajesWidgetState extends State<MensajesWidget> {
 
   String _formatTimestamp(DateTime timestamp) {
     final DateTime now = DateTime.now();
-    if (timestamp.year == now.year && timestamp.month == now.month && timestamp.day == now.day) {
+    if (timestamp.year == now.year &&
+        timestamp.month == now.month &&
+        timestamp.day == now.day) {
       final String hour = timestamp.hour.toString().padLeft(2, '0');
       final String minute = timestamp.minute.toString().padLeft(2, '0');
       return '$hour:$minute';
@@ -992,5 +716,3 @@ class _MensajesWidgetState extends State<MensajesWidget> {
     return '$day/$month';
   }
 }
-
-enum _TagType { category, status }

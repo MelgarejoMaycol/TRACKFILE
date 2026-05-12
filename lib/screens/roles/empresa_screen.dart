@@ -1,11 +1,14 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:trackfile/services/api_service.dart';
+import 'package:trackfile/services/notificaciones_service.dart';
 import 'package:trackfile/widgets/certificados/certificaciones.dart';
 import 'package:trackfile/widgets/documents/documentos_screen.dart';
 import 'package:trackfile/widgets/inicio.dart';
 import 'package:trackfile/widgets/mantenimientos/mantenimientos.dart';
+import 'package:trackfile/widgets/mensajes/mensajes.dart';
 import 'package:trackfile/widgets/users/gestion_personas_widget.dart';
 import 'package:trackfile/widgets/users/perfil.dart';
 import 'package:trackfile/widgets/vehiculos/vehiculos.dart';
@@ -56,11 +59,15 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   int _selectedBottomIndex = 0;
   int? _selectedTopIndex;
   String _activeSection = 'Inicio';
+  int _contentRefreshKey = 0;
   bool _isLoading = true;
   String? _selectedDocumentsUserId;
   String? _selectedMaintenanceUserId;
   String? _selectedMaintenanceRole;
   String? _selectedMaintenancePersonName;
+  String? _selectedCertificadosUserId;
+  String? _selectedCertificadosRole;
+  String? _selectedCertificadosPersonName;
 
   String? _selectedDocumentsVehicleId;
   String? _selectedDocumentsVehiclePlate;
@@ -74,7 +81,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   Map<String, dynamic> _summary = {};
   List<Map<String, dynamic>> _documents = [];
   List<Map<String, dynamic>> _fleetVehicles = [];
-  List<Map<String, dynamic>> _alerts = [];
 
   String _companyName = 'Mi empresa';
   String _representative = '';
@@ -93,6 +99,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     super.initState();
     _hydrateCompany();
     _loadDashboard();
+    _loadNotificationsCount();
   }
 
   void _hydrateCompany() {
@@ -238,38 +245,13 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
               })
               .toList();
 
-      final List<Map<String, dynamic>> alerts =
-          (data['alerts'] as List<dynamic>? ?? [])
-              .whereType<Map<String, dynamic>>()
-              .map(
-                (entry) => {
-                  'title': entry['title']?.toString() ?? 'Alerta',
-                  'message': entry['message']?.toString() ?? '',
-                  'severity': entry['severity']?.toString() ?? 'medium',
-                  'tag': entry['tag']?.toString() ?? 'General',
-                },
-              )
-              .toList();
-
-      final int badgeFromAlerts = alerts.where((alert) {
-        final String severity =
-            alert['severity']?.toString().toLowerCase() ?? '';
-        return severity == 'high' || severity == 'alta';
-      }).length;
-      final int badgeFromSummary =
-          (summary['alertsHigh'] as num?)?.toInt() ?? 0;
-      final int notifications = badgeFromAlerts > badgeFromSummary
-          ? badgeFromAlerts
-          : badgeFromSummary;
-
       if (!mounted) return;
 
       setState(() {
         _summary = summary;
         _documents = documents;
         _fleetVehicles = vehicles;
-        _alerts = alerts;
-        _notifications = notifications;
+        //_notifications = notifications;
         _isLoading = false;
       });
     } catch (e) {
@@ -279,15 +261,30 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
         _summary = {};
         _documents = [];
         _fleetVehicles = [];
-        _alerts = [];
         _notifications = 0;
         _isLoading = false;
       });
     }
   }
 
+  Future<void> _loadNotificationsCount() async {
+    try {
+      final count = await NotificacionesService.contador();
+
+      if (!mounted) return;
+
+      setState(() {
+        _notifications = count;
+      });
+    } catch (e) {
+      debugPrint('Error cargando contador de notificaciones empresa: $e');
+    }
+  }
+
   void _onBottomMenuTap(int index) {
     setState(() {
+      _contentRefreshKey++;
+
       _selectedBottomIndex = index;
       _selectedTopIndex = null;
       _activeSection = _bottomMenuOptions[index].section;
@@ -302,20 +299,30 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
 
   void _onTopMenuTap(int index) {
     setState(() {
+      _contentRefreshKey++;
+
       _selectedTopIndex = index;
       _selectedBottomIndex = -1;
       _activeSection = _topMenuOptions[index].section;
+
       if (_topMenuOptions[index].section == 'Vehículos') {
         _selectedPersonaVehiculoUserId = null;
         _selectedPersonaVehiculoTipo = null;
         _selectedPersonaVehiculoNombre = null;
       }
+
       if (_topMenuOptions[index].section == 'Mantenimientos') {
         _selectedMaintenanceUserId = null;
         _selectedMaintenanceRole = null;
         _selectedMaintenancePersonName = null;
         _selectedMaintenanceVehicleId = null;
         _selectedMaintenanceVehiclePlate = null;
+      }
+
+      if (_topMenuOptions[index].section == 'Certificaciones') {
+        _selectedCertificadosUserId = null;
+        _selectedCertificadosRole = null;
+        _selectedCertificadosPersonName = null;
       }
     });
   }
@@ -338,6 +345,10 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     }
 
     setState(() => _activeSection = section);
+
+    if (section == 'Mensajes') {
+      _loadNotificationsCount();
+    }
   }
 
   Widget _buildContentView() {
@@ -401,6 +412,22 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                   _activeSection = 'Vehículos';
                 });
               },
+          onVerCertificadosPersona:
+              ({
+                required int usuarioId,
+                required String tipoPersona,
+                required String nombrePersona,
+              }) {
+                setState(() {
+                  _selectedCertificadosUserId = usuarioId.toString();
+                  _selectedCertificadosRole = tipoPersona;
+                  _selectedCertificadosPersonName = nombrePersona;
+
+                  _selectedBottomIndex = -1;
+                  _selectedTopIndex = 1;
+                  _activeSection = 'Certificaciones';
+                });
+              },
         );
 
       case 'Propietarios':
@@ -452,6 +479,22 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                   _activeSection = 'Vehículos';
                 });
               },
+          onVerCertificadosPersona:
+              ({
+                required int usuarioId,
+                required String tipoPersona,
+                required String nombrePersona,
+              }) {
+                setState(() {
+                  _selectedCertificadosUserId = usuarioId.toString();
+                  _selectedCertificadosRole = tipoPersona;
+                  _selectedCertificadosPersonName = nombrePersona;
+
+                  _selectedBottomIndex = -1;
+                  _selectedTopIndex = 1;
+                  _activeSection = 'Certificaciones';
+                });
+              },
         );
       case 'Documentos':
         return DocumentosScreen(
@@ -476,11 +519,17 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           onEmpresaActualizada: _refrescarEmpresaDesdeBackend,
         );
       case 'Mensajes':
-        return _buildMessagesContent();
+        return MensajesWidget(
+          role: 'Empresa',
+          userId: widget.usuario?['id']?.toString(),
+        );
       case 'Certificaciones':
         return CertificacionesWidget(
           role: 'Empresa',
           userId: widget.usuario?['id']?.toString(),
+          personaUserId: _selectedCertificadosUserId,
+          personaRole: _selectedCertificadosRole,
+          personaNombre: _selectedCertificadosPersonName,
         );
       case 'Vehículos':
         return _buildFleetContent();
@@ -489,41 +538,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       default:
         return const SizedBox.shrink();
     }
-  }
-
-  Widget _buildMessagesContent() {
-    if (_alerts.isEmpty) {
-      return _buildEmptyState(
-        'Mensajes corporativos',
-        'No hay mensajes recientes para la empresa.',
-      );
-    }
-
-    final List<Map<String, dynamic>>
-    ordered = List<Map<String, dynamic>>.from(_alerts)
-      ..sort((a, b) {
-        final String severityA = a['severity']?.toString().toLowerCase() ?? '';
-        final String severityB = b['severity']?.toString().toLowerCase() ?? '';
-        return _severityRank(severityB).compareTo(_severityRank(severityA));
-      });
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Mensajes corporativos',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          ...ordered.map(_buildMessageCard),
-        ],
-      ),
-    );
   }
 
   Widget _buildFleetContent() {
@@ -572,34 +586,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       personaNombre: _selectedMaintenancePersonName,
       vehiculoId: _selectedMaintenanceVehicleId,
       vehiculoPlaca: _selectedMaintenanceVehiclePlate,
-    );
-  }
-
-  Widget _buildEmptyState(String title, String message) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1344,116 +1330,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     );
   }
 
-  Widget _buildMessageCard(Map<String, dynamic> alert) {
-    final String title = alert['title']?.toString() ?? 'Mensaje';
-    final String message = alert['message']?.toString() ?? '';
-    final String severity =
-        alert['severity']?.toString().toLowerCase() ?? 'medium';
-    final String tag = alert['tag']?.toString() ?? 'General';
-    final Color borderColor = _alertSeverityColor(severity);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor.withValues(alpha: 0.4)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.mark_email_unread_rounded,
-                color: borderColor,
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                tag,
-                style: TextStyle(
-                  color: borderColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: borderColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  severity.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (message.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-                height: 1.4,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Color _alertSeverityColor(String severity) {
-    switch (severity.toLowerCase()) {
-      case 'high':
-      case 'alta':
-        return const Color(0xFFE66B6B);
-      case 'medium':
-      case 'media':
-        return const Color(0xFFEFB549);
-      case 'low':
-      case 'baja':
-        return const Color(0xFF16C79A);
-      default:
-        return Colors.white70;
-    }
-  }
-
-  int _severityRank(String severity) {
-    switch (severity) {
-      case 'high':
-      case 'alta':
-        return 3;
-      case 'medium':
-      case 'media':
-        return 2;
-      case 'low':
-      case 'baja':
-        return 1;
-      default:
-        return 0;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -1491,7 +1367,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 200),
                         child: KeyedSubtree(
-                          key: ValueKey<String>(_activeSection),
+                          key: ValueKey('$_activeSection-$_contentRefreshKey'),
                           child: _buildContentView(),
                         ),
                       ),
@@ -1523,7 +1399,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                             child: AnimatedSwitcher(
                               duration: const Duration(milliseconds: 200),
                               child: KeyedSubtree(
-                                key: ValueKey<String>(_activeSection),
+                                key: ValueKey('$_activeSection-$_contentRefreshKey'),
                                 child: _buildContentView(),
                               ),
                             ),

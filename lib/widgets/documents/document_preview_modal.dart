@@ -44,13 +44,19 @@ class DocumentPreviewModal extends StatelessWidget {
     );
   }
 
-  bool get _isPdf => fileUrl?.toLowerCase().endsWith('.pdf') ?? false;
+  String get _cleanPath {
+    if (fileUrl == null || fileUrl!.isEmpty) return '';
+    final uri = Uri.tryParse(fileUrl!);
+    return (uri?.path ?? fileUrl!).toLowerCase();
+  }
+
+  bool get _isPdf => _cleanPath.endsWith('.pdf');
+
   bool get _isImage =>
-      fileUrl != null &&
-      (fileUrl!.toLowerCase().endsWith('.png') ||
-          fileUrl!.toLowerCase().endsWith('.jpg') ||
-          fileUrl!.toLowerCase().endsWith('.jpeg') ||
-          fileUrl!.toLowerCase().endsWith('.webp'));
+      _cleanPath.endsWith('.png') ||
+      _cleanPath.endsWith('.jpg') ||
+      _cleanPath.endsWith('.jpeg') ||
+      _cleanPath.endsWith('.webp');
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +226,7 @@ class DocumentPreviewModal extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: fileUrl != null && fileUrl!.isNotEmpty
+                  onPressed: fileUrl != null && fileUrl!.trim().isNotEmpty
                       ? () => _downloadDocument(context)
                       : null,
                   icon: const Icon(Icons.download_rounded),

@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:trackfile/services/api_service.dart';
+import 'package:trackfile/services/notificaciones_service.dart';
 import 'package:trackfile/widgets/certificados/certificaciones.dart';
 import 'package:trackfile/widgets/documents/documentos_screen.dart';
 import 'package:trackfile/widgets/inicio.dart';
 import 'package:trackfile/widgets/mantenimientos/mantenimientos.dart';
+import 'package:trackfile/widgets/mensajes/mensajes.dart';
 import 'package:trackfile/widgets/users/empresa.dart';
 import 'package:trackfile/widgets/users/perfil.dart';
 import 'package:trackfile/widgets/vehiculos/vehiculos.dart';
@@ -48,6 +50,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
   int? _selectedLowerIndex = 0;
   int? _selectedTopIndex;
   String _activeSection = 'Inicio';
+  int _contentRefreshKey = 0;
   String _userName = 'Nombre Persona';
   String _userCompany = 'Empresa Demo';
   String? _userEmail;
@@ -56,7 +59,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
   String? _userDocument;
   bool _isLoading = true;
   int _inicioRefreshKey = 0;
-  final List<Map<String, dynamic>> _alerts = [];
+  int _notificationsCount = 0;
   String? _selectedDocumentsVehicleId;
   String? _selectedDocumentsVehiclePlate;
 
@@ -67,6 +70,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
   void initState() {
     super.initState();
     _loadUserData();
+    _loadNotificationsCount();
   }
 
   Future<void> _loadUserData() async {
@@ -98,6 +102,20 @@ class _ConductorScreenState extends State<ConductorScreen> {
         _userDocument = null;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadNotificationsCount() async {
+    try {
+      final count = await NotificacionesService.contador();
+
+      if (!mounted) return;
+
+      setState(() {
+        _notificationsCount = count;
+      });
+    } catch (e) {
+      debugPrint('Error cargando contador de notificaciones conductor: $e');
     }
   }
 
@@ -181,6 +199,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
 
   void _onUpperMenuTap(int idx) {
     setState(() {
+      _contentRefreshKey++;
       _selectedUpperIndex = idx;
       _selectedLowerIndex = null;
       _activeSection = _upperMenuOptions[idx].label;
@@ -189,6 +208,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
 
   void _onLowerMenuTap(int idx) {
     setState(() {
+      _contentRefreshKey++;
       _selectedLowerIndex = idx;
       _selectedUpperIndex = null;
       _activeSection = _lowerMenuOptions[idx].label;
@@ -197,6 +217,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
 
   void _onBottomTap(String label) {
     setState(() {
+      _contentRefreshKey++;
       _activeSection = label;
       final int upperIdx = _upperMenuOptions.indexWhere(
         (option) => option.label == label,
@@ -233,11 +254,13 @@ class _ConductorScreenState extends State<ConductorScreen> {
     );
     if (messagesIndex != -1) {
       _onUpperMenuTap(messagesIndex);
+      _loadNotificationsCount();
     }
   }
 
   void _onTopMenuTap(int index) {
     setState(() {
+      _contentRefreshKey++;
       _selectedTopIndex = index;
       _activeSection = _upperMenuOptions[index].label;
     });
@@ -245,6 +268,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
 
   void _activateSection(String section) {
     setState(() {
+      _contentRefreshKey++;
       _activeSection = section;
       final int topIdx = _upperMenuOptions.indexWhere(
         (option) => option.label == section,
@@ -668,7 +692,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
                   size: isCompact ? 24 : 28,
                 ),
               ),
-              if (widget.notificationsCount > 0)
+              if (_notificationsCount > 0)
                 Positioned(
                   right: 0,
                   child: Container(
@@ -678,7 +702,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: Text(
-                      '${widget.notificationsCount}',
+                      '$_notificationsCount',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: isCompact ? 9 : 10,
@@ -829,7 +853,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
           },
         );
       case 'Mensajes':
-        return _buildMessagesContent();
+        return MensajesWidget(role: 'Conductor', userId: widget.userId);
       case 'Vehículo':
         return VehiculosWidget(
           role: 'Conductor',
@@ -887,179 +911,6 @@ class _ConductorScreenState extends State<ConductorScreen> {
     );
   }
 
-  Widget _buildMessagesContent() {
-    if (_alerts.isEmpty) {
-      return _buildEmptyState(
-        'Mensajes corporativos',
-        'No hay mensajes recientes para la empresa.',
-      );
-    }
-
-    final List<Map<String, dynamic>>
-    ordered = List<Map<String, dynamic>>.from(_alerts)
-      ..sort((a, b) {
-        final String severityA = a['severity']?.toString().toLowerCase() ?? '';
-        final String severityB = b['severity']?.toString().toLowerCase() ?? '';
-        return _severityRank(severityB).compareTo(_severityRank(severityA));
-      });
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Mensajes corporativos',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          ...ordered.map(_buildMessageCard),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(String title, String message) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMessageCard(Map<String, dynamic> alert) {
-    final String title = alert['title']?.toString() ?? 'Mensaje';
-    final String message = alert['message']?.toString() ?? '';
-    final String severity =
-        alert['severity']?.toString().toLowerCase() ?? 'medium';
-    final String tag = alert['tag']?.toString() ?? 'General';
-    final Color borderColor = _alertSeverityColor(severity);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor.withValues(alpha: 0.4)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.mark_email_unread_rounded,
-                color: borderColor,
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                tag,
-                style: TextStyle(
-                  color: borderColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: borderColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  severity.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (message.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-                height: 1.4,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Color _alertSeverityColor(String severity) {
-    switch (severity.toLowerCase()) {
-      case 'high':
-      case 'alta':
-        return const Color(0xFFE66B6B);
-      case 'medium':
-      case 'media':
-        return const Color(0xFFEFB549);
-      case 'low':
-      case 'baja':
-        return const Color(0xFF16C79A);
-      default:
-        return Colors.white70;
-    }
-  }
-
-  int _severityRank(String severity) {
-    switch (severity) {
-      case 'high':
-      case 'alta':
-        return 3;
-      case 'medium':
-      case 'media':
-        return 2;
-      case 'low':
-      case 'baja':
-        return 1;
-      default:
-        return 0;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -1093,7 +944,10 @@ class _ConductorScreenState extends State<ConductorScreen> {
                           top: Radius.circular(radius),
                         ),
                       ),
-                      child: _buildContentView(),
+                      child: KeyedSubtree(
+                        key: ValueKey('$_activeSection-$_contentRefreshKey'),
+                        child: _buildContentView(),
+                      ),
                     ),
                   ),
                   _buildBottomBar(isCompact: true),
@@ -1118,7 +972,12 @@ class _ConductorScreenState extends State<ConductorScreen> {
                               top: Radius.circular(radius),
                             ),
                           ),
-                          child: _buildContentView(),
+                          child: KeyedSubtree(
+                            key: ValueKey(
+                              '$_activeSection-$_contentRefreshKey',
+                            ),
+                            child: _buildContentView(),
+                          ),
                         ),
                       ),
                     ],

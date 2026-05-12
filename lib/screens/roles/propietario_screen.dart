@@ -3,18 +3,20 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trackfile/services/api_service.dart';
+import 'package:trackfile/services/notificaciones_service.dart';
 import 'package:trackfile/utils/api_config.dart';
 import 'package:trackfile/widgets/certificados/certificaciones.dart';
 import 'package:trackfile/widgets/documents/documentos_screen.dart';
 import 'package:trackfile/widgets/inicio.dart';
 import 'package:trackfile/widgets/mantenimientos/mantenimientos.dart';
+import 'package:trackfile/widgets/mensajes/mensajes.dart';
 import 'package:trackfile/widgets/users/empresa.dart';
 import 'package:trackfile/widgets/users/perfil.dart';
 import 'package:trackfile/widgets/utils/logout_button.dart';
 import 'package:trackfile/widgets/vehiculos/vehiculos.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 class _MenuOption {
   final String label;
@@ -62,6 +64,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   String _userCompany = '';
   bool _isLoading = true;
   int _inicioRefreshKey = 0;
+  int _notificationsCount = 0;
   List<Map<String, dynamic>> _ownerVehicles = [];
   List<Map<String, dynamic>> _ownerDocuments = [];
   String? _userProfileImage;
@@ -70,8 +73,6 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   String? _userAddress;
   String? _userDocument;
   String? _propietarioId; // ID del propietario obtenido del backend
-  int _notificationsCount = 0;
-  List<Map<String, dynamic>> _alerts = [];
   String? _selectedDocumentsVehicleId;
   String? _selectedDocumentsVehiclePlate;
 
@@ -96,6 +97,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   int? _selectedUpperIndex;
   int? _selectedLowerIndex = 0;
   String _activeSection = 'Inicio';
+  int _contentRefreshKey = 0;
 
   static const List<_MenuOption> _upperMenuOptions = [
     _MenuOption('Mensajes', Icons.chat_bubble_rounded, 'Mensajes'),
@@ -134,12 +136,30 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    await Future.wait([_loadOwnerProfile(), _loadDashboardData()]);
+    await Future.wait([
+      _loadOwnerProfile(),
+      _loadDashboardData(),
+      _loadNotificationsCount(),
+    ]);
 
     if (!mounted) return;
     setState(() {
       _isLoading = false;
     });
+  }
+
+  Future<void> _loadNotificationsCount() async {
+    try {
+      final count = await NotificacionesService.contador();
+
+      if (!mounted) return;
+
+      setState(() {
+        _notificationsCount = count;
+      });
+    } catch (e) {
+      debugPrint('Error cargando contador de notificaciones propietario: $e');
+    }
   }
 
   Future<void> _loadOwnerProfile() async {
@@ -407,18 +427,11 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         }
       }
 
-      final int notificationsCount = alerts.where((alert) {
-        final String severity =
-            alert['severity']?.toString().toLowerCase() ?? '';
-        return severity == 'high' || severity == 'alta';
-      }).length;
-
       if (!mounted) return;
       setState(() {
         _ownerDocuments = documents;
         _ownerVehicles = vehicles;
-        _alerts = alerts;
-        _notificationsCount = notificationsCount;
+        //_notificationsCount = notificationsCount;
       });
       debugPrint(
         '✅ Dashboard cargado del backend para propietario $propietarioId',
@@ -520,18 +533,11 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         }
       }
 
-      final int notificationsCount = alerts.where((alert) {
-        final String severity =
-            alert['severity']?.toString().toLowerCase() ?? '';
-        return severity == 'high' || severity == 'alta';
-      }).length;
-
       if (!mounted) return;
       setState(() {
         _ownerDocuments = documents;
         _ownerVehicles = vehicles;
-        _alerts = alerts;
-        _notificationsCount = notificationsCount;
+        //_notificationsCount = notificationsCount;
       });
     } catch (e) {
       debugPrint('Error cargando dashboard de propietario: $e');
@@ -539,7 +545,6 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       setState(() {
         _ownerDocuments = [];
         _ownerVehicles = [];
-        _alerts = [];
         _notificationsCount = 0;
       });
     }
@@ -547,6 +552,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
 
   void _onUpperMenuTap(int idx) {
     setState(() {
+      _contentRefreshKey++;
       _selectedUpperIndex = idx;
       _selectedLowerIndex = null;
       _activeSection = _upperMenuOptions[idx].label;
@@ -555,6 +561,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
 
   void _onLowerMenuTap(int idx) {
     setState(() {
+      _contentRefreshKey++;
       _selectedLowerIndex = idx;
       _selectedUpperIndex = null;
       _activeSection = _lowerMenuOptions[idx].label;
@@ -563,6 +570,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
 
   void _onBottomTap(String label) {
     setState(() {
+      _contentRefreshKey++;
       _activeSection = label;
       final int upperIdx = _upperMenuOptions.indexWhere(
         (o) => o.label == label,
@@ -599,11 +607,13 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     );
     if (messagesIndex != -1) {
       _onUpperMenuTap(messagesIndex);
+      _loadNotificationsCount();
     }
   }
 
   void _onTopMenuTap(int index) {
     setState(() {
+      _contentRefreshKey++;
       _selectedTopIndex = index;
       _activeSection = _topMenuOptions[index].section;
     });
@@ -611,6 +621,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
 
   void _activateSection(String section) {
     setState(() {
+      _contentRefreshKey++;
       _activeSection = section;
       final int topIdx = _topMenuOptions.indexWhere(
         (option) => option.section == section,
@@ -1179,7 +1190,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           },
         );
       case 'Mensajes':
-        return _buildMessagesContent();
+        return MensajesWidget(role: 'Propietario', userId: widget.userId);
       case 'Vehículo':
         debugPrint(
           '📍 PropietarioScreen.Vehículo - userId: ${widget.userId}, propietarioId: $_propietarioId',
@@ -1573,179 +1584,6 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     );
   }
 
-  Widget _buildMessagesContent() {
-    if (_alerts.isEmpty) {
-      return _buildEmptyState(
-        'Mensajes corporativos',
-        'No hay mensajes recientes para la empresa.',
-      );
-    }
-
-    final List<Map<String, dynamic>>
-    ordered = List<Map<String, dynamic>>.from(_alerts)
-      ..sort((a, b) {
-        final String severityA = a['severity']?.toString().toLowerCase() ?? '';
-        final String severityB = b['severity']?.toString().toLowerCase() ?? '';
-        return _severityRank(severityB).compareTo(_severityRank(severityA));
-      });
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Mensajes corporativos',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          ...ordered.map(_buildMessageCard),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(String title, String message) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMessageCard(Map<String, dynamic> alert) {
-    final String title = alert['title']?.toString() ?? 'Mensaje';
-    final String message = alert['message']?.toString() ?? '';
-    final String severity =
-        alert['severity']?.toString().toLowerCase() ?? 'medium';
-    final String tag = alert['tag']?.toString() ?? 'General';
-    final Color borderColor = _alertSeverityColor(severity);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor.withValues(alpha: 0.4)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.mark_email_unread_rounded,
-                color: borderColor,
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                tag,
-                style: TextStyle(
-                  color: borderColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: borderColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  severity.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (message.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-                height: 1.4,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Color _alertSeverityColor(String severity) {
-    switch (severity.toLowerCase()) {
-      case 'high':
-      case 'alta':
-        return const Color(0xFFE66B6B);
-      case 'medium':
-      case 'media':
-        return const Color(0xFFEFB549);
-      case 'low':
-      case 'baja':
-        return const Color(0xFF16C79A);
-      default:
-        return Colors.white70;
-    }
-  }
-
-  int _severityRank(String severity) {
-    switch (severity) {
-      case 'high':
-      case 'alta':
-        return 3;
-      case 'medium':
-      case 'media':
-        return 2;
-      case 'low':
-      case 'baja':
-        return 1;
-      default:
-        return 0;
-    }
-  }
-
   Widget _buildDocumentCard(Map<String, dynamic> document) {
     final String name = document['name']?.toString() ?? 'Documento';
     final String vehicle = document['vehicle']?.toString() ?? 'Sin asignar';
@@ -1970,7 +1808,10 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
                           top: Radius.circular(radius),
                         ),
                       ),
-                      child: _buildContentView(),
+                      child: KeyedSubtree(
+                        key: ValueKey('$_activeSection-$_contentRefreshKey'),
+                        child: _buildContentView(),
+                      ),
                     ),
                   ),
                   _buildBottomBar(isCompact: true),
@@ -1995,7 +1836,12 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
                               top: Radius.circular(radius),
                             ),
                           ),
-                          child: _buildContentView(),
+                          child: KeyedSubtree(
+                            key: ValueKey(
+                              '$_activeSection-$_contentRefreshKey',
+                            ),
+                            child: _buildContentView(),
+                          ),
                         ),
                       ),
                     ],

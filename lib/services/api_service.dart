@@ -1124,6 +1124,58 @@ class ApiService {
     return null;
   }
 
+  static Future<Map<String, dynamic>?> responderSolicitudConArchivo({
+    required int solicitudId,
+    required String estado,
+    required String observaciones,
+    PlatformFile? archivo,
+  }) async {
+    try {
+      final token = await _getToken();
+
+      final request = http.MultipartRequest(
+        'PUT',
+        Uri.parse('$_baseUrl/api/solicitudes/$solicitudId/estado'),
+      );
+
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+
+      request.fields['estado'] = estado;
+      request.fields['observaciones'] = observaciones;
+
+      if (archivo != null && archivo.bytes != null) {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'archivo',
+            archivo.bytes!,
+            filename: archivo.name,
+          ),
+        );
+      }
+
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 30),
+      );
+
+      final responseBody = await streamedResponse.stream.bytesToString();
+
+      if (streamedResponse.statusCode == 200) {
+        final decoded = jsonDecode(responseBody);
+        return decoded is Map<String, dynamic> ? decoded : null;
+      }
+
+      debugPrint(
+        '❌ Error responderSolicitudConArchivo ${streamedResponse.statusCode}: $responseBody',
+      );
+    } catch (e) {
+      debugPrint('❌ Error responderSolicitudConArchivo: $e');
+    }
+
+    return null;
+  }
+
   static Future<bool> cambiarEstadoSolicitud({
     required int solicitudId,
     required String estado,

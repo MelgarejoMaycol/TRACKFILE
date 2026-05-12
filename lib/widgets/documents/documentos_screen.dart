@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:trackfile/services/api_link.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/document_service.dart';
 import 'package:trackfile/widgets/documents/document_preview_modal.dart';
 import 'package:trackfile/widgets/documents/upload_document_modal.dart';
 import 'package:trackfile/widgets/utils/shimmer_skeleton.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class DocumentosScreen extends StatefulWidget {
   final String? role;
@@ -66,6 +67,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
   _VehicleSummary? _selectedVehicle;
   String? _authToken;
   bool _showHistory = false;
+  bool _openedFromUserPanel = false;
 
   @override
   void initState() {
@@ -176,9 +178,12 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
 
       if (isEmpresaPersonaSeleccionada) {
         _persons = _persons.where((p) => p.id == selectedPersonId).toList();
+
         if (_persons.isNotEmpty) {
           _selectedPerson = _persons.first;
           _view = _DocumentosFlowView.personDetail;
+
+          _openedFromUserPanel = true;
         }
       } else if (!isEmpresa) {
         final currentUserId = (widget.userId ?? '').trim();
@@ -526,18 +531,9 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
   }
 
   void _showUploadModal() {
-    if (widget.userId == null || widget.userId!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se encontró el usuario para subir documentos'),
-        ),
-      );
-      return;
-    }
-
     UploadDocumentModal.show(
       context: context,
-      userId: widget.userId!,
+      userId: widget.userId ?? '',
       userRole: widget.role ?? 'Empresa',
       token: _authToken,
       onSuccess: _loadExplorerData,
@@ -592,7 +588,8 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
   }
 
   Widget _buildHeader(BuildContext context) {
-    final bool showBack = _view != _DocumentosFlowView.home;
+    final bool showBack =
+        _view != _DocumentosFlowView.home && !_openedFromUserPanel;
     final width = MediaQuery.of(context).size.width;
 
     final double titleSize = _responsiveText(
@@ -967,13 +964,40 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
           final color = _getExpiryColor(doc.daysRemaining);
 
           return InkWell(
-            onTap: () => DocumentPreviewModal.show(
-              context: context,
-              documentName: doc.name,
-              fileUrl: doc.url,
-              expiryDate: doc.expiryDate,
-              observations: doc.observations,
-            ),
+            onTap: () async {
+              var fileUrl = doc.url;
+
+              if (fileUrl.isEmpty) {
+                final detalle = await DocumentService.getDocumentDetail(
+                  documentoId: int.parse(doc.id),
+                  token: _authToken,
+                );
+
+                final rawUrl =
+                    detalle?['urlStorage'] ?? detalle?['url_storage'];
+
+                if (rawUrl != null && rawUrl.toString().trim().isNotEmpty) {
+                  final value = rawUrl.toString().trim();
+                  final baseUrl = getApiLink();
+
+                  fileUrl = value.startsWith('http')
+                      ? value
+                      : value.startsWith('/')
+                      ? '$baseUrl$value'
+                      : '$baseUrl/$value';
+                }
+              }
+
+              if (!context.mounted) return;
+
+              DocumentPreviewModal.show(
+                context: context,
+                documentName: doc.name,
+                fileUrl: fileUrl,
+                expiryDate: doc.expiryDate,
+                observations: doc.observations,
+              );
+            },
             borderRadius: BorderRadius.circular(18),
             child: Container(
               width: cardWidth.clamp(135, 220),
@@ -1829,13 +1853,39 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
         final small = constraints.maxWidth < 155;
 
         return InkWell(
-          onTap: () => DocumentPreviewModal.show(
-            context: context,
-            documentName: document.name,
-            fileUrl: document.url,
-            expiryDate: document.expiryDate,
-            observations: document.observations,
-          ),
+          onTap: () async {
+            var fileUrl = document.url;
+
+            if (fileUrl.isEmpty) {
+              final detalle = await DocumentService.getDocumentDetail(
+                documentoId: int.parse(document.id),
+                token: _authToken,
+              );
+
+              final rawUrl = detalle?['urlStorage'] ?? detalle?['url_storage'];
+
+              if (rawUrl != null && rawUrl.toString().trim().isNotEmpty) {
+                final value = rawUrl.toString().trim();
+                final baseUrl = getApiLink();
+
+                fileUrl = value.startsWith('http')
+                    ? value
+                    : value.startsWith('/')
+                    ? '$baseUrl$value'
+                    : '$baseUrl/$value';
+              }
+            }
+
+            if (!context.mounted) return;
+
+            DocumentPreviewModal.show(
+              context: context,
+              documentName: document.name,
+              fileUrl: fileUrl,
+              expiryDate: document.expiryDate,
+              observations: document.observations,
+            );
+          },
           borderRadius: BorderRadius.circular(20),
           child: Ink(
             decoration: BoxDecoration(
@@ -2101,19 +2151,40 @@ class _DocumentEntry {
   }
 
   static String _extractUrl(Map<String, dynamic> raw) {
-    return _valueAsString(
-          raw['urlStorage'] ??
-              raw['url_storage'] ??
-              raw['urlStorageDocumento'] ??
-              raw['urlDocumento'] ??
-              raw['url'] ??
-              raw['ruta'] ??
-              raw['rutaDocumento'] ??
-              raw['documentUrl'] ??
-              raw['archivo'] ??
-              raw['fileUrl'],
-        ) ??
-        '';
+    final value = _valueAsString(
+      raw['urlStorage'] ??
+          raw['url_storage'] ??
+          raw['urlStorageDocumento'] ??
+          raw['urlDocumento'] ??
+          raw['url_documento'] ??
+          raw['urlArchivo'] ??
+          raw['url_archivo'] ??
+          raw['ruta'] ??
+          raw['rutaDocumento'] ??
+          raw['ruta_documento'] ??
+          raw['rutaArchivo'] ??
+          raw['ruta_archivo'] ??
+          raw['documentUrl'] ??
+          raw['archivoUrl'] ??
+          raw['fileUrl'],
+    );
+
+    debugPrint('📄 DOCUMENTO RAW: $raw');
+    debugPrint('📎 URL EXTRAÍDA: $value');
+
+    if (value == null || value.isEmpty) return '';
+
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+
+    final baseUrl = getApiLink();
+
+    if (value.startsWith('/')) {
+      return '$baseUrl$value';
+    }
+
+    return '$baseUrl/$value';
   }
 
   static String? _valueAsString(dynamic value) {

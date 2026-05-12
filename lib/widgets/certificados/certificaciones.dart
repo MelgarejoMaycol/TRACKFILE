@@ -1,14 +1,27 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/api_service.dart';
+import '../utils/shimmer_skeleton.dart';
 
 class CertificacionesWidget extends StatefulWidget {
   final String role;
   final String? userId;
 
-  const CertificacionesWidget({super.key, required this.role, this.userId});
+  final String? personaUserId;
+  final String? personaRole;
+  final String? personaNombre;
+
+  const CertificacionesWidget({
+    super.key,
+    required this.role,
+    this.userId,
+    this.personaUserId,
+    this.personaRole,
+    this.personaNombre,
+  });
 
   @override
   State<CertificacionesWidget> createState() => _CertificacionesWidgetState();
@@ -223,7 +236,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
   static const Color _dangerColor = Color(0xFFE66B6B);
   static const Color _infoColor = Color(0xFF3DA9F5);
 
-  final DateFormat _dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+  final DateFormat _dateOnlyFormat = DateFormat('dd/MM/yyyy');
   late final String _roleNormalized;
 
   bool _isLoading = true;
@@ -231,6 +244,11 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
   List<_SolicitudDetalle> _detalles = const [];
   Map<String, int> _conteoEstados = const {};
   List<_TipoSolicitud> _tiposSolicitud = const [];
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  int? _expandedSolicitudId;
+  bool get _viendoPersona =>
+      widget.personaUserId != null && widget.personaUserId!.trim().isNotEmpty;
 
   bool get _puedeGestionarSolicitudes =>
       _roleNormalized == 'empresa' ||
@@ -242,6 +260,12 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     super.initState();
     _roleNormalized = widget.role.toLowerCase();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -318,7 +342,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const ShimmerCertificacionesPage();
     }
 
     if (_hasError) {
@@ -339,6 +363,9 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     debugPrint(
       '=== BUILD ROLE CONTENT === Role: $_roleNormalized | isCompact: $isCompact',
     );
+    if (_viendoPersona) {
+      return _buildPersonaCertificacionesLayout(isCompact, isTableCompact);
+    }
     switch (_roleNormalized) {
       case 'propietario':
       case 'conductor':
@@ -372,6 +399,81 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
           tableEmptyMessage: 'Aun no tienes certificaciones aprobadas.',
         );
     }
+  }
+
+  List<_SolicitudDetalle> _filtrarDetalles(List<_SolicitudDetalle> detalles) {
+    final String query = _searchQuery.trim().toLowerCase();
+
+    if (query.isEmpty) return detalles;
+
+    return detalles.where((detalle) {
+      final String tipo = detalle.tipo?.nombre.toLowerCase() ?? '';
+      final String nombre = detalle.solicitud.nombreSolicitante.toLowerCase();
+      final String documento = detalle.solicitud.documentoSolicitante
+          .toLowerCase();
+      final String estado = _statusLabel(detalle.estadoActual).toLowerCase();
+      final String estadoRaw = detalle.estadoActual.toLowerCase();
+
+      if (_puedeGestionarSolicitudes) {
+        return tipo.contains(query) ||
+            nombre.contains(query) ||
+            documento.contains(query) ||
+            estado.contains(query) ||
+            estadoRaw.contains(query);
+      }
+
+      return tipo.contains(query) ||
+          estado.contains(query) ||
+          estadoRaw.contains(query);
+    }).toList();
+  }
+
+  Widget _buildSearchBox(bool isCompact) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.055),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+      ),
+      child: TextField(
+        controller: _searchController,
+        style: const TextStyle(color: Colors.white, fontSize: 13),
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value;
+          });
+        },
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          icon: const Icon(
+            Icons.search_rounded,
+            color: Colors.white60,
+            size: 20,
+          ),
+          hintText: _puedeGestionarSolicitudes
+              ? 'Buscar por nombre, documento o tipo de solicitud...'
+              : 'Buscar por tipo de solicitud...',
+          hintStyle: const TextStyle(color: Colors.white54, fontSize: 13),
+          suffixIcon: _searchQuery.trim().isEmpty
+              ? null
+              : IconButton(
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {
+                      _searchQuery = '';
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white54,
+                    size: 18,
+                  ),
+                ),
+        ),
+      ),
+    );
   }
 
   Widget _buildCommonLayout({
@@ -443,30 +545,15 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                 const SizedBox(height: 20),
               ],
               _buildSummaryChips(isCompact),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
+
               if (tableDetalles != null) ...[
-                // En PC: mostrar en dos columnas para todos los roles
-                if (!isCompact)
-                  _buildEmpresaTwoColumnLayout(tableDetalles, tableCompact)
-                else ...[
-                  if (tableTitle != null) ...[
-                    Text(
-                      tableTitle,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  if (tableDetalles.isNotEmpty)
-                    _buildSolicitudesView(tableDetalles, tableCompact)
-                  else
-                    _buildEmptyTable(
-                      tableEmptyMessage ?? 'No hay solicitudes registradas.',
-                    ),
-                ],
+                _buildSearchBox(isCompact),
+                const SizedBox(height: 14),
+                _buildEmpresaTwoColumnLayout(
+                  _filtrarDetalles(tableDetalles),
+                  tableCompact,
+                ),
               ],
             ],
           ),
@@ -476,9 +563,6 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
   }
 
   Widget _buildOwnerConductorLayout(bool isCompact, bool isTableCompact) {
-    debugPrint(
-      '=== OWNER/CONDUCTOR LAYOUT === isCompact: $isCompact | Role: $_roleNormalized',
-    );
     final List<_SolicitudDetalle> enRevision = _detalles
         .where(
           (detalle) =>
@@ -493,269 +577,89 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
         )
         .toList();
 
-    // Ordenar historial por fecha descendente
     historialFinal.sort((a, b) {
-      final DateTime? aFecha = a.solicitud.fechaEnvio;
-      final DateTime? bFecha = b.solicitud.fechaEnvio;
-      if (aFecha == null || bFecha == null) return 0;
+      final DateTime aFecha =
+          a.solicitud.fechaEnvio ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final DateTime bFecha =
+          b.solicitud.fechaEnvio ?? DateTime.fromMillisecondsSinceEpoch(0);
       return bFecha.compareTo(aFecha);
     });
 
-    debugPrint(
-      '📊 En revisión: ${enRevision.length} | Historial: ${historialFinal.length}',
-    );
+    final List<_SolicitudDetalle> detallesOrdenados = [
+      ...enRevision,
+      ...historialFinal,
+    ];
 
-    if (isCompact) {
-      debugPrint('📱 MODO MOBILE - Layout vertical');
-    } else {
-      debugPrint('💻 MODO DESKTOP - Layout dos columnas');
-    }
+    return Stack(
+      children: [
+        _buildCommonLayout(
+          isCompact: isCompact,
+          title: 'Certificaciones',
+          subtitle: 'Solicita y consulta el estado de tus certificados.',
+          tableDetalles: detallesOrdenados,
+          tableCompact: isTableCompact,
+        ),
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        isCompact ? 16 : 24,
-        24,
-        isCompact ? 16 : 24,
-        isCompact ? 120 : 64,
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: isCompact ? 700 : 1800),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              if (isCompact) ...[
-                Text(
-                  _roleNormalized == 'propietario'
-                      ? 'Historial de certificaciones'
-                      : 'Mis certificaciones',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _roleNormalized == 'propietario'
-                      ? 'Controla el estado de las solicitudes vinculadas a tus vehiculos.'
-                      : 'Solicita y controla el estado de tus certificados laborales.',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-                const SizedBox(height: 20),
-              ] else ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _roleNormalized == 'propietario'
-                                ? 'Historial de certificaciones'
-                                : 'Mis certificaciones',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _roleNormalized == 'propietario'
-                                ? 'Controla el estado de las solicitudes vinculadas a tus vehiculos.'
-                                : 'Solicita y controla el estado de tus certificados laborales.',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // Botón solicitar certificado
-              if (_roleNormalized == 'conductor' ||
-                  _roleNormalized == 'propietario') ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _showSolicitudCertificadoModal,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _accentColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    icon: const Icon(Icons.add_circle_rounded, size: 22),
-                    label: const Text(
-                      'Solicitar certificado',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-              const SizedBox(height: 24),
-
-              // Resumen de estados
-              _buildSummaryChips(isCompact),
-              const SizedBox(height: 24),
-
-              // Layout dividido en dos mitades para PC
-              if (isCompact) ...[
-                // En revisión - Layout vertical para mobile
-                if (enRevision.isNotEmpty) ...[
-                  Text(
-                    'En revisión',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: enRevision.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (_, index) =>
-                        _buildSolicitudCard(enRevision[index]),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-
-                // Historial - Layout vertical para mobile
-                if (historialFinal.isNotEmpty) ...[
-                  Text(
-                    'Historial',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: historialFinal.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (_, index) =>
-                        _buildSolicitudCard(historialFinal[index]),
-                  ),
-                ] else if (enRevision.isEmpty) ...[
-                  _buildEmptyState(),
-                ],
-              ] else ...[
-                // Layout de dos columnas para PC
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Primera mitad: En revisión (50%)
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'En revisión (${enRevision.length})',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          if (enRevision.isNotEmpty)
-                            ListView.separated(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: enRevision.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 12),
-                              itemBuilder: (_, index) =>
-                                  _buildSolicitudCard(enRevision[index]),
-                            )
-                          else
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 40,
-                                ),
-                                child: Text(
-                                  'No hay solicitudes en revisión',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.6),
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    // Segunda mitad: Historial (50%)
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Historial (${historialFinal.length})',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          if (historialFinal.isNotEmpty)
-                            ListView.separated(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: historialFinal.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 12),
-                              itemBuilder: (_, index) =>
-                                  _buildSolicitudCard(historialFinal[index]),
-                            )
-                          else
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 40,
-                                ),
-                                child: Text(
-                                  'No hay historial de solicitudes',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.6),
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
+        Positioned(
+          right: isCompact ? 18 : 28,
+          bottom: isCompact ? 24 : 28,
+          child: FloatingActionButton.extended(
+            onPressed: _showSolicitudCertificadoModal,
+            backgroundColor: _accentColor,
+            foregroundColor: Colors.white,
+            elevation: 8,
+            icon: const Icon(Icons.add_rounded),
+            label: Text(
+              isCompact ? 'Solicitar' : 'Solicitar certificado',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
           ),
         ),
-      ),
+      ],
+    );
+  }
+
+  Widget _buildPersonaCertificacionesLayout(
+    bool isCompact,
+    bool isTableCompact,
+  ) {
+    final String nombre = widget.personaNombre ?? 'la persona';
+    final String rol = widget.personaRole ?? 'Usuario';
+
+    final List<_SolicitudDetalle> enRevision = _detalles
+        .where(
+          (detalle) =>
+              _normalizeStatus(detalle.estadoActual).contains('REVISION'),
+        )
+        .toList();
+
+    final List<_SolicitudDetalle> historialFinal = _detalles
+        .where(
+          (detalle) =>
+              !_normalizeStatus(detalle.estadoActual).contains('REVISION'),
+        )
+        .toList();
+
+    historialFinal.sort((a, b) {
+      final DateTime aFecha =
+          a.solicitud.fechaEnvio ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final DateTime bFecha =
+          b.solicitud.fechaEnvio ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bFecha.compareTo(aFecha);
+    });
+
+    final List<_SolicitudDetalle> detallesOrdenados = [
+      ...enRevision,
+      ...historialFinal,
+    ];
+
+    return _buildCommonLayout(
+      isCompact: isCompact,
+      title: 'Certificaciones de $nombre',
+      subtitle:
+          'Consulta solicitudes, certificados e historial de esta persona. Rol: $rol.',
+      tableDetalles: detallesOrdenados,
+      tableCompact: isTableCompact,
     );
   }
 
@@ -764,146 +668,220 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     bool tableCompact,
   ) {
     final List<_SolicitudDetalle> enRevision = detalles
-        .where(
-          (detalle) =>
-              _normalizeStatus(detalle.estadoActual).contains('REVISION'),
-        )
+        .where((d) => _normalizeStatus(d.estadoActual).contains('REVISION'))
         .toList();
 
     final List<_SolicitudDetalle> historialFinal = detalles
-        .where(
-          (detalle) =>
-              !_normalizeStatus(detalle.estadoActual).contains('REVISION'),
-        )
+        .where((d) => !_normalizeStatus(d.estadoActual).contains('REVISION'))
         .toList();
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Columna izquierda: En revisión
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: _warningColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: _warningColor.withValues(alpha: 0.35)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+    if (detalles.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool stack = constraints.maxWidth < 900;
+
+        final Widget? revisionPanel = enRevision.isEmpty
+            ? null
+            : _buildSectionPanel(
+                title: 'En revisión',
+                count: enRevision.length,
+                color: _warningColor,
+                icon: Icons.hourglass_top_rounded,
+                emptyMessage: 'No hay solicitudes en revisión',
+                children: enRevision
+                    .map(
+                      (detalle) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _buildSolicitudCard(detalle),
+                      ),
+                    )
+                    .toList(),
+              );
+
+        final Widget? historialPanel = historialFinal.isEmpty
+            ? null
+            : _buildSectionPanel(
+                title: 'Historial',
+                count: historialFinal.length,
+                color: _successColor,
+                icon: Icons.history_rounded,
+                emptyMessage: 'No hay solicitudes en historial',
+                children: historialFinal
+                    .map(
+                      (detalle) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _buildSolicitudCard(detalle),
+                      ),
+                    )
+                    .toList(),
+              );
+
+        if (revisionPanel == null && historialPanel != null) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: _warningColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _warningColor.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
                   children: [
                     Icon(
-                      Icons.schedule_rounded,
+                      Icons.info_outline_rounded,
                       color: _warningColor,
-                      size: 24,
+                      size: 20,
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'En revisión',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _warningColor.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                    const SizedBox(width: 10),
+                    const Expanded(
                       child: Text(
-                        enRevision.length.toString(),
+                        'No tienes solicitudes en revisión actualmente.',
                         style: TextStyle(
-                          color: _warningColor,
-                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                if (enRevision.isNotEmpty)
-                  Column(
-                    children: enRevision.asMap().entries.map((entry) {
-                      final int index = entry.key;
-                      final _SolicitudDetalle detalle = entry.value;
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          bottom: index != enRevision.length - 1 ? 12 : 0,
-                        ),
-                        child: _buildSolicitudCard(detalle),
-                      );
-                    }).toList(),
-                  )
-                else
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40),
-                      child: Text(
-                        'No hay solicitudes en revisión',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 20),
-        // Columna derecha: Historial
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Historial',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
               ),
-              const SizedBox(height: 12),
-              if (historialFinal.isNotEmpty)
-                Column(
-                  children: historialFinal.asMap().entries.map((entry) {
-                    final int index = entry.key;
-                    final _SolicitudDetalle detalle = entry.value;
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: index != historialFinal.length - 1 ? 12 : 0,
-                      ),
-                      child: _buildSolicitudCard(detalle),
-                    );
-                  }).toList(),
-                )
-              else
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 40),
-                    child: Text(
-                      'No hay solicitudes en historial',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ),
+
+              historialPanel,
+            ],
+          );
+        }
+
+        if (historialPanel == null && revisionPanel != null) {
+          return revisionPanel;
+        }
+
+        if (stack) {
+          return Column(
+            children: [
+              revisionPanel!,
+              const SizedBox(height: 18),
+              historialPanel!,
+            ],
+          );
+        }
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: revisionPanel!),
+              const SizedBox(width: 20),
+              Expanded(child: historialPanel!),
             ],
           ),
-        ),
-      ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSectionPanel({
+    required String title,
+    required int count,
+    required Color color,
+    required IconData icon,
+    required String emptyMessage,
+    required List<Widget> children,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.045),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Text(
+                  count.toString(),
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          if (children.isNotEmpty)
+            ...children
+          else
+            SizedBox(
+              height: 220,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 50),
+                  child: Text(
+                    emptyMessage,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.62),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -913,188 +891,357 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
           (a, b) => _statusPriority(a.key).compareTo(_statusPriority(b.key)),
         );
 
-    final List<Widget> chips = orderedEntries.map((entry) {
-      final Color color = _statusColor(entry.key);
-      return Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: isCompact ? 14 : 16,
-          vertical: 10,
-        ),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: color.withValues(alpha: 0.55)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.circle, size: 10, color: color),
-            const SizedBox(width: 8),
-            Text(
-              _statusLabel(entry.key),
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: isCompact ? 12 : 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              entry.value.toString(),
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: isCompact ? 12 : 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      );
-    }).toList();
+    if (orderedEntries.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
-    return Wrap(spacing: 14, runSpacing: 12, children: chips);
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: orderedEntries.map((entry) {
+        final Color color = _statusColor(entry.key);
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(_statusIcon(entry.key), color: color, size: 17),
+              const SizedBox(width: 7),
+              Text(
+                _statusLabel(entry.key),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                entry.value.toString(),
+                style: TextStyle(
+                  color: color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
   }
 
-  Widget _buildSolicitudesView(
-    List<_SolicitudDetalle> detalles,
-    bool isCompact,
-  ) {
-    if (isCompact) {
-      return Column(
-        children: detalles
-            .map(
-              (detalle) => Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: _buildSolicitudCard(detalle),
-              ),
-            )
-            .toList(),
+  IconData _statusIcon(String value) {
+    final String normalized = value.toUpperCase();
+
+    if (normalized.startsWith('APROB') || normalized.startsWith('ACEPT')) {
+      return Icons.check_circle_rounded;
+    }
+
+    if (normalized.startsWith('RECHAZ')) {
+      return Icons.cancel_rounded;
+    }
+
+    if (normalized.contains('REVISION')) {
+      return Icons.hourglass_top_rounded;
+    }
+
+    if (normalized.contains('ENVI')) {
+      return Icons.send_rounded;
+    }
+
+    return Icons.description_rounded;
+  }
+
+  Future<void> _descargarDocumento(_Solicitud solicitud) async {
+    final String? url = solicitud.urlDocumento;
+
+    if (url == null || url.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Esta solicitud no tiene documento disponible.'),
+          backgroundColor: _warningColor,
+        ),
+      );
+      return;
+    }
+
+    final Uri uri = Uri.parse(url);
+
+    final bool ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('No se pudo abrir el documento.'),
+          backgroundColor: _dangerColor,
+        ),
       );
     }
-    return _buildDataTable(detalles);
-  }
-
-  Widget _buildDataTable(List<_SolicitudDetalle> detalles) {
-    final List<_SolicitudDetalle> ordered =
-        List<_SolicitudDetalle>.from(detalles)..sort(
-          (a, b) => _statusPriority(
-            a.estadoActual,
-          ).compareTo(_statusPriority(b.estadoActual)),
-        );
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingTextStyle: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-          ),
-          dataTextStyle: const TextStyle(color: Colors.white70),
-          columnSpacing: 28,
-          horizontalMargin: 18,
-          dataRowMinHeight: 68,
-          dataRowMaxHeight: 120,
-          columns: const [
-            DataColumn(label: Text('Solicitud')),
-            DataColumn(label: Text('Tipo')),
-            DataColumn(label: Text('Estado')),
-            DataColumn(label: Text('Fecha envio')),
-            DataColumn(label: Text('Ultima accion')),
-            DataColumn(label: Text('Acciones')),
-          ],
-          rows: ordered.map(_buildDataRow).toList(),
-        ),
-      ),
-    );
   }
 
   Widget _buildSolicitudCard(_SolicitudDetalle detalle) {
     final _Solicitud solicitud = detalle.solicitud;
     final _TipoSolicitud? tipo = detalle.tipo;
+    final Color estadoColor = _statusColor(detalle.estadoActual);
+    final bool isExpanded = _expandedSolicitudId == solicitud.id;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      solicitud.descripcion,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      tipo?.nombre ?? 'Sin tipo',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                      ),
-                    ),
-                    if (_puedeGestionarSolicitudes) ...[
-                      const SizedBox(height: 12),
-                      _buildSolicitanteBox(solicitud),
-                    ],
-                  ],
-                ),
-              ),
-              _buildEstadoTag(detalle.estadoActual),
-            ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () {
+          setState(() {
+            _expandedSolicitudId = isExpanded ? null : solicitud.id;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeInOutCubic,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.055),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            children: [
-              _buildInfoBadge(
-                Icons.calendar_month,
-                'Envío: ${_formatDate(solicitud.fechaEnvio)}',
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_puedeGestionarSolicitudes &&
-                    detalle.estadoActual == 'EN_REVISION') ...[
-                  ElevatedButton.icon(
-                    onPressed: () => _showResponderSolicitudModal(detalle),
-                    icon: const Icon(Icons.reply_rounded),
-                    label: const Text('Enviar respuesta'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _accentColor,
-                      foregroundColor: Colors.white,
+                Container(
+                  width: 5,
+                  height: isExpanded ? 190 : 70,
+                  color: estadoColor,
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: estadoColor.withValues(alpha: 0.16),
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              child: Icon(
+                                _statusIcon(detalle.estadoActual),
+                                color: estadoColor,
+                                size: 23,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    tipo?.nombre ?? 'Sin tipo',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    solicitud.nombreSolicitante.isEmpty
+                                        ? 'Sin solicitante'
+                                        : solicitud.nombreSolicitante,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(width: 8),
+                            Flexible(
+                              flex: 0,
+                              child: _buildEstadoTag(detalle.estadoActual),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              isExpanded
+                                  ? Icons.keyboard_arrow_up_rounded
+                                  : Icons.keyboard_arrow_down_rounded,
+                              color: Colors.white70,
+                            ),
+                          ],
+                        ),
+
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 240),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          transitionBuilder: (child, animation) {
+                            return SizeTransition(
+                              sizeFactor: animation,
+                              axisAlignment: -1,
+                              child: FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: isExpanded
+                              ? Padding(
+                                  key: ValueKey('open-${solicitud.id}'),
+                                  padding: const EdgeInsets.only(top: 14),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Wrap(
+                                        spacing: 10,
+                                        runSpacing: 10,
+                                        children: [
+                                          _buildInfoBadge(
+                                            Icons.calendar_month_rounded,
+                                            'Envío: ${_formatOnlyDateColombia(solicitud.fechaEnvio)}',
+                                          ),
+                                          if (solicitud.idVehiculo != null)
+                                            _buildInfoBadge(
+                                              Icons.directions_car_rounded,
+                                              'Vehículo vinculado',
+                                            ),
+                                        ],
+                                      ),
+
+                                      if (_puedeGestionarSolicitudes) ...[
+                                        const SizedBox(height: 12),
+                                        _buildSolicitanteBox(solicitud),
+                                      ],
+
+                                      const SizedBox(height: 12),
+
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          alignment: WrapAlignment.end,
+                                          children: [
+                                            TextButton.icon(
+                                              onPressed: () =>
+                                                  _showHistorialDetalle(
+                                                    detalle,
+                                                  ),
+                                              icon: const Icon(
+                                                Icons.timeline_rounded,
+                                                size: 18,
+                                              ),
+                                              label: const Text('Historial'),
+                                              style: TextButton.styleFrom(
+                                                foregroundColor: Colors.white70,
+                                              ),
+                                            ),
+
+                                            if (solicitud.urlDocumento !=
+                                                    null &&
+                                                solicitud.urlDocumento!
+                                                    .trim()
+                                                    .isNotEmpty)
+                                              OutlinedButton.icon(
+                                                onPressed: () =>
+                                                    _descargarDocumento(
+                                                      solicitud,
+                                                    ),
+                                                icon: const Icon(
+                                                  Icons.download_rounded,
+                                                  size: 18,
+                                                ),
+                                                label: const Text('Descargar'),
+                                                style: OutlinedButton.styleFrom(
+                                                  foregroundColor: Colors.white,
+                                                  side: BorderSide(
+                                                    color: Colors.white
+                                                        .withValues(
+                                                          alpha: 0.18,
+                                                        ),
+                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 14,
+                                                        vertical: 12,
+                                                      ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          14,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+
+                                            if (_puedeGestionarSolicitudes &&
+                                                detalle.estadoActual ==
+                                                    'EN_REVISION')
+                                              ElevatedButton.icon(
+                                                onPressed: () =>
+                                                    _showResponderSolicitudModal(
+                                                      detalle,
+                                                    ),
+                                                icon: const Icon(
+                                                  Icons.reply_rounded,
+                                                  size: 18,
+                                                ),
+                                                label: const Text('Responder'),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: _accentColor,
+                                                  foregroundColor: Colors.white,
+                                                  elevation: 0,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 14,
+                                                        vertical: 12,
+                                                      ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          14,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : const SizedBox(
+                                  key: ValueKey('closed'),
+                                  height: 0,
+                                  width: double.infinity,
+                                ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1410,98 +1557,18 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
       return;
     }
 
+    await _loadData();
+
+    if (!mounted) return;
+
+    setState(() {});
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Solicitud enviada correctamente.'),
         backgroundColor: _successColor,
         duration: const Duration(seconds: 3),
       ),
-    );
-
-    await _loadData();
-  }
-
-  DataRow _buildDataRow(_SolicitudDetalle detalle) {
-    final _Solicitud solicitud = detalle.solicitud;
-    final _TipoSolicitud? tipo = detalle.tipo;
-    final _Historial? ultimo = detalle.ultimoMovimiento;
-
-    return DataRow(
-      cells: [
-        DataCell(_buildSolicitudCell(solicitud)),
-        DataCell(
-          Text(
-            tipo?.nombre ?? 'Sin tipo',
-            style: const TextStyle(color: Colors.white),
-          ),
-        ),
-        DataCell(_buildEstadoTag(detalle.estadoActual)),
-        DataCell(Text(_formatDate(solicitud.fechaEnvio))),
-        DataCell(
-          Text(
-            ultimo != null
-                ? '${_statusLabel(ultimo.accion)}\n${_formatDate(ultimo.fecha)}'
-                : 'Sin movimientos',
-          ),
-        ),
-        DataCell(
-          TextButton(
-            onPressed: () => _showHistorialDetalle(detalle),
-            style: TextButton.styleFrom(foregroundColor: Colors.white),
-            child: const Text('Ver historial'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEmptyTable(String message) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Sin resultados',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            message,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              height: 1.35,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSolicitudCell(_Solicitud solicitud) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          solicitud.descripcion,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
     );
   }
 
@@ -1526,38 +1593,10 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
   }
 
   Future<void> _showHistorialDetalle(_SolicitudDetalle detalle) async {
-    if (detalle.historial.isEmpty) {
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) {
-          return AlertDialog(
-            backgroundColor: _cardColor,
-            title: const Text(
-              'Historial de la solicitud',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: const Text(
-              'Aun no se registran movimientos para esta solicitud.',
-              style: TextStyle(color: Colors.white70),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cerrar'),
-              ),
-            ],
-          );
-        },
-      );
-      return;
-    }
-
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: _surfaceColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         final List<_Historial> ordered =
             List<_Historial>.from(detalle.historial)..sort((a, b) {
@@ -1567,75 +1606,118 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                   b.fecha ?? DateTime.fromMillisecondsSinceEpoch(0);
               return bDate.compareTo(aDate);
             });
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+
+        return SafeArea(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.82,
+            ),
+            margin: const EdgeInsets.symmetric(horizontal: 18),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+            decoration: BoxDecoration(
+              color: _surfaceColor,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Historial de la solicitud',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 360,
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemBuilder: (context, index) {
-                    final _Historial registro = ordered[index];
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        backgroundColor: _statusColor(
-                          registro.accion,
-                        ).withValues(alpha: 0.2),
-                        child: Icon(
-                          Icons.check_circle,
-                          color: _statusColor(registro.accion),
-                        ),
-                      ),
-                      title: Text(
-                        _statusLabel(registro.accion),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _formatDate(registro.fecha),
-                            style: const TextStyle(color: Colors.white70),
+                const SizedBox(height: 18),
+                const Text(
+                  'Historial de la solicitud',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Flexible(
+                  child: ordered.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'Aún no se registran movimientos.',
+                            style: TextStyle(color: Colors.white70),
                           ),
-                          if (registro.observaciones.isNotEmpty)
-                            Text(
-                              registro.observaciones,
-                              style: const TextStyle(color: Colors.white60),
-                            ),
-                        ],
-                      ),
-                    );
-                  },
-                  separatorBuilder: (context, index) =>
-                      const Divider(color: Colors.white24),
-                  itemCount: ordered.length,
+                        )
+                      : ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: ordered.length,
+                          separatorBuilder: (_, __) =>
+                              const Divider(color: Colors.white24, height: 28),
+                          itemBuilder: (context, index) {
+                            final registro = ordered[index];
+                            final color = _statusColor(registro.accion);
+
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: color.withValues(
+                                    alpha: 0.18,
+                                  ),
+                                  child: Icon(
+                                    _statusIcon(registro.accion),
+                                    color: color,
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _statusLabel(registro.accion),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        _formatOnlyDateColombia(registro.fecha),
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      if (registro
+                                          .observaciones
+                                          .isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          registro.observaciones,
+                                          style: const TextStyle(
+                                            color: Colors.white60,
+                                            fontSize: 13,
+                                            height: 1.35,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -1712,6 +1794,14 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
   ) {
     if (todos.isEmpty) return const [];
 
+    if (_viendoPersona) {
+      final String personaId = widget.personaUserId!.trim();
+
+      return todos
+          .where((detalle) => detalle.solicitud.idUsuario == personaId)
+          .toList();
+    }
+
     final String? userId = widget.userId?.trim();
 
     if (_roleNormalized == 'empresa' ||
@@ -1751,7 +1841,6 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-
             return Padding(
               padding: EdgeInsets.fromLTRB(
                 24,
@@ -1891,34 +1980,56 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
 
                           Navigator.pop(ctx);
 
-                          if (estadoSeleccionado == 'ACEPTADA') {
-                            final actualizado =
-                                await ApiService.subirArchivoSolicitud(
-                                  solicitudId: detalle.solicitud.id,
-                                  descripcion: detalle.solicitud.descripcion,
-                                  tipoSolicitudId: detalle.solicitud.idTipo,
-                                  archivo: archivoSeleccionado!,
-                                );
-
-                            if (!mounted) return;
-
-                            if (actualizado == null) {
-                              ScaffoldMessenger.of(this.context).showSnackBar(
-                                SnackBar(
-                                  content: const Text(
-                                    'No se pudo subir el certificado.',
-                                  ),
-                                  backgroundColor: _dangerColor,
-                                ),
+                          final respuesta =
+                              await ApiService.responderSolicitudConArchivo(
+                                solicitudId: detalle.solicitud.id,
+                                estado: estadoSeleccionado,
+                                observaciones:
+                                    observacionesController.text.trim().isEmpty
+                                    ? estadoSeleccionado == 'ACEPTADA'
+                                          ? 'Solicitud revisada y aprobada correctamente.'
+                                          : 'Solicitud rechazada.'
+                                    : observacionesController.text.trim(),
+                                archivo: estadoSeleccionado == 'ACEPTADA'
+                                    ? archivoSeleccionado
+                                    : null,
                               );
-                              return;
-                            }
+
+                          if (!mounted) return;
+
+                          if (respuesta == null) {
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              SnackBar(
+                                content: const Text(
+                                  'No se pudo responder la solicitud.',
+                                ),
+                                backgroundColor: _dangerColor,
+                              ),
+                            );
+                            return;
                           }
 
-                          await _cambiarEstadoSolicitud(
-                            detalle.solicitud.id,
-                            estadoSeleccionado,
-                            observacionesController.text,
+                          await _loadData();
+
+                          if (!mounted) return;
+
+                          setState(() {
+                            _expandedSolicitudId = null;
+                            _searchQuery = '';
+                            _searchController.clear();
+                          });
+
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                estadoSeleccionado == 'ACEPTADA'
+                                    ? 'Solicitud aceptada correctamente.'
+                                    : 'Solicitud rechazada correctamente.',
+                              ),
+                              backgroundColor: estadoSeleccionado == 'ACEPTADA'
+                                  ? _successColor
+                                  : _dangerColor,
+                            ),
                           );
                         },
                         style: ElevatedButton.styleFrom(
@@ -1945,52 +2056,16 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     );
   }
 
-  Future<void> _cambiarEstadoSolicitud(
-    int solicitudId,
-    String estado,
-    String observaciones,
-  ) async {
-    final bool ok = await ApiService.cambiarEstadoSolicitud(
-      solicitudId: solicitudId,
-      estado: estado,
-      observaciones: observaciones.trim().isEmpty
-          ? estado == 'ACEPTADA'
-                ? 'Solicitud revisada y aprobada correctamente.'
-                : 'Solicitud rechazada.'
-          : observaciones.trim(),
-    );
-
-    if (!mounted) return;
-
-    if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('No se pudo cambiar el estado de la solicitud.'),
-          backgroundColor: _dangerColor,
-        ),
-      );
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          estado == 'ACEPTADA'
-              ? 'Solicitud aprobada correctamente.'
-              : 'Solicitud rechazada correctamente.',
-        ),
-        backgroundColor: estado == 'ACEPTADA' ? _successColor : _dangerColor,
-      ),
-    );
-
-    await _loadData();
-  }
-
-  String _formatDate(DateTime? value) {
+  String _formatOnlyDateColombia(DateTime? value) {
     if (value == null) {
       return 'Sin fecha';
     }
-    return _dateFormat.format(value.toLocal());
+
+    final DateTime colombiaDate = value.toUtc().subtract(
+      const Duration(hours: 5),
+    );
+
+    return _dateOnlyFormat.format(colombiaDate);
   }
 
   String _normalizeStatus(String value) => value.toUpperCase();
