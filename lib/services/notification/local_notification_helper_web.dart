@@ -19,7 +19,7 @@ class LocalNotificationHelper {
       html.Notification(
         title,
         body: body,
-        icon: '/icons/Icon-192.png',
+        icon: '/icons/logoCirculo.png',
       );
     }
   }

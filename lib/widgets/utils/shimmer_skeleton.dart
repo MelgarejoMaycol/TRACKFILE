@@ -424,9 +424,7 @@ class ShimmerCertificacionesPage extends StatelessWidget {
           ),
           child: Center(
             child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: isCompact ? 700 : 1600,
-              ),
+              constraints: BoxConstraints(maxWidth: isCompact ? 700 : 1600),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -450,21 +448,9 @@ class ShimmerCertificacionesPage extends StatelessWidget {
                     spacing: 10,
                     runSpacing: 10,
                     children: const [
-                      ShimmerSkeleton(
-                        width: 120,
-                        height: 34,
-                        borderRadius: 16,
-                      ),
-                      ShimmerSkeleton(
-                        width: 120,
-                        height: 34,
-                        borderRadius: 16,
-                      ),
-                      ShimmerSkeleton(
-                        width: 120,
-                        height: 34,
-                        borderRadius: 16,
-                      ),
+                      ShimmerSkeleton(width: 120, height: 34, borderRadius: 16),
+                      ShimmerSkeleton(width: 120, height: 34, borderRadius: 16),
+                      ShimmerSkeleton(width: 120, height: 34, borderRadius: 16),
                     ],
                   ),
 
@@ -490,13 +476,9 @@ class ShimmerCertificacionesPage extends StatelessWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
-                        Expanded(
-                          child: ShimmerCertificacionesPanel(),
-                        ),
+                        Expanded(child: ShimmerCertificacionesPanel()),
                         SizedBox(width: 20),
-                        Expanded(
-                          child: ShimmerCertificacionesPanel(),
-                        ),
+                        Expanded(child: ShimmerCertificacionesPanel()),
                       ],
                     ),
                 ],
@@ -520,36 +502,22 @@ class ShimmerCertificacionesPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.045),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.10),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: const [
-              ShimmerSkeleton(
-                width: 46,
-                height: 46,
-                borderRadius: 16,
-              ),
+              ShimmerSkeleton(width: 46, height: 46, borderRadius: 16),
 
               SizedBox(width: 14),
 
-              ShimmerSkeleton(
-                width: 130,
-                height: 22,
-                borderRadius: 8,
-              ),
+              ShimmerSkeleton(width: 130, height: 22, borderRadius: 8),
 
               Spacer(),
 
-              ShimmerSkeleton(
-                width: 38,
-                height: 34,
-                borderRadius: 18,
-              ),
+              ShimmerSkeleton(width: 38, height: 34, borderRadius: 18),
             ],
           ),
 
@@ -572,5 +540,64 @@ class ShimmerCertificacionesPanel extends StatelessWidget {
   }
 }
 
+/// ===============================
+/// SHIMMER NOTIFICACIONES
+/// ===============================
 
+class ShimmerNotificacionesPage extends StatelessWidget {
+  const ShimmerNotificacionesPage({super.key});
 
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < 600;
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 16 : 24,
+            vertical: 24,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const ShimmerSkeleton(width: 260, height: 26, borderRadius: 8),
+              const SizedBox(height: 10),
+              const ShimmerSkeleton(width: 440, height: 14, borderRadius: 8),
+              const SizedBox(height: 20),
+
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: const [
+                  ShimmerSkeleton(width: 170, height: 70, borderRadius: 16),
+                  ShimmerSkeleton(width: 150, height: 70, borderRadius: 16),
+                  ShimmerSkeleton(width: 190, height: 70, borderRadius: 16),
+                ],
+              ),
+
+              const SizedBox(height: 26),
+
+              const ShimmerSkeleton(width: 180, height: 22, borderRadius: 8),
+              const SizedBox(height: 8),
+              const ShimmerSkeleton(width: 420, height: 13, borderRadius: 8),
+              const SizedBox(height: 18),
+
+              ...List.generate(
+                4,
+                (_) => const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: ShimmerSkeleton(
+                    width: double.infinity,
+                    height: 120,
+                    borderRadius: 18,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}

@@ -5,7 +5,7 @@ class LocalNotificationHelper {
       FlutterLocalNotificationsPlugin();
 
   static Future<void> init() async {
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const android = AndroidInitializationSettings('@drawable/logo_circulo');
 
     const ios = DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -41,6 +41,7 @@ class LocalNotificationHelper {
       'Notificaciones TrackFile',
       channelDescription: 'Alertas importantes de TrackFile',
       importance: Importance.max,
+      icon: '@drawable/logo_circulo',
       priority: Priority.high,
       playSound: true,
     );

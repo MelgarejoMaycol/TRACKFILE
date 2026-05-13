@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/notificaciones_service.dart';
+import '../utils/shimmer_skeleton.dart';
 
 class MensajesWidget extends StatefulWidget {
   final String? role;
@@ -265,7 +266,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const ShimmerNotificacionesPage();
     }
 
     switch (_role) {
@@ -288,41 +289,25 @@ class _MensajesWidgetState extends State<MensajesWidget> {
   }
 
   Widget _buildSummaryRow({required bool isCompact}) {
-    final int totalAlerts = _alerts.length;
-    final int urgentAlerts = _alerts
-        .where(
-          (alert) =>
-              alert.urgency == _AlertUrgency.alta ||
-              alert.urgency == _AlertUrgency.critica,
-        )
-        .length;
+    final int unreadAlerts = _alerts.where((alert) => alert.isUnread).length;
 
-    final _AlertNotification? latest = _alerts.isNotEmpty
-        ? _alerts.first
-        : null;
+    final int readAlerts = _alerts.where((alert) => !alert.isUnread).length;
 
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
         _buildSummaryCard(
-          label: 'Notificaciones',
-          value: '$totalAlerts',
-          icon: Icons.notifications_active_rounded,
-          color: const Color(0xFFFFC857),
-        ),
-        _buildSummaryCard(
-          label: 'Urgentes',
-          value: '$urgentAlerts',
-          icon: Icons.report_rounded,
+          label: 'No leídas',
+          value: '$unreadAlerts',
+          icon: Icons.mark_email_unread_rounded,
           color: const Color(0xFFFF6B6B),
         ),
+
         _buildSummaryCard(
-          label: 'Última alerta',
-          value: latest != null
-              ? _formatTimestamp(latest.createdAt)
-              : 'Sin actividad',
-          icon: Icons.schedule_rounded,
+          label: 'Leídas',
+          value: '$readAlerts',
+          icon: Icons.mark_email_read_rounded,
           color: const Color(0xFF16C79A),
         ),
       ],

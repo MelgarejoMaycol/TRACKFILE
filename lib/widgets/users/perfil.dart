@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notification/notificaciones_preferencias_service.dart';
+import 'package:trackfile/services/notification/notificaciones_realtime_service.dart';
 import 'package:trackfile/widgets/utils/logout_button.dart';
 import 'package:trackfile/widgets/utils/shimmer_skeleton.dart';
-import 'package:trackfile/services/notification/notificaciones_realtime_service.dart';
 
 class PerfilWidget extends StatefulWidget {
   final String? userId;
@@ -498,7 +498,9 @@ class _PerfilWidgetState extends State<PerfilWidget> {
               ),
             ],
           ),
+
           const SizedBox(height: 16),
+
           Wrap(
             spacing: 14,
             runSpacing: 14,
@@ -519,6 +521,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                   ),
                 ),
               ),
+
               SizedBox(
                 width: isCompact ? double.infinity : 260,
                 child: OutlinedButton.icon(
@@ -535,53 +538,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                   ),
                 ),
               ),
-              SizedBox(
-                width: isCompact ? double.infinity : 260,
-                child: SwitchListTile(
-                  value: _notificacionesActivas,
-                  onChanged: (value) async {
-                    await NotificacionesPreferenciasService.guardar(value);
 
-                    if (value) {
-                      await NotificacionesRealtimeService.start();
-                    } else {
-                      NotificacionesRealtimeService.stop();
-                    }
-
-                    if (!mounted) return;
-
-                    setState(() {
-                      _notificacionesActivas = value;
-                    });
-                  },
-                  activeThumbColor: Colors.white,
-                  activeTrackColor: _accentColor,
-                  inactiveThumbColor: Colors.white70,
-                  inactiveTrackColor: Colors.white24,
-                  title: const Text(
-                    'Notificaciones',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    _notificacionesActivas
-                        ? 'Alertas emergentes activadas'
-                        : 'Alertas emergentes desactivadas',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                  secondary: const Icon(
-                    Icons.notifications_active_rounded,
-                    color: Colors.white,
-                  ),
-                  tileColor: _panelColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: _borderColor),
-                  ),
-                ),
-              ),
               if (widget.role.toLowerCase() == 'empresa')
                 SizedBox(
                   width: isCompact ? double.infinity : 260,
@@ -600,6 +557,58 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                   ),
                 ),
             ],
+          ),
+
+          const SizedBox(height: 22),
+
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _panelColor,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _borderColor),
+            ),
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _notificacionesActivas,
+              onChanged: (value) async {
+                await NotificacionesPreferenciasService.guardar(value);
+
+                if (value) {
+                  await NotificacionesRealtimeService.start();
+                } else {
+                  NotificacionesRealtimeService.stop();
+                }
+
+                if (!mounted) return;
+
+                setState(() {
+                  _notificacionesActivas = value;
+                });
+              },
+              activeThumbColor: Colors.white,
+              activeTrackColor: _accentColor,
+              inactiveThumbColor: Colors.white70,
+              inactiveTrackColor: Colors.white24,
+              title: const Text(
+                'Notificaciones',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              subtitle: Text(
+                _notificacionesActivas
+                    ? 'Alertas emergentes activadas'
+                    : 'Alertas emergentes desactivadas',
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              secondary: const Icon(
+                Icons.notifications_active_rounded,
+                color: Colors.white,
+              ),
+            ),
           ),
         ],
       ),
