@@ -6,8 +6,15 @@ class MensajesWidget extends StatefulWidget {
   final String? role;
   final String? jsonPath;
   final String? userId;
+  final VoidCallback? onNotificationsChanged;
 
-  const MensajesWidget({super.key, this.role, this.jsonPath, this.userId});
+  const MensajesWidget({
+    super.key,
+    this.role,
+    this.jsonPath,
+    this.userId,
+    this.onNotificationsChanged,
+  });
 
   @override
   State<MensajesWidget> createState() => _MensajesWidgetState();
@@ -23,6 +30,7 @@ class _AlertNotification {
   final _AlertUrgency urgency;
   final bool pushSent;
   final bool emailSent;
+  final String estado;
   final String? idUsuario;
   final String? rolUsuario;
 
@@ -36,22 +44,33 @@ class _AlertNotification {
     required this.urgency,
     required this.pushSent,
     required this.emailSent,
+    required this.estado,
     this.idUsuario,
     this.rolUsuario,
   });
 
+  static DateTime? _parseServerDateToLocal(dynamic value) {
+    if (value == null) return null;
+
+    final String raw = value.toString().trim();
+    if (raw.isEmpty) return null;
+
+    // Si el backend manda fecha sin zona horaria, la tratamos como UTC.
+    final bool hasTimezone =
+        raw.endsWith('Z') || RegExp(r'([+-]\d{2}:\d{2})$').hasMatch(raw);
+
+    final String normalized = hasTimezone ? raw : '${raw}Z';
+
+    return DateTime.tryParse(normalized)?.toLocal();
+  }
+
   factory _AlertNotification.fromMap(Map<String, dynamic> map) {
-    final DateTime? createdAt = DateTime.tryParse(
-      (map['fechaEnvio'] ?? map['fecha_envio'] ?? map['createdAt'] ?? '')
-          .toString(),
+    final DateTime? createdAt = _parseServerDateToLocal(
+      map['fechaEnvio'] ?? map['fecha_envio'] ?? map['createdAt'],
     );
 
-    final DateTime? dueDate = DateTime.tryParse(
-      (map['fechaVencimiento'] ??
-              map['fecha_vencimiento'] ??
-              map['dueDate'] ??
-              '')
-          .toString(),
+    final DateTime? dueDate = _parseServerDateToLocal(
+      map['fechaVencimiento'] ?? map['fecha_vencimiento'] ?? map['dueDate'],
     );
 
     return _AlertNotification(
@@ -70,6 +89,9 @@ class _AlertNotification {
       ),
       pushSent: (map['pushEnviado'] ?? map['push_enviado'] ?? false) == true,
       emailSent: (map['emailEnviado'] ?? map['email_enviado'] ?? false) == true,
+      estado: (map['estado'] ?? map['status'] ?? 'ENVIADA')
+          .toString()
+          .toUpperCase(),
       idUsuario:
           (map['idUsuario'] ?? map['id_usuario'] ?? map['usuarioId'] ?? '')
               .toString(),
@@ -80,7 +102,7 @@ class _AlertNotification {
   }
 
   bool get isExpired => dueDate != null && dueDate!.isBefore(DateTime.now());
-
+  bool get isUnread => estado.toUpperCase() == 'ENVIADA';
   bool get isDueSoon {
     if (dueDate == null) return false;
     final Duration diff = dueDate!.difference(DateTime.now());
@@ -88,19 +110,39 @@ class _AlertNotification {
   }
 }
 
-enum _AlertType { vencimiento, mantenimiento, recordatorio, otro }
+enum _AlertType {
+  documentoVencimiento,
+  documentoVencido,
+  solicitudCreada,
+  solicitudActualizada,
+  mantenimientoActualizado,
+  mantenimientoProgramado,
+  mantenimientoSugerido,
+  sistema,
+  otro,
+}
 
 enum _AlertUrgency { baja, media, alta, critica }
 
 class _AlertTypeX {
   static _AlertType parse(String raw) {
     switch (raw.toUpperCase()) {
-      case 'VENCIMIENTO':
-        return _AlertType.vencimiento;
-      case 'MANTENIMIENTO':
-        return _AlertType.mantenimiento;
-      case 'RECORDATORIO':
-        return _AlertType.recordatorio;
+      case 'DOCUMENTO_VENCIMIENTO':
+        return _AlertType.documentoVencimiento;
+      case 'DOCUMENTO_VENCIDO':
+        return _AlertType.documentoVencido;
+      case 'SOLICITUD_CREADA':
+        return _AlertType.solicitudCreada;
+      case 'SOLICITUD_ACTUALIZADA':
+        return _AlertType.solicitudActualizada;
+      case 'MANTENIMIENTO_ACTUALIZADO':
+        return _AlertType.mantenimientoActualizado;
+      case 'MANTENIMIENTO_PROGRAMADO':
+        return _AlertType.mantenimientoProgramado;
+      case 'MANTENIMIENTO_SUGERIDO':
+        return _AlertType.mantenimientoSugerido;
+      case 'SISTEMA':
+        return _AlertType.sistema;
       default:
         return _AlertType.otro;
     }
@@ -108,12 +150,22 @@ class _AlertTypeX {
 
   static String label(_AlertType type) {
     switch (type) {
-      case _AlertType.vencimiento:
-        return 'Vencimiento';
-      case _AlertType.mantenimiento:
-        return 'Mantenimiento';
-      case _AlertType.recordatorio:
-        return 'Recordatorio';
+      case _AlertType.documentoVencimiento:
+        return 'Documento por vencer';
+      case _AlertType.documentoVencido:
+        return 'Documento vencido';
+      case _AlertType.solicitudCreada:
+        return 'Solicitud pendiente';
+      case _AlertType.solicitudActualizada:
+        return 'Solicitud actualizada';
+      case _AlertType.mantenimientoActualizado:
+        return 'Mantenimiento actualizado';
+      case _AlertType.mantenimientoProgramado:
+        return 'Mantenimiento programado';
+      case _AlertType.mantenimientoSugerido:
+        return 'Mantenimiento sugerido';
+      case _AlertType.sistema:
+        return 'Sistema';
       case _AlertType.otro:
         return 'Otro';
     }
@@ -153,6 +205,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
   bool _isLoading = true;
   late String _role;
   List<_AlertNotification> _alerts = const [];
+  bool _showReadAlerts = false;
 
   @override
   void initState() {
@@ -179,6 +232,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
         _alerts = filteredAlerts;
         _isLoading = false;
       });
+      widget.onNotificationsChanged?.call();
     } catch (e) {
       debugPrint('Error cargando notificaciones: $e');
 
@@ -329,6 +383,9 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       return _buildAlertsEmptyState(isCompact: isCompact);
     }
 
+    final unreadAlerts = _alerts.where((a) => a.isUnread).toList();
+    final readAlerts = _alerts.where((a) => !a.isUnread).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -342,46 +399,139 @@ class _MensajesWidgetState extends State<MensajesWidget> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Revisa vencimientos y mantenimientos con prioridad.',
+          'Primero verás las notificaciones pendientes. Las leídas quedan guardadas en historial.',
           style: TextStyle(
             color: Colors.white60,
             fontSize: isCompact ? 11 : 12,
           ),
         ),
         const SizedBox(height: 16),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            onPressed: () async {
-              final messenger = ScaffoldMessenger.of(context);
 
-              try {
-                await NotificacionesService.marcarTodasComoLeidas();
-                await _loadThreads();
-              } catch (e) {
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('No se pudieron marcar todas como leídas'),
-                    backgroundColor: Colors.redAccent,
-                  ),
-                );
-              }
-            },
-            icon: const Icon(Icons.done_all_rounded, color: Colors.white),
-            label: const Text(
-              'Marcar todas como leídas',
-              style: TextStyle(color: Colors.white),
+        if (unreadAlerts.isNotEmpty)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+
+                try {
+                  await NotificacionesService.marcarTodasComoLeidas();
+                  await _loadThreads();
+                  widget.onNotificationsChanged?.call();
+                } catch (e) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('No se pudieron marcar todas como leídas'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.done_all_rounded, color: Colors.white),
+              label: const Text(
+                'Marcar todas como leídas',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ),
-        ),
+
         const SizedBox(height: 10),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _alerts.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 4),
-          itemBuilder: (_, index) => _buildAlertCard(_alerts[index]),
-        ),
+
+        if (unreadAlerts.isNotEmpty) ...[
+          Text(
+            'No leídas',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: isCompact ? 14 : 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: unreadAlerts.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (_, index) => _buildAlertCard(unreadAlerts[index]),
+          ),
+        ] else
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: const Text(
+              'No tienes notificaciones pendientes.',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+
+        if (readAlerts.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              setState(() {
+                _showReadAlerts = !_showReadAlerts;
+              });
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.history_rounded,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Notificaciones leídas (${readAlerts.length})',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _showReadAlerts
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: Colors.white70,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: readAlerts.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (_, index) =>
+                    _buildAlertCard(readAlerts[index], isReadStyle: true),
+              ),
+            ),
+            crossFadeState: _showReadAlerts
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 220),
+          ),
+        ],
       ],
     );
   }
@@ -437,144 +587,168 @@ class _MensajesWidgetState extends State<MensajesWidget> {
     );
   }
 
-  Widget _buildAlertCard(_AlertNotification alert) {
+  Widget _buildAlertCard(_AlertNotification alert, {bool isReadStyle = false}) {
     final Color baseColor = _alertBaseColor(alert.type);
     final IconData icon = _alertIcon(alert.type);
     final String dueLabel = _dueDateLabel(alert.dueDate);
     final Color urgencyColor = _urgencyColor(alert.urgency);
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () async {
-        final messenger = ScaffoldMessenger.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isMobile = constraints.maxWidth < 600;
 
-        try {
-          await NotificacionesService.marcarComoLeida(alert.id);
-          await _loadThreads();
-        } catch (e) {
-          messenger.showSnackBar(
-            const SnackBar(
-              content: Text('No se pudo marcar la notificación como leída'),
-              backgroundColor: Colors.redAccent,
+        return InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () async {
+            final messenger = ScaffoldMessenger.of(context);
+
+            try {
+              await NotificacionesService.marcarComoLeida(alert.id);
+              await _loadThreads();
+              widget.onNotificationsChanged?.call();
+            } catch (e) {
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text('No se pudo marcar la notificación como leída'),
+                  backgroundColor: Colors.redAccent,
+                ),
+              );
+            }
+          },
+          child: Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: EdgeInsets.all(isMobile ? 14 : 18),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  baseColor.withValues(alpha: isReadStyle ? 0.28 : 0.95),
+                  baseColor.withValues(alpha: isReadStyle ? 0.18 : 0.72),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+              boxShadow: [
+                BoxShadow(
+                  color: baseColor.withValues(alpha: isReadStyle ? 0.08 : 0.22),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-          );
-        }
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              baseColor.withValues(alpha: 0.92),
-              baseColor.withValues(alpha: 0.65),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          boxShadow: [
-            BoxShadow(
-              color: baseColor.withValues(alpha: 0.18),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 20,
-                  height: 20,
+                  width: isMobile ? 38 : 46,
+                  height: isMobile ? 38 : 46,
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.18),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, color: Colors.white, size: 12),
+                  child: Icon(
+                    icon,
+                    color: Colors.white,
+                    size: isMobile ? 20 : 24,
+                  ),
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: isMobile ? 10 : 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        runSpacing: 4,
+                        children: [
+                          Text(
+                            alert.title,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: isMobile ? 14 : 16,
+                            ),
+                          ),
+                          Text(
+                            _formatTimestamp(alert.createdAt),
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: isMobile ? 11 : 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       Text(
-                        alert.title,
-                        style: const TextStyle(
+                        alert.message,
+                        style: TextStyle(
                           color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 9.5,
+                          fontSize: isMobile ? 12.5 : 14,
+                          height: 1.35,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 1),
-                      Text(
-                        _formatTimestamp(alert.createdAt),
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 8.5,
-                        ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _buildAlertChip(_AlertTypeX.label(alert.type)),
+                          if (alert.isUnread)
+                            _buildAlertChip(
+                              'No leída',
+                              color: const Color(0xFFFFC857),
+                            ),
+                          _buildAlertChip(
+                            'Urgencia ${_AlertUrgencyX.label(alert.urgency)}',
+                            color: urgencyColor,
+                          ),
+                          _buildAlertChip(
+                            dueLabel,
+                            color: Colors.white.withValues(alpha: 0.25),
+                          ),
+                          if (alert.isDueSoon)
+                            _buildAlertChip(
+                              'Atención esta semana',
+                              color: Colors.white.withValues(alpha: 0.35),
+                            ),
+                          if (alert.isExpired)
+                            _buildAlertChip(
+                              'Vencida',
+                              color: const Color(0xFFFF6B6B),
+                            ),
+                        ],
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 2),
-            Text(
-              alert.message,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 8.5,
-                height: 1.1,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Wrap(
-              spacing: 3,
-              runSpacing: 1,
-              children: [
-                _buildAlertChip(_AlertTypeX.label(alert.type)),
-                _buildAlertChip(
-                  'Urgencia ${_AlertUrgencyX.label(alert.urgency)}',
-                  color: urgencyColor,
-                ),
-                _buildAlertChip(
-                  dueLabel,
-                  color: Colors.white.withValues(alpha: 0.25),
-                ),
-                if (alert.isDueSoon)
-                  _buildAlertChip(
-                    'Atención esta semana',
-                    color: Colors.white.withValues(alpha: 0.35),
-                  ),
-                if (alert.isExpired)
-                  _buildAlertChip('Vencida', color: const Color(0xFFFF6B6B)),
-              ],
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildAlertChip(String text, {Color? color}) {
     final Color resolved = color ?? Colors.white.withValues(alpha: 0.22);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: resolved,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(999),
         border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
       child: Text(
         text,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 7,
-          fontWeight: FontWeight.w500,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -582,12 +756,20 @@ class _MensajesWidgetState extends State<MensajesWidget> {
 
   Color _alertBaseColor(_AlertType type) {
     switch (type) {
-      case _AlertType.vencimiento:
+      case _AlertType.documentoVencimiento:
+      case _AlertType.documentoVencido:
         return const Color(0xFFFF6B6B);
-      case _AlertType.mantenimiento:
+
+      case _AlertType.solicitudCreada:
+      case _AlertType.solicitudActualizada:
         return const Color(0xFF4F4CE8);
-      case _AlertType.recordatorio:
+
+      case _AlertType.mantenimientoActualizado:
+      case _AlertType.mantenimientoProgramado:
+      case _AlertType.mantenimientoSugerido:
         return const Color(0xFF16C79A);
+
+      case _AlertType.sistema:
       case _AlertType.otro:
         return const Color(0xFF1F9EDC);
     }
@@ -595,12 +777,22 @@ class _MensajesWidgetState extends State<MensajesWidget> {
 
   IconData _alertIcon(_AlertType type) {
     switch (type) {
-      case _AlertType.vencimiento:
+      case _AlertType.documentoVencimiento:
         return Icons.event_busy_rounded;
-      case _AlertType.mantenimiento:
+      case _AlertType.documentoVencido:
+        return Icons.warning_rounded;
+
+      case _AlertType.solicitudCreada:
+        return Icons.assignment_late_rounded;
+      case _AlertType.solicitudActualizada:
+        return Icons.assignment_turned_in_rounded;
+
+      case _AlertType.mantenimientoActualizado:
+      case _AlertType.mantenimientoProgramado:
+      case _AlertType.mantenimientoSugerido:
         return Icons.build_circle_rounded;
-      case _AlertType.recordatorio:
-        return Icons.notifications_active_rounded;
+
+      case _AlertType.sistema:
       case _AlertType.otro:
         return Icons.info_rounded;
     }
@@ -706,16 +898,28 @@ class _MensajesWidgetState extends State<MensajesWidget> {
   }
 
   String _formatTimestamp(DateTime timestamp) {
+    final DateTime localTime = timestamp.toLocal();
     final DateTime now = DateTime.now();
-    if (timestamp.year == now.year &&
-        timestamp.month == now.month &&
-        timestamp.day == now.day) {
-      final String hour = timestamp.hour.toString().padLeft(2, '0');
-      final String minute = timestamp.minute.toString().padLeft(2, '0');
+
+    final Duration diff = now.difference(localTime);
+
+    final String hour = localTime.hour.toString().padLeft(2, '0');
+    final String minute = localTime.minute.toString().padLeft(2, '0');
+
+    // Hoy -> solo hora
+    final bool sameDay =
+        localTime.year == now.year &&
+        localTime.month == now.month &&
+        localTime.day == now.day;
+
+    if (sameDay || (diff.inHours < 24 && !diff.isNegative)) {
       return '$hour:$minute';
     }
-    final String day = timestamp.day.toString().padLeft(2, '0');
-    final String month = timestamp.month.toString().padLeft(2, '0');
-    return '$day/$month';
+
+    // Más de un día -> fecha + hora
+    final String day = localTime.day.toString().padLeft(2, '0');
+    final String month = localTime.month.toString().padLeft(2, '0');
+
+    return '$day/$month $hour:$minute';
   }
 }

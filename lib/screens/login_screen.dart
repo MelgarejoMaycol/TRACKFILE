@@ -13,6 +13,8 @@ import 'package:trackfile/services/api_link.dart';
 import 'package:trackfile/utils/api_config.dart';
 import 'package:trackfile/utils/role_router.dart';
 
+import 'package:trackfile/services/notification/notificaciones_realtime_service.dart';
+
 class LoginScreen extends StatefulWidget {
   static const route = '/login';
   const LoginScreen({super.key});
@@ -586,6 +588,8 @@ class _LoginScreenState extends State<LoginScreen>
 
           await prefs.setString('user_id', usuarioId.toString());
           await prefs.setString('usuario_id', usuarioId.toString());
+
+          await NotificacionesRealtimeService.start();
 
           final empresaId = sessionData['empresaId']?.toString();
           if (empresaId != null && empresaId.isNotEmpty) {

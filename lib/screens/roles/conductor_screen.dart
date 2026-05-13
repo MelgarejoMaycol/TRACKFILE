@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notificaciones_service.dart';
+import 'package:trackfile/services/notification/notificaciones_realtime_service.dart';
 import 'package:trackfile/widgets/certificados/certificaciones.dart';
 import 'package:trackfile/widgets/documents/documentos_screen.dart';
 import 'package:trackfile/widgets/inicio.dart';
@@ -69,6 +70,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
   @override
   void initState() {
     super.initState();
+    NotificacionesRealtimeService.start();
     _loadUserData();
     _loadNotificationsCount();
   }
@@ -853,7 +855,11 @@ class _ConductorScreenState extends State<ConductorScreen> {
           },
         );
       case 'Mensajes':
-        return MensajesWidget(role: 'Conductor', userId: widget.userId);
+        return MensajesWidget(
+          role: 'Conductor',
+          userId: widget.userId,
+          onNotificationsChanged: _loadNotificationsCount,
+        );
       case 'Vehículo':
         return VehiculosWidget(
           role: 'Conductor',

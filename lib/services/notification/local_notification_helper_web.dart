@@ -1,0 +1,26 @@
+import 'dart:html' as html;
+
+class LocalNotificationHelper {
+  static Future<void> init() async {
+    if (!html.Notification.supported) return;
+
+    if (html.Notification.permission != 'granted') {
+      await html.Notification.requestPermission();
+    }
+  }
+
+  static Future<void> show({
+    required String title,
+    required String body,
+  }) async {
+    if (!html.Notification.supported) return;
+
+    if (html.Notification.permission == 'granted') {
+      html.Notification(
+        title,
+        body: body,
+        icon: '/icons/Icon-192.png',
+      );
+    }
+  }
+}

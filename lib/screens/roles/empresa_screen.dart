@@ -13,6 +13,8 @@ import 'package:trackfile/widgets/users/gestion_personas_widget.dart';
 import 'package:trackfile/widgets/users/perfil.dart';
 import 'package:trackfile/widgets/vehiculos/vehiculos.dart';
 
+import '../../services/notification/notificaciones_realtime_service.dart';
+
 class _MenuOption {
   final String label;
   final IconData icon;
@@ -97,6 +99,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   @override
   void initState() {
     super.initState();
+    NotificacionesRealtimeService.start();
     _hydrateCompany();
     _loadDashboard();
     _loadNotificationsCount();
@@ -522,6 +525,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
         return MensajesWidget(
           role: 'Empresa',
           userId: widget.usuario?['id']?.toString(),
+          onNotificationsChanged: _loadNotificationsCount,
         );
       case 'Certificaciones':
         return CertificacionesWidget(
@@ -1399,7 +1403,9 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                             child: AnimatedSwitcher(
                               duration: const Duration(milliseconds: 200),
                               child: KeyedSubtree(
-                                key: ValueKey('$_activeSection-$_contentRefreshKey'),
+                                key: ValueKey(
+                                  '$_activeSection-$_contentRefreshKey',
+                                ),
                                 child: _buildContentView(),
                               ),
                             ),

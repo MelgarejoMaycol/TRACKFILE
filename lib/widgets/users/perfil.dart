@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:trackfile/services/api_service.dart';
+import 'package:trackfile/services/notification/notificaciones_preferencias_service.dart';
 import 'package:trackfile/widgets/utils/logout_button.dart';
 import 'package:trackfile/widgets/utils/shimmer_skeleton.dart';
+import 'package:trackfile/services/notification/notificaciones_realtime_service.dart';
 
 class PerfilWidget extends StatefulWidget {
   final String? userId;
@@ -103,6 +105,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
   static const Color _borderColor = Color(0xFF5653D9);
   static const Color _softBorderColor = Color(0xFF3E3BB8);
 
+  bool _notificacionesActivas = true;
   bool _isLoading = true;
   bool _hasError = false;
   _PerfilUsuario? _perfil;
@@ -111,7 +114,18 @@ class _PerfilWidgetState extends State<PerfilWidget> {
   @override
   void initState() {
     super.initState();
+    _cargarPreferenciasNotificaciones();
     _cargarPerfil();
+  }
+
+  Future<void> _cargarPreferenciasNotificaciones() async {
+    final activas = await NotificacionesPreferenciasService.estanActivas();
+
+    if (!mounted) return;
+
+    setState(() {
+      _notificacionesActivas = activas;
+    });
   }
 
   Future<void> _cargarPerfil() async {
@@ -518,6 +532,53 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: isCompact ? double.infinity : 260,
+                child: SwitchListTile(
+                  value: _notificacionesActivas,
+                  onChanged: (value) async {
+                    await NotificacionesPreferenciasService.guardar(value);
+
+                    if (value) {
+                      await NotificacionesRealtimeService.start();
+                    } else {
+                      NotificacionesRealtimeService.stop();
+                    }
+
+                    if (!mounted) return;
+
+                    setState(() {
+                      _notificacionesActivas = value;
+                    });
+                  },
+                  activeThumbColor: Colors.white,
+                  activeTrackColor: _accentColor,
+                  inactiveThumbColor: Colors.white70,
+                  inactiveTrackColor: Colors.white24,
+                  title: const Text(
+                    'Notificaciones',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    _notificacionesActivas
+                        ? 'Alertas emergentes activadas'
+                        : 'Alertas emergentes desactivadas',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  secondary: const Icon(
+                    Icons.notifications_active_rounded,
+                    color: Colors.white,
+                  ),
+                  tileColor: _panelColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: _borderColor),
                   ),
                 ),
               ),

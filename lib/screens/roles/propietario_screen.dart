@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notificaciones_service.dart';
+import 'package:trackfile/services/notification/notificaciones_realtime_service.dart';
 import 'package:trackfile/utils/api_config.dart';
 import 'package:trackfile/widgets/certificados/certificaciones.dart';
 import 'package:trackfile/widgets/documents/documentos_screen.dart';
@@ -125,6 +126,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   @override
   void initState() {
     super.initState();
+    NotificacionesRealtimeService.start();
     _initBaseUrl();
     _loadInitialData();
   }
@@ -1190,7 +1192,11 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           },
         );
       case 'Mensajes':
-        return MensajesWidget(role: 'Propietario', userId: widget.userId);
+        return MensajesWidget(
+          role: 'Propietario',
+          userId: widget.userId,
+          onNotificationsChanged: _loadNotificationsCount,
+        );
       case 'Vehículo':
         debugPrint(
           '📍 PropietarioScreen.Vehículo - userId: ${widget.userId}, propietarioId: $_propietarioId',

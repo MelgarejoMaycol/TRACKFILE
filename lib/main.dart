@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'services/notification/local_notification_helper.dart';
 
 import 'router/app_router.dart';
 
@@ -10,6 +11,7 @@ void main() async {
   // Limpieza de configuración vieja guardada en el navegador.
   final prefs = await SharedPreferences.getInstance();
   await prefs.remove('api_base_url');
+  await LocalNotificationHelper.init();
 
   runApp(const TrackFileApp());
 }
