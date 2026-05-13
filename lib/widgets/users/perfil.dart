@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:trackfile/services/api_service.dart';
-import 'package:trackfile/services/notification/notificaciones_preferencias_service.dart';
-import 'package:trackfile/services/notification/notificaciones_realtime_service.dart';
+import 'package:trackfile/services/notifications/notificaciones_preferencias_service.dart';
+import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
 import 'package:trackfile/widgets/utils/logout_button.dart';
 import 'package:trackfile/widgets/utils/shimmer_skeleton.dart';
 

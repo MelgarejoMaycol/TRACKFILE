@@ -3,15 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notificaciones_service.dart';
-import 'package:trackfile/services/notification/notificaciones_realtime_service.dart';
-import 'package:trackfile/widgets/certificados/certificaciones.dart';
+import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
+import 'package:trackfile/widgets/certificates/certificaciones.dart';
 import 'package:trackfile/widgets/documents/documentos_screen.dart';
 import 'package:trackfile/widgets/inicio.dart';
-import 'package:trackfile/widgets/mantenimientos/mantenimientos.dart';
-import 'package:trackfile/widgets/mensajes/mensajes.dart';
+import 'package:trackfile/widgets/maintenance/mantenimientos.dart';
+import 'package:trackfile/widgets/messages/mensajes.dart';
 import 'package:trackfile/widgets/users/empresa.dart';
 import 'package:trackfile/widgets/users/perfil.dart';
-import 'package:trackfile/widgets/vehiculos/vehiculos.dart';
+import 'package:trackfile/widgets/vehicles/vehiculos.dart';
 
 class _MenuOption {
   final String label;

@@ -13,7 +13,7 @@ import 'package:trackfile/services/api_link.dart';
 import 'package:trackfile/utils/api_config.dart';
 import 'package:trackfile/utils/role_router.dart';
 
-import 'package:trackfile/services/notification/notificaciones_realtime_service.dart';
+import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
 
 class LoginScreen extends StatefulWidget {
   static const route = '/login';

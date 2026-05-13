@@ -12,13 +12,13 @@ import '../screens/roles/empresa_screen.dart';
 import '../screens/roles/propietario_screen.dart';
 import '../screens/roles/secretaria_screen.dart';
 import '../utils/role_router.dart';
-import '../widgets/certificados/certificaciones.dart';
+import '../widgets/certificates/certificaciones.dart';
 import '../widgets/documents/documentos_screen.dart';
 // Widgets / pantallas internas
 import '../widgets/inicio.dart';
-import '../widgets/mantenimientos/mantenimientos.dart';
-import '../widgets/mensajes/mensajes.dart';
-import '../widgets/pagos/pagos.dart';
+import '../widgets/maintenance/mantenimientos.dart';
+import '../widgets/messages/mensajes.dart';
+import '../widgets/payments/pagos.dart';
 import '../widgets/users/empresa.dart';
 import '../widgets/users/gestion_personas_widget.dart';
 import '../widgets/users/perfil.dart';

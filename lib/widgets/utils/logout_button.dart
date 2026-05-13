@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:trackfile/services/notification/notificaciones_realtime_service.dart';
+import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
 
 class LogoutButton extends StatelessWidget {
   const LogoutButton({super.key});
