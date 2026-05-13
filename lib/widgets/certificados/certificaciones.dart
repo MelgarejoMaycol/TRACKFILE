@@ -1,9 +1,9 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/api_service.dart';
+import '../documents/document_preview_modal.dart';
 import '../utils/shimmer_skeleton.dart';
 
 class CertificacionesWidget extends StatefulWidget {
@@ -959,7 +959,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     return Icons.description_rounded;
   }
 
-  Future<void> _descargarDocumento(_Solicitud solicitud) async {
+  Future<void> _verDocumento(_Solicitud solicitud) async {
     final String? url = solicitud.urlDocumento;
 
     if (url == null || url.trim().isEmpty) {
@@ -972,18 +972,13 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
       return;
     }
 
-    final Uri uri = Uri.parse(url);
-
-    final bool ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-
-    if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('No se pudo abrir el documento.'),
-          backgroundColor: _dangerColor,
-        ),
-      );
-    }
+    DocumentPreviewModal.show(
+      context: context,
+      documentName: 'Certificado',
+      fileUrl: url.trim(),
+      expiryDate: null,
+      observations: solicitud.descripcion,
+    );
   }
 
   Widget _buildSolicitudCard(_SolicitudDetalle detalle) {
@@ -1162,33 +1157,13 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                                                     .isNotEmpty)
                                               OutlinedButton.icon(
                                                 onPressed: () =>
-                                                    _descargarDocumento(
-                                                      solicitud,
-                                                    ),
+                                                    _verDocumento(solicitud),
                                                 icon: const Icon(
-                                                  Icons.download_rounded,
+                                                  Icons.visibility_rounded,
                                                   size: 18,
                                                 ),
-                                                label: const Text('Descargar'),
-                                                style: OutlinedButton.styleFrom(
-                                                  foregroundColor: Colors.white,
-                                                  side: BorderSide(
-                                                    color: Colors.white
-                                                        .withValues(
-                                                          alpha: 0.18,
-                                                        ),
-                                                  ),
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 14,
-                                                        vertical: 12,
-                                                      ),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          14,
-                                                        ),
-                                                  ),
+                                                label: const Text(
+                                                  'Ver documento',
                                                 ),
                                               ),
 
@@ -1830,6 +1805,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     String estadoSeleccionado = 'ACEPTADA';
 
     PlatformFile? archivoSeleccionado;
+    bool subiendoArchivo = false;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -1895,11 +1871,13 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                           child: Text('Rechazar'),
                         ),
                       ],
-                      onChanged: (value) {
-                        setModalState(() {
-                          estadoSeleccionado = value ?? 'ACEPTADA';
-                        });
-                      },
+                      onChanged: subiendoArchivo
+                          ? null
+                          : (value) {
+                              setModalState(() {
+                                estadoSeleccionado = value ?? 'ACEPTADA';
+                              });
+                            },
                     ),
                     if (estadoSeleccionado == 'ACEPTADA') ...[
                       const Text(
@@ -1911,19 +1889,23 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                       ),
                       const SizedBox(height: 10),
                       OutlinedButton.icon(
-                        onPressed: () async {
-                          final result = await FilePicker.platform.pickFiles(
-                            type: FileType.custom,
-                            allowedExtensions: ['pdf'],
-                            withData: true,
-                          );
+                        onPressed: subiendoArchivo
+                            ? null
+                            : () async {
+                                final result = await FilePicker.platform
+                                    .pickFiles(
+                                      type: FileType.custom,
+                                      allowedExtensions: ['pdf'],
+                                      withData: true,
+                                    );
 
-                          if (result == null || result.files.isEmpty) return;
+                                if (result == null || result.files.isEmpty)
+                                  return;
 
-                          setModalState(() {
-                            archivoSeleccionado = result.files.first;
-                          });
-                        },
+                                setModalState(() {
+                                  archivoSeleccionado = result.files.first;
+                                });
+                              },
                         icon: const Icon(Icons.upload_file),
                         label: Text(
                           archivoSeleccionado == null
@@ -1946,6 +1928,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
 
                     TextField(
                       controller: observacionesController,
+                      enabled: !subiendoArchivo,
                       maxLines: 3,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
@@ -1964,74 +1947,87 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () async {
-                          if (estadoSeleccionado == 'ACEPTADA' &&
-                              archivoSeleccionado == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text(
-                                  'Debes seleccionar un PDF.',
-                                ),
-                                backgroundColor: _warningColor,
-                              ),
-                            );
-                            return;
-                          }
+                        onPressed: subiendoArchivo
+                            ? null
+                            : () async {
+                                if (estadoSeleccionado == 'ACEPTADA' &&
+                                    archivoSeleccionado == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text(
+                                        'Debes seleccionar un PDF.',
+                                      ),
+                                      backgroundColor: _warningColor,
+                                    ),
+                                  );
+                                  return;
+                                }
 
-                          Navigator.pop(ctx);
+                                setModalState(() {
+                                  subiendoArchivo = true;
+                                });
 
-                          final respuesta =
-                              await ApiService.responderSolicitudConArchivo(
-                                solicitudId: detalle.solicitud.id,
-                                estado: estadoSeleccionado,
-                                observaciones:
-                                    observacionesController.text.trim().isEmpty
-                                    ? estadoSeleccionado == 'ACEPTADA'
-                                          ? 'Solicitud revisada y aprobada correctamente.'
-                                          : 'Solicitud rechazada.'
-                                    : observacionesController.text.trim(),
-                                archivo: estadoSeleccionado == 'ACEPTADA'
-                                    ? archivoSeleccionado
-                                    : null,
-                              );
+                                final respuesta =
+                                    await ApiService.responderSolicitudConArchivo(
+                                      solicitudId: detalle.solicitud.id,
+                                      estado: estadoSeleccionado,
+                                      observaciones:
+                                          observacionesController.text
+                                              .trim()
+                                              .isEmpty
+                                          ? estadoSeleccionado == 'ACEPTADA'
+                                                ? 'Solicitud revisada y aprobada correctamente.'
+                                                : 'Solicitud rechazada.'
+                                          : observacionesController.text.trim(),
+                                      archivo: estadoSeleccionado == 'ACEPTADA'
+                                          ? archivoSeleccionado
+                                          : null,
+                                    );
 
-                          if (!mounted) return;
+                                if (!mounted) return;
 
-                          if (respuesta == null) {
-                            ScaffoldMessenger.of(this.context).showSnackBar(
-                              SnackBar(
-                                content: const Text(
-                                  'No se pudo responder la solicitud.',
-                                ),
-                                backgroundColor: _dangerColor,
-                              ),
-                            );
-                            return;
-                          }
+                                if (respuesta == null) {
+                                  setModalState(() {
+                                    subiendoArchivo = false;
+                                  });
+                                  ScaffoldMessenger.of(
+                                    this.context,
+                                  ).showSnackBar(
+                                    SnackBar(
+                                      content: const Text(
+                                        'No se pudo responder la solicitud.',
+                                      ),
+                                      backgroundColor: _dangerColor,
+                                    ),
+                                  );
+                                  return;
+                                }
+                                if (mounted) Navigator.pop(ctx);
 
-                          await _loadData();
+                                await _loadData();
 
-                          if (!mounted) return;
+                                if (!mounted) return;
 
-                          setState(() {
-                            _expandedSolicitudId = null;
-                            _searchQuery = '';
-                            _searchController.clear();
-                          });
+                                setState(() {
+                                  _expandedSolicitudId = null;
+                                  _searchQuery = '';
+                                  _searchController.clear();
+                                });
 
-                          ScaffoldMessenger.of(this.context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                estadoSeleccionado == 'ACEPTADA'
-                                    ? 'Solicitud aceptada correctamente.'
-                                    : 'Solicitud rechazada correctamente.',
-                              ),
-                              backgroundColor: estadoSeleccionado == 'ACEPTADA'
-                                  ? _successColor
-                                  : _dangerColor,
-                            ),
-                          );
-                        },
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      estadoSeleccionado == 'ACEPTADA'
+                                          ? 'Solicitud aceptada correctamente.'
+                                          : 'Solicitud rechazada correctamente.',
+                                    ),
+                                    backgroundColor:
+                                        estadoSeleccionado == 'ACEPTADA'
+                                        ? _successColor
+                                        : _dangerColor,
+                                  ),
+                                );
+                              },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: estadoSeleccionado == 'ACEPTADA'
                               ? _successColor
@@ -2039,11 +2035,27 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
-                        child: Text(
-                          estadoSeleccionado == 'ACEPTADA'
-                              ? 'Aceptar solicitud'
-                              : 'Rechazar solicitud',
-                        ),
+                        child: subiendoArchivo
+                            ? const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.4,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  SizedBox(width: 10),
+                                  Text('Subiendo archivo...'),
+                                ],
+                              )
+                            : Text(
+                                estadoSeleccionado == 'ACEPTADA'
+                                    ? 'Aceptar solicitud'
+                                    : 'Rechazar solicitud',
+                              ),
                       ),
                     ),
                   ],

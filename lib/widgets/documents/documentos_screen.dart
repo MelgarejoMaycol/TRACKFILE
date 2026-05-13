@@ -206,6 +206,39 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
     });
   }
 
+  Future<void> _refreshExplorerDataKeepingCurrentView() async {
+    final previousView = _view;
+    final previousPersonId = _selectedPerson?.id;
+    final previousVehicleId = _selectedVehicle?.id;
+    final previousShowHistory = _showHistory;
+
+    await _loadExplorerData();
+
+    if (!mounted) return;
+
+    setState(() {
+      _showHistory = previousShowHistory;
+
+      if (previousView == _DocumentosFlowView.personDetail &&
+          previousPersonId != null) {
+        final matches = _persons.where((p) => p.id == previousPersonId);
+        if (matches.isNotEmpty) {
+          _selectedPerson = matches.first;
+          _view = _DocumentosFlowView.personDetail;
+        }
+      }
+
+      if (previousView == _DocumentosFlowView.vehicleDetail &&
+          previousVehicleId != null) {
+        final matches = _vehicles.where((v) => v.id == previousVehicleId);
+        if (matches.isNotEmpty) {
+          _selectedVehicle = matches.first;
+          _view = _DocumentosFlowView.vehicleDetail;
+        }
+      }
+    });
+  }
+
   List<_DocumentEntry> _filterDocumentsByRole(
     List<_DocumentEntry> documents,
     List<Map<String, dynamic>> vehicles,
@@ -528,7 +561,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
           person.documentNumber.toLowerCase().contains(needle);
     }).toList();
     return effective;
-  }
+  } 
 
   void _showUploadModal() {
     UploadDocumentModal.show(
@@ -536,7 +569,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
       userId: widget.userId ?? '',
       userRole: widget.role ?? 'Empresa',
       token: _authToken,
-      onSuccess: _loadExplorerData,
+      onSuccess: _refreshExplorerDataKeepingCurrentView,
     );
   }
 
@@ -977,14 +1010,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                     detalle?['urlStorage'] ?? detalle?['url_storage'];
 
                 if (rawUrl != null && rawUrl.toString().trim().isNotEmpty) {
-                  final value = rawUrl.toString().trim();
-                  final baseUrl = getApiLink();
-
-                  fileUrl = value.startsWith('http')
-                      ? value
-                      : value.startsWith('/')
-                      ? '$baseUrl$value'
-                      : '$baseUrl/$value';
+                  fileUrl = _normalizeFileUrl(rawUrl.toString());
                 }
               }
 
@@ -992,13 +1018,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
 
               if (!mounted) return;
 
-              DocumentPreviewModal.show(
-                context: context,
-                documentName: doc.name,
-                fileUrl: fileUrl,
-                expiryDate: doc.expiryDate,
-                observations: doc.observations,
-              );
+              _showDocumentDetailModal(doc, fileUrl);
             },
             borderRadius: BorderRadius.circular(18),
             child: Container(
@@ -1849,6 +1869,302 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
         : Icons.insert_drive_file_rounded;
   }
 
+  String _normalizeFileUrl(String value) {
+    final cleanValue = value.trim();
+
+    if (cleanValue.isEmpty) return '';
+
+    if (cleanValue.startsWith('http://') || cleanValue.startsWith('https://')) {
+      return cleanValue;
+    }
+
+    final baseUrl = getApiLink();
+
+    if (cleanValue.startsWith('/')) {
+      return '$baseUrl$cleanValue';
+    }
+
+    return '$baseUrl/$cleanValue';
+  }
+
+  Future<void> _showDocumentDetailModal(
+    _DocumentEntry document,
+    String fileUrl,
+  ) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+
+      builder: (context) {
+        final bool isVehicleDocument = document.vehicleId.isNotEmpty;
+
+        _VehicleSummary? linkedVehicle;
+
+        if (document.vehicleId.isNotEmpty) {
+          final matches = _vehicles.where(
+            (vehicle) => vehicle.id == document.vehicleId,
+          );
+          if (matches.isNotEmpty) {
+            linkedVehicle = matches.first;
+          }
+        }
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 24,
+          ),
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: 620,
+              maxHeight: MediaQuery.of(context).size.height * 0.88,
+            ),
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: _cardColor,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _accentColor.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(
+                          _getDocumentIcon(document),
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          document.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 22),
+
+                  _buildDetailRow(
+                    Icons.category_rounded,
+                    'Tipo',
+                    document.name,
+                  ),
+
+                  _buildDetailRow(
+                    Icons.info_rounded,
+                    'Estado',
+                    document.estadoDocumento ? 'Activo' : 'Histórico/Inactivo',
+                  ),
+
+                  _buildDetailRow(
+                    Icons.event_available_rounded,
+                    'Fecha de creación',
+                    document.creationDate != null
+                        ? '${document.creationDate!.day.toString().padLeft(2, '0')}/${document.creationDate!.month.toString().padLeft(2, '0')}/${document.creationDate!.year}'
+                        : 'Sin fecha registrada',
+                  ),
+
+                  _buildDetailRow(
+                    Icons.calendar_today_rounded,
+                    'Fecha de vencimiento',
+                    document.expiryDate != null
+                        ? document.formattedExpiry
+                        : 'Sin fecha registrada',
+                  ),
+
+                  _buildDetailRow(
+                    Icons.warning_amber_rounded,
+                    'Tiempo restante',
+                    document.expiryDate != null
+                        ? document.remainingLabel
+                        : 'No aplica',
+                  ),
+
+                  _buildDetailRow(
+                    Icons.person_rounded,
+                    'Persona asociada',
+                    document.ownerName.isNotEmpty
+                        ? document.ownerName
+                        : 'No disponible',
+                  ),
+
+                  if (document.documentNumber.isNotEmpty)
+                    _buildDetailRow(
+                      Icons.badge_rounded,
+                      'Documento de identidad',
+                      document.documentNumber,
+                    ),
+
+                  _buildDetailRow(
+                    Icons.directions_car_rounded,
+                    'Tipo de documento',
+                    isVehicleDocument
+                        ? 'Documento de vehículo'
+                        : 'Documento personal',
+                  ),
+
+                  if (document.vehiclePlate.isNotEmpty)
+                    _buildDetailRow(
+                      Icons.confirmation_number_rounded,
+                      'Placa del vehículo',
+                      document.vehiclePlate,
+                    ),
+
+                  if (linkedVehicle != null) ...[
+                    _buildDetailRow(
+                      Icons.directions_car_filled_rounded,
+                      'Vehículo',
+                      '${linkedVehicle.title} • Placa ${linkedVehicle.plate}',
+                    ),
+
+                    _buildDetailRow(
+                      Icons.home_rounded,
+                      'Propietario',
+                      linkedVehicle.propietario.isNotEmpty
+                          ? linkedVehicle.propietario
+                          : 'No asignado',
+                    ),
+
+                    _buildDetailRow(
+                      Icons.person_pin_rounded,
+                      'Conductor',
+                      linkedVehicle.conductor.isNotEmpty
+                          ? linkedVehicle.conductor
+                          : 'No asignado',
+                    ),
+                  ],
+
+                  if (document.observations.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Observaciones',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        document.observations,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: fileUrl.trim().isEmpty
+                          ? null
+                          : () {
+                              Navigator.pop(context);
+
+                              DocumentPreviewModal.show(
+                                context: this.context,
+                                documentName: document.name,
+                                fileUrl: fileUrl,
+                                expiryDate: document.expiryDate,
+                                observations: document.observations,
+                              );
+                            },
+                      icon: const Icon(Icons.visibility_rounded),
+                      label: const Text('Ver documento'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _accentColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.055),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.white70, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value.isEmpty ? 'No disponible' : value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDocumentCard(_DocumentEntry document) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1867,26 +2183,13 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
               final rawUrl = detalle?['urlStorage'] ?? detalle?['url_storage'];
 
               if (rawUrl != null && rawUrl.toString().trim().isNotEmpty) {
-                final value = rawUrl.toString().trim();
-                final baseUrl = getApiLink();
-
-                fileUrl = value.startsWith('http')
-                    ? value
-                    : value.startsWith('/')
-                    ? '$baseUrl$value'
-                    : '$baseUrl/$value';
+                fileUrl = _normalizeFileUrl(rawUrl.toString());
               }
             }
 
             if (!context.mounted) return;
 
-            DocumentPreviewModal.show(
-              context: context,
-              documentName: document.name,
-              fileUrl: fileUrl,
-              expiryDate: document.expiryDate,
-              observations: document.observations,
-            );
+            _showDocumentDetailModal(document, fileUrl);
           },
           borderRadius: BorderRadius.circular(20),
           child: Ink(
@@ -2002,6 +2305,7 @@ class _DocumentEntry {
   final String name;
   final String url;
   final DateTime? expiryDate;
+  final DateTime? creationDate;
   final String observations;
   final String ownerId;
   final String vehicleId;
@@ -2015,6 +2319,7 @@ class _DocumentEntry {
     required this.name,
     required this.url,
     required this.expiryDate,
+    required this.creationDate,
     required this.observations,
     required this.ownerId,
     required this.vehicleId,
@@ -2024,7 +2329,11 @@ class _DocumentEntry {
     required this.estadoDocumento,
   });
 
-  bool get isPdf => url.toLowerCase().endsWith('.pdf');
+  bool get isPdf {
+    final cleanUrl = url.toLowerCase().split('?').first;
+    return cleanUrl.endsWith('.pdf');
+  }
+
   bool get isImage =>
       url.toLowerCase().endsWith('.jpg') ||
       url.toLowerCase().endsWith('.jpeg') ||
@@ -2084,6 +2393,12 @@ class _DocumentEntry {
     final DateTime? expiryDate = _parseDate(
       raw['fechaVencimiento'] ?? raw['expiryDate'] ?? raw['fecha_vencimiento'],
     );
+    final DateTime? creationDate = _parseDate(
+      raw['fechaCreacion'] ??
+          raw['fecha_creacion'] ??
+          raw['createdAt'] ??
+          raw['fechaRegistro'],
+    );
     final String ownerId =
         _valueAsString(
           raw['idUsuario'] ?? raw['id_usuario'] ?? raw['usuarioId'],
@@ -2115,6 +2430,7 @@ class _DocumentEntry {
       name: name,
       url: url,
       expiryDate: expiryDate,
+      creationDate: creationDate,
       observations: observations,
       ownerId: ownerId,
       vehicleId: vehicleId,

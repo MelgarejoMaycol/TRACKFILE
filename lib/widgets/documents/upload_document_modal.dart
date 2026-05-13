@@ -123,7 +123,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     if (persona['documento'] != null) return persona['documento'].toString();
     if (persona['rut'] != null) return persona['rut'].toString();
     if (persona['usuario'] != null && persona['usuario'] is Map) {
-      if (persona['usuario']['numeroDocumento'] != null){
+      if (persona['usuario']['numeroDocumento'] != null) {
         return persona['usuario']['numeroDocumento'].toString();
       }
     }
@@ -132,13 +132,13 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
 
   /// Extrae el ID de una persona
   int _getIdPersona(Map<String, dynamic> persona) {
-    if (persona['id'] != null){
+    if (persona['id'] != null) {
       return int.tryParse(persona['id'].toString()) ?? 0;
     }
-    if (persona['idConductor'] != null){
+    if (persona['idConductor'] != null) {
       return int.tryParse(persona['idConductor'].toString()) ?? 0;
     }
-    if (persona['idPropietario'] != null){
+    if (persona['idPropietario'] != null) {
       return int.tryParse(persona['idPropietario'].toString()) ?? 0;
     }
     return 0;
@@ -153,10 +153,9 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     if (nombre == 'LICENCIA') return 'CONDUCTOR';
 
     // Documentos del PROPIETARIO (solo para propietarios)
-    if (nombre == 'RUT' || nombre == 'CERTIFICADO_PROPIEDAD'){
+    if (nombre == 'RUT' || nombre == 'CERTIFICADO_PROPIEDAD') {
       return 'PROPIETARIO';
     }
-      
 
     // Documentos del VEHÍCULO
     if (nombre == 'SOAT' ||
@@ -576,114 +575,165 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
           borderRadius: BorderRadius.circular(20),
         ),
         padding: const EdgeInsets.all(16),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Subir Documento',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Subir Documento',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: isUploading
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: isUploading
-                        ? null
-                        : () => Navigator.of(context).pop(),
+                  const SizedBox(height: 12),
+
+                  _buildPersonaSection(),
+                  const SizedBox(height: 12),
+
+                  _buildVehicleSection(),
+                  const SizedBox(height: 12),
+
+                  _buildFilePickerSection(),
+                  const SizedBox(height: 12),
+
+                  _buildDocumentTypeSection(),
+                  const SizedBox(height: 12),
+
+                  _buildAreaSection(),
+                  const SizedBox(height: 12),
+
+                  _buildExpiryDateSection(),
+                  const SizedBox(height: 12),
+
+                  _buildObservationsSection(),
+                  const SizedBox(height: 16),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: isUploading
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                        child: const Text(
+                          'Cancelar',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: isUploading
+                            ? null
+                            : ((selectedFilePath == null ||
+                                          selectedFilePath!.isEmpty) &&
+                                      selectedFileBytes == null) ||
+                                  selectedDocumentTypeId == null ||
+                                  selectedExpiryDate == null ||
+                                  selectedPersonaId == null ||
+                                  selectedArea == null
+                            ? null
+                            : _uploadDocument,
+                        icon: isUploading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                            : const Icon(Icons.upload, color: Colors.white),
+                        label: Text(
+                          isUploading ? 'Subiendo...' : 'Subir',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF16C79A),
+                          disabledBackgroundColor: Colors.grey,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+            ),
 
-              // Seccion: Seleccionar Usuario
-              _buildPersonaSection(),
-              const SizedBox(height: 12),
-
-              // Seccion: Seleccionar Vehiculo (siempre visible, deshabilitado al inicio)
-              _buildVehicleSection(),
-              const SizedBox(height: 12),
-              _buildFilePickerSection(),
-              const SizedBox(height: 12),
-
-              // Tipo de documento
-              _buildDocumentTypeSection(),
-              const SizedBox(height: 12),
-
-              // Área
-              _buildAreaSection(),
-              const SizedBox(height: 12),
-
-              // Fecha de vencimiento
-              _buildExpiryDateSection(),
-              const SizedBox(height: 12),
-
-              // Observaciones
-              _buildObservationsSection(),
-              const SizedBox(height: 16),
-
-              // Botones
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: isUploading
-                        ? null
-                        : () => Navigator.of(context).pop(),
-                    child: const Text(
-                      'Cancelar',
-                      style: TextStyle(color: Colors.white70),
-                    ),
+            if (isUploading)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: isUploading
-                        ? null
-                        : ((selectedFilePath == null ||
-                                      selectedFilePath!.isEmpty) &&
-                                  selectedFileBytes == null) ||
-                              selectedDocumentTypeId == null ||
-                              selectedExpiryDate == null ||
-                              selectedPersonaId == null ||
-                              selectedArea == null
-                        ? null
-                        : _uploadDocument,
-                    icon: isUploading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                  child: Center(
+                    child: Container(
+                      width: 270,
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1B1F6B),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.14),
+                        ),
+                      ),
+                      child: const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Subiendo documento...',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
                             ),
-                          )
-                        : const Icon(Icons.upload, color: Colors.white),
-                    label: Text(
-                      isUploading ? 'Subiendo...' : 'Subir',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF16C79A),
-                      disabledBackgroundColor: Colors.grey,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Por favor espera. Estamos guardando el archivo.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -986,62 +1036,64 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                 }),
               ],
             ],
-            onChanged: (value) {
-              if (value != null && value.contains('_')) {
-                final parts = value.split('_');
-                final tipo = parts[0];
-                final id = int.tryParse(parts[1]) ?? 0;
+            onChanged: isUploading
+                ? null
+                : (value) {
+                    if (value != null && value.contains('_')) {
+                      final parts = value.split('_');
+                      final tipo = parts[0];
+                      final id = int.tryParse(parts[1]) ?? 0;
 
-                // Buscar el idUsuario de la persona seleccionada
-                // El backend devuelve diferentes estructuras según el endpoint:
-                // - /api/propietarios y /api/conductores: {"id": 3, "idUsuario": 23}
-                // - /api/vehiculos: {"propietario": {"usuario": {"id": 23}}}
-                int? idUsuario;
-                if (tipo == 'conductor') {
-                  final persona = conductores.firstWhere(
-                    (c) => _getIdPersona(c) == id,
-                    orElse: () => <String, dynamic>{},
-                  );
-                  if (persona.isNotEmpty) {
-                    // Intentar obtener idUsuario del nivel superior (estructura simplificada)
-                    idUsuario = persona['idUsuario'] as int?;
+                      // Buscar el idUsuario de la persona seleccionada
+                      // El backend devuelve diferentes estructuras según el endpoint:
+                      // - /api/propietarios y /api/conductores: {"id": 3, "idUsuario": 23}
+                      // - /api/vehiculos: {"propietario": {"usuario": {"id": 23}}}
+                      int? idUsuario;
+                      if (tipo == 'conductor') {
+                        final persona = conductores.firstWhere(
+                          (c) => _getIdPersona(c) == id,
+                          orElse: () => <String, dynamic>{},
+                        );
+                        if (persona.isNotEmpty) {
+                          // Intentar obtener idUsuario del nivel superior (estructura simplificada)
+                          idUsuario = persona['idUsuario'] as int?;
 
-                    // Si no existe, intentar obtener del usuario anidado
-                    if (idUsuario == null && persona['usuario'] != null) {
-                      idUsuario = persona['usuario']['id'] as int?;
+                          // Si no existe, intentar obtener del usuario anidado
+                          if (idUsuario == null && persona['usuario'] != null) {
+                            idUsuario = persona['usuario']['id'] as int?;
+                          }
+                        }
+                        debugPrint(
+                          '📋 Conductor seleccionado: ID=$id, Usuario ID=$idUsuario',
+                        );
+                      } else if (tipo == 'propietario') {
+                        final persona = propietarios.firstWhere(
+                          (p) => _getIdPersona(p) == id,
+                          orElse: () => <String, dynamic>{},
+                        );
+                        if (persona.isNotEmpty) {
+                          // Intentar obtener idUsuario del nivel superior (estructura simplificada)
+                          idUsuario = persona['idUsuario'] as int?;
+
+                          // Si no existe, intentar obtener del usuario anidado
+                          if (idUsuario == null && persona['usuario'] != null) {
+                            idUsuario = persona['usuario']['id'] as int?;
+                          }
+                        }
+                        debugPrint(
+                          '📋 Propietario seleccionado: ID=$id, Usuario ID=$idUsuario',
+                        );
+                      }
+
+                      setState(() {
+                        selectedPersonaTipo = tipo;
+                        selectedPersonaId = id;
+                        selectedPersonaIdUsuario = idUsuario;
+                      });
+
+                      _loadVehiculos(id, tipo);
                     }
-                  }
-                  debugPrint(
-                    '📋 Conductor seleccionado: ID=$id, Usuario ID=$idUsuario',
-                  );
-                } else if (tipo == 'propietario') {
-                  final persona = propietarios.firstWhere(
-                    (p) => _getIdPersona(p) == id,
-                    orElse: () => <String, dynamic>{},
-                  );
-                  if (persona.isNotEmpty) {
-                    // Intentar obtener idUsuario del nivel superior (estructura simplificada)
-                    idUsuario = persona['idUsuario'] as int?;
-
-                    // Si no existe, intentar obtener del usuario anidado
-                    if (idUsuario == null && persona['usuario'] != null) {
-                      idUsuario = persona['usuario']['id'] as int?;
-                    }
-                  }
-                  debugPrint(
-                    '📋 Propietario seleccionado: ID=$id, Usuario ID=$idUsuario',
-                  );
-                }
-
-                setState(() {
-                  selectedPersonaTipo = tipo;
-                  selectedPersonaId = id;
-                  selectedPersonaIdUsuario = idUsuario;
-                });
-
-                _loadVehiculos(id, tipo);
-              }
-            },
+                  },
           ),
         ),
       ],
@@ -1233,49 +1285,57 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                 );
               }),
             ],
-            onChanged: (value) {
-              setState(() {
-                selectedVehicleValue = value;
-                debugPrint('📍 [Vehicle Selection] onChanged value: $value');
-
-                if (value != null && value.startsWith('vehicle_')) {
-                  // Extraer el ID del valor
-                  final idStr = value.replaceFirst('vehicle_', '');
-                  selectedVehicleId = int.tryParse(idStr);
-
-                  debugPrint(
-                    '📍 [Vehicle Selection] ID extraído: $selectedVehicleId',
-                  );
-                  debugPrint(
-                    '📍 [Vehicle Selection] Buscando en lista de ${vehiculos.length} vehículos...',
-                  );
-
-                  if (selectedVehicleId != null) {
-                    final foundVehicle = vehiculos.firstWhere((v) {
-                      final id = v['id'] is String
-                          ? int.parse(v['id'].toString())
-                          : v['id'];
-                      final match = id == selectedVehicleId;
+            onChanged: isUploading
+                ? null
+                : (value) {
+                    setState(() {
+                      selectedVehicleValue = value;
                       debugPrint(
-                        '   - Comparando: ${v['placa']} (id: ${v['id']}, tipo: ${v['id'].runtimeType}) == $selectedVehicleId? $match',
+                        '📍 [Vehicle Selection] onChanged value: $value',
                       );
-                      return match;
-                    }, orElse: () => {});
 
-                    selectedVehiclePlaca = foundVehicle['placa'];
+                      if (value != null && value.startsWith('vehicle_')) {
+                        // Extraer el ID del valor
+                        final idStr = value.replaceFirst('vehicle_', '');
+                        selectedVehicleId = int.tryParse(idStr);
 
-                    debugPrint('📍 [Vehicle Selection] Vehículo seleccionado:');
-                    debugPrint('   - Placa: $selectedVehiclePlaca');
-                    debugPrint('   - ID: $selectedVehicleId');
-                    debugPrint('   - Objeto completo: $foundVehicle');
-                  }
-                } else {
-                  selectedVehicleId = null;
-                  selectedVehiclePlaca = null;
-                  debugPrint('📍 [Vehicle Selection] Vehículo deseleccionado');
-                }
-              });
-            },
+                        debugPrint(
+                          '📍 [Vehicle Selection] ID extraído: $selectedVehicleId',
+                        );
+                        debugPrint(
+                          '📍 [Vehicle Selection] Buscando en lista de ${vehiculos.length} vehículos...',
+                        );
+
+                        if (selectedVehicleId != null) {
+                          final foundVehicle = vehiculos.firstWhere((v) {
+                            final id = v['id'] is String
+                                ? int.parse(v['id'].toString())
+                                : v['id'];
+                            final match = id == selectedVehicleId;
+                            debugPrint(
+                              '   - Comparando: ${v['placa']} (id: ${v['id']}, tipo: ${v['id'].runtimeType}) == $selectedVehicleId? $match',
+                            );
+                            return match;
+                          }, orElse: () => {});
+
+                          selectedVehiclePlaca = foundVehicle['placa'];
+
+                          debugPrint(
+                            '📍 [Vehicle Selection] Vehículo seleccionado:',
+                          );
+                          debugPrint('   - Placa: $selectedVehiclePlaca');
+                          debugPrint('   - ID: $selectedVehicleId');
+                          debugPrint('   - Objeto completo: $foundVehicle');
+                        }
+                      } else {
+                        selectedVehicleId = null;
+                        selectedVehiclePlaca = null;
+                        debugPrint(
+                          '📍 [Vehicle Selection] Vehículo deseleccionado',
+                        );
+                      }
+                    });
+                  },
           ),
         ),
       ],
@@ -1470,7 +1530,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                         type['id_tipo_documento'])
                     .toString(),
               );
-              if (id == null){
+              if (id == null) {
                 return const DropdownMenuItem<int>(
                   value: -1,
                   enabled: false,
@@ -1494,14 +1554,16 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                 ),
               );
             }).toList(),
-            onChanged: (value) {
-              setState(() {
-                selectedDocumentTypeId = value;
+            onChanged: isUploading
+                ? null
+                : (value) {
+                    setState(() {
+                      selectedDocumentTypeId = value;
 
-                final areas = _getPermittedAreas(value);
-                selectedArea = areas.length == 1 ? areas.first : null;
-              });
-            },
+                      final areas = _getPermittedAreas(value);
+                      selectedArea = areas.length == 1 ? areas.first : null;
+                    });
+                  },
           ),
         ),
         if (filteredDocs.isEmpty)

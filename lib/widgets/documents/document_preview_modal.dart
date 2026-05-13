@@ -1,8 +1,10 @@
+import 'dart:html' as html;
+import 'dart:ui_web' as ui_web;
+
 import 'package:flutter/material.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class DocumentPreviewModal extends StatelessWidget {
+class DocumentPreviewModal extends StatefulWidget {
   final String documentName;
   final String? fileUrl;
   final DateTime? expiryDate;
@@ -44,10 +46,17 @@ class DocumentPreviewModal extends StatelessWidget {
     );
   }
 
+  @override
+  State<DocumentPreviewModal> createState() => _DocumentPreviewModalState();
+}
+
+class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
+  late final String _viewType;
+
   String get _cleanPath {
-    if (fileUrl == null || fileUrl!.isEmpty) return '';
-    final uri = Uri.tryParse(fileUrl!);
-    return (uri?.path ?? fileUrl!).toLowerCase();
+    if (widget.fileUrl == null || widget.fileUrl!.isEmpty) return '';
+    final uri = Uri.tryParse(widget.fileUrl!);
+    return (uri?.path ?? widget.fileUrl!).toLowerCase();
   }
 
   bool get _isPdf => _cleanPath.endsWith('.pdf');
@@ -59,9 +68,34 @@ class DocumentPreviewModal extends StatelessWidget {
       _cleanPath.endsWith('.webp');
 
   @override
+  void initState() {
+    super.initState();
+
+    _viewType = 'pdf-preview-${DateTime.now().microsecondsSinceEpoch}';
+
+    if (_isPdf && widget.fileUrl != null && widget.fileUrl!.isNotEmpty) {
+      final iframe = html.IFrameElement()
+        ..src = widget.fileUrl!
+        ..style.border = 'none'
+        ..style.width = '100%'
+        ..style.height = '100%'
+        ..style.backgroundColor = 'white'
+        ..allowFullscreen = true;
+
+      ui_web.platformViewRegistry.registerViewFactory(
+        _viewType,
+        (int viewId) => iframe,
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(maxWidth: 900, maxHeight: 760),
+      constraints: BoxConstraints(
+        maxWidth: 920,
+        maxHeight: MediaQuery.of(context).size.height * 0.92,
+      ),
       decoration: BoxDecoration(
         color: const Color(0xFF1B1F6B),
         borderRadius: BorderRadius.circular(24),
@@ -88,7 +122,7 @@ class DocumentPreviewModal extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  documentName,
+                  widget.documentName,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -97,8 +131,8 @@ class DocumentPreviewModal extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  expiryDate != null
-                      ? 'Vencimiento: ${_formatDate(expiryDate!)}'
+                  widget.expiryDate != null
+                      ? 'Vencimiento: ${_formatDate(widget.expiryDate!)}'
                       : 'Fecha de vencimiento no disponible',
                   style: const TextStyle(color: Colors.white70),
                 ),
@@ -115,31 +149,32 @@ class DocumentPreviewModal extends StatelessWidget {
   }
 
   Widget _buildPreview() {
-    if (_isPdf && fileUrl != null && fileUrl!.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.zero),
-        child: SfPdfViewer.network(
-          fileUrl!,
-          canShowPaginationDialog: true,
-          canShowScrollHead: false,
-          canShowScrollStatus: false,
-          pageLayoutMode: PdfPageLayoutMode.single,
+    if (_isPdf && widget.fileUrl != null && widget.fileUrl!.isNotEmpty) {
+      return Container(
+        color: Colors.white,
+        child: ClipRRect(
+          child: HtmlElementView(viewType: _viewType),
         ),
       );
     }
 
-    if (_isImage && fileUrl != null && fileUrl!.isNotEmpty) {
-      return InteractiveViewer(
-        minScale: 0.8,
-        maxScale: 6.0,
-        child: Image.network(
-          fileUrl!,
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => _buildPreviewPlaceholder(),
-          loadingBuilder: (_, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return const Center(child: CircularProgressIndicator());
-          },
+    if (_isImage && widget.fileUrl != null && widget.fileUrl!.isNotEmpty) {
+      return Container(
+        color: Colors.black12,
+        child: InteractiveViewer(
+          minScale: 0.8,
+          maxScale: 6.0,
+          child: Center(
+            child: Image.network(
+              widget.fileUrl!,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => _buildPreviewPlaceholder(),
+              loadingBuilder: (_, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return const Center(child: CircularProgressIndicator());
+              },
+            ),
+          ),
         ),
       );
     }
@@ -176,7 +211,7 @@ class DocumentPreviewModal extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            documentName,
+            widget.documentName,
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontWeight: FontWeight.w600,
@@ -195,29 +230,18 @@ class DocumentPreviewModal extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (observations != null && observations!.isNotEmpty) ...[
+          if (widget.observations != null &&
+              widget.observations!.trim().isNotEmpty) ...[
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: Colors.white.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Observaciones',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    observations!,
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                ],
+              child: Text(
+                widget.observations!,
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
               ),
             ),
             const SizedBox(height: 18),
@@ -226,14 +250,15 @@ class DocumentPreviewModal extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: fileUrl != null && fileUrl!.trim().isNotEmpty
-                      ? () => _downloadDocument(context)
-                      : null,
+                  onPressed:
+                      widget.fileUrl != null && widget.fileUrl!.trim().isNotEmpty
+                          ? () => _downloadDocument(context)
+                          : null,
                   icon: const Icon(Icons.download_rounded),
                   label: const Text('Descargar'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.blue.shade700,
-                    side: BorderSide(color: Colors.blue.shade700),
+                    foregroundColor: Colors.lightBlueAccent,
+                    side: const BorderSide(color: Colors.lightBlueAccent),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),
@@ -257,7 +282,7 @@ class DocumentPreviewModal extends StatelessWidget {
   }
 
   Future<void> _downloadDocument(BuildContext context) async {
-    if (fileUrl == null || fileUrl!.isEmpty) {
+    if (widget.fileUrl == null || widget.fileUrl!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No hay archivo disponible para descargar'),
@@ -266,7 +291,7 @@ class DocumentPreviewModal extends StatelessWidget {
       return;
     }
 
-    final Uri? uri = Uri.tryParse(fileUrl!);
+    final Uri? uri = Uri.tryParse(widget.fileUrl!);
 
     if (uri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
