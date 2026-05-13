@@ -336,6 +336,13 @@ class _InicioWidgetState extends State<InicioWidget> {
     _documentRawData.clear();
 
     for (final doc in backendDocs) {
+      final bool estadoDocumento =
+          doc['estadoDocumento'] == true ||
+          doc['estado_documento'] == true ||
+          doc['estadoDocumento']?.toString().toLowerCase() == 'true' ||
+          doc['estado_documento']?.toString().toLowerCase() == 'true';
+
+      if (!estadoDocumento) continue;
       final String tipoNombre =
           doc['nombreTipoDocumento']?.toString() ??
           doc['tipoDocumento']?['nombre']?.toString() ??
@@ -2519,16 +2526,34 @@ class _DocumentCountdownState extends State<DocumentCountdown> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isExpired = _remaining.isNegative;
-    final Color progressColor = isExpired
-        ? const Color(0xFFEF4444)
-        : const Color(0xFF16C79A);
+    final int daysRemaining = _remaining.inDays;
+
+    Color progressColor;
+
+    if (daysRemaining < 0) {
+      progressColor = Colors.redAccent;
+    } else if (daysRemaining <= 7) {
+      progressColor = Colors.redAccent;
+    } else if (daysRemaining <= 15) {
+      progressColor = Colors.orangeAccent;
+    } else if (daysRemaining <= 30) {
+      progressColor = const Color(0xFFEFB549);
+    } else {
+      progressColor = const Color(0xFF16C79A);
+    }
 
     final total = widget.totalDuration.inSeconds > 0
         ? widget.totalDuration.inSeconds
         : 1;
+    final bool isExpired = daysRemaining < 0;
+
     final remain = _remaining.inSeconds.clamp(0, total);
-    final percent = total > 0 ? (remain / total) : 0.0;
+
+    final percent = isExpired
+        ? 1.0
+        : total > 0
+        ? (remain / total)
+        : 0.0;
 
     // Render a circular ring with numeric remaining time
     final double size = widget.size;
@@ -2547,7 +2572,7 @@ class _DocumentCountdownState extends State<DocumentCountdown> {
                   value: percent,
                   strokeWidth: stroke,
                   color: progressColor,
-                  backgroundColor: Colors.white24,
+                  backgroundColor: progressColor.withValues(alpha: 0.18),
                 ),
               ),
               Column(

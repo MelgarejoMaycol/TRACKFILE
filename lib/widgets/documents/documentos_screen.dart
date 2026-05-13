@@ -4,6 +4,7 @@ import 'package:trackfile/services/api_link.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/document_service.dart';
 import 'package:trackfile/widgets/documents/document_preview_modal.dart';
+import 'package:trackfile/widgets/documents/edit_document_modal.dart';
 import 'package:trackfile/widgets/documents/upload_document_modal.dart';
 import 'package:trackfile/widgets/utils/shimmer_skeleton.dart';
 
@@ -561,7 +562,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
           person.documentNumber.toLowerCase().contains(needle);
     }).toList();
     return effective;
-  } 
+  }
 
   void _showUploadModal() {
     UploadDocumentModal.show(
@@ -2085,33 +2086,80 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
 
                   const SizedBox(height: 24),
 
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: fileUrl.trim().isEmpty
-                          ? null
-                          : () {
-                              Navigator.pop(context);
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed:
+                              document.expiryDate == null ||
+                                  document.idTipo == 0 ||
+                                  document.isExpired
+                              ? null
+                              : () {
+                                  Navigator.pop(context);
 
-                              DocumentPreviewModal.show(
-                                context: this.context,
-                                documentName: document.name,
-                                fileUrl: fileUrl,
-                                expiryDate: document.expiryDate,
-                                observations: document.observations,
-                              );
-                            },
-                      icon: const Icon(Icons.visibility_rounded),
-                      label: const Text('Ver documento'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _accentColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                                  EditDocumentModal.show(
+                                    context: this.context,
+                                    documentoId: int.parse(document.id),
+                                    idTipo: document.idTipo,
+                                    area: document.area,
+                                    fechaVencimiento: document.expiryDate!,
+                                    observaciones: document.observations,
+                                    idVehiculo: document.vehicleId.isNotEmpty
+                                        ? int.tryParse(document.vehicleId)
+                                        : null,
+                                    idUsuario: document.vehicleId.isEmpty
+                                        ? int.tryParse(document.ownerId)
+                                        : null,
+                                    onSuccess:
+                                        _refreshExplorerDataKeepingCurrentView,
+                                  );
+                                },
+                          icon: const Icon(Icons.edit_calendar_rounded),
+                          label: Text(
+                            document.isExpired
+                                ? 'Debe subir nuevo'
+                                : 'Editar fecha',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white24),
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: fileUrl.trim().isEmpty
+                              ? null
+                              : () {
+                                  Navigator.pop(context);
+
+                                  DocumentPreviewModal.show(
+                                    context: this.context,
+                                    documentName: document.name,
+                                    fileUrl: fileUrl,
+                                    expiryDate: document.expiryDate,
+                                    observations: document.observations,
+                                  );
+                                },
+                          icon: const Icon(Icons.visibility_rounded),
+                          label: const Text('Ver documento'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _accentColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -2313,6 +2361,8 @@ class _DocumentEntry {
   final String vehiclePlate;
   final String documentNumber;
   final bool estadoDocumento;
+  final int idTipo;
+  final String area;
 
   _DocumentEntry({
     required this.id,
@@ -2327,6 +2377,8 @@ class _DocumentEntry {
     required this.vehiclePlate,
     required this.documentNumber,
     required this.estadoDocumento,
+    required this.idTipo,
+    required this.area,
   });
 
   bool get isPdf {
@@ -2425,6 +2477,21 @@ class _DocumentEntry {
           raw['observaciones'] ?? raw['observacion'] ?? raw['observations'],
         ) ??
         '';
+
+    final int idTipo =
+        int.tryParse(
+          (raw['idTipo'] ??
+                  raw['id_tipo'] ??
+                  raw['tipoDocumentoId'] ??
+                  raw['idTipoDocumento'] ??
+                  raw['tipoDocumento']?['id'] ??
+                  raw['tipoDocumento']?['idTipo'] ??
+                  '0')
+              .toString(),
+        ) ??
+        0;
+
+    final String area = _valueAsString(raw['area']) ?? 'LEGAL';
     return _DocumentEntry(
       id: _valueAsString(raw['idDocumento'] ?? raw['id'] ?? '') ?? '',
       name: name,
@@ -2442,6 +2509,8 @@ class _DocumentEntry {
           raw['estado_documento'] == true ||
           raw['estadoDocumento']?.toString().toLowerCase() == 'true' ||
           raw['estado_documento']?.toString().toLowerCase() == 'true',
+      idTipo: idTipo,
+      area: area,
     );
   }
 
