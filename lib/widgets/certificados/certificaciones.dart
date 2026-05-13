@@ -1899,8 +1899,9 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                                       withData: true,
                                     );
 
-                                if (result == null || result.files.isEmpty)
+                                if (result == null || result.files.isEmpty) {
                                   return;
+                                }
 
                                 setModalState(() {
                                   archivoSeleccionado = result.files.first;
@@ -1952,7 +1953,9 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                             : () async {
                                 if (estadoSeleccionado == 'ACEPTADA' &&
                                     archivoSeleccionado == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                  ScaffoldMessenger.of(
+                                    this.context,
+                                  ).showSnackBar(
                                     SnackBar(
                                       content: const Text(
                                         'Debes seleccionar un PDF.',
@@ -2002,7 +2005,9 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                                   );
                                   return;
                                 }
-                                if (mounted) Navigator.pop(ctx);
+                                if (ctx.mounted) {
+                                  Navigator.pop(ctx);
+                                }
 
                                 await _loadData();
 

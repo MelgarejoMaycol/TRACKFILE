@@ -999,7 +999,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
 
           return InkWell(
             onTap: () async {
-              var fileUrl = doc.url;
+              var fileUrl = _normalizeFileUrl(doc.url);
 
               if (fileUrl.isEmpty) {
                 final detalle = await DocumentService.getDocumentDetail(
@@ -1873,9 +1873,20 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
   String _normalizeFileUrl(String value) {
     final cleanValue = value.trim();
 
-    if (cleanValue.isEmpty) return '';
+    if (cleanValue.isEmpty) {
+      return '';
+    }
 
+    // URL completa cloudinary
     if (cleanValue.startsWith('http://') || cleanValue.startsWith('https://')) {
+      // 🔥 Cloudinary PDF preview fix
+      if (cleanValue.contains('/upload/')) {
+        return cleanValue.replaceFirst(
+          '/upload/',
+          '/upload/fl_attachment:false/',
+        );
+      }
+
       return cleanValue;
     }
 
@@ -2145,6 +2156,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                                     fileUrl: fileUrl,
                                     expiryDate: document.expiryDate,
                                     observations: document.observations,
+                                    ownerName: document.ownerName,
                                   );
                                 },
                           icon: const Icon(Icons.visibility_rounded),
@@ -2220,7 +2232,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
 
         return InkWell(
           onTap: () async {
-            var fileUrl = document.url;
+            var fileUrl = _normalizeFileUrl(document.url);
 
             if (fileUrl.isEmpty) {
               final detalle = await DocumentService.getDocumentDetail(

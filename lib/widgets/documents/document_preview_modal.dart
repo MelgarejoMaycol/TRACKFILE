@@ -1,7 +1,10 @@
+// ignore: deprecated_member_use, avoid_web_libraries_in_flutter
 import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class DocumentPreviewModal extends StatefulWidget {
@@ -9,6 +12,7 @@ class DocumentPreviewModal extends StatefulWidget {
   final String? fileUrl;
   final DateTime? expiryDate;
   final String? observations;
+  final String? ownerName;
 
   const DocumentPreviewModal({
     super.key,
@@ -16,6 +20,7 @@ class DocumentPreviewModal extends StatefulWidget {
     this.fileUrl,
     this.expiryDate,
     this.observations,
+    this.ownerName,
   });
 
   static Future<void> show({
@@ -24,6 +29,7 @@ class DocumentPreviewModal extends StatefulWidget {
     String? fileUrl,
     DateTime? expiryDate,
     String? observations,
+    String? ownerName,
   }) {
     return showDialog(
       context: context,
@@ -40,6 +46,7 @@ class DocumentPreviewModal extends StatefulWidget {
             fileUrl: fileUrl,
             expiryDate: expiryDate,
             observations: observations,
+            ownerName: ownerName,
           ),
         );
       },
@@ -51,43 +58,35 @@ class DocumentPreviewModal extends StatefulWidget {
 }
 
 class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
-  late final String _viewType;
-
   String get _cleanPath {
     if (widget.fileUrl == null || widget.fileUrl!.isEmpty) return '';
     final uri = Uri.tryParse(widget.fileUrl!);
     return (uri?.path ?? widget.fileUrl!).toLowerCase();
   }
 
-  bool get _isPdf => _cleanPath.endsWith('.pdf');
+  bool get _isPdf {
+    final url = widget.fileUrl?.toLowerCase() ?? '';
+    final name = widget.documentName.toLowerCase();
+
+    return _cleanPath.endsWith('.pdf') ||
+        url.contains('.pdf') ||
+        url.contains('/raw/upload/') ||
+        url.contains('/image/upload/') ||
+        name.contains('pdf') ||
+        name.contains('cedula') ||
+        name.contains('licencia') ||
+        name.contains('soat') ||
+        name.contains('tecnomecanica') ||
+        name.contains('seguro') ||
+        name.contains('tarjeta') ||
+        name.contains('contractual');
+  }
 
   bool get _isImage =>
       _cleanPath.endsWith('.png') ||
       _cleanPath.endsWith('.jpg') ||
       _cleanPath.endsWith('.jpeg') ||
       _cleanPath.endsWith('.webp');
-
-  @override
-  void initState() {
-    super.initState();
-
-    _viewType = 'pdf-preview-${DateTime.now().microsecondsSinceEpoch}';
-
-    if (_isPdf && widget.fileUrl != null && widget.fileUrl!.isNotEmpty) {
-      final iframe = html.IFrameElement()
-        ..src = widget.fileUrl!
-        ..style.border = 'none'
-        ..style.width = '100%'
-        ..style.height = '100%'
-        ..style.backgroundColor = 'white'
-        ..allowFullscreen = true;
-
-      ui_web.platformViewRegistry.registerViewFactory(
-        _viewType,
-        (int viewId) => iframe,
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,14 +99,16 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
         color: const Color(0xFF1B1F6B),
         borderRadius: BorderRadius.circular(24),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildHeader(context),
-          Expanded(child: _buildPreview()),
-          const Divider(height: 1),
-          _buildFooter(context),
-        ],
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.88,
+        child: Column(
+          children: [
+            _buildHeader(context),
+            Expanded(child: _buildPreview()),
+            const Divider(height: 1, color: Colors.white24),
+            _buildFooter(context),
+          ],
+        ),
       ),
     );
   }
@@ -149,24 +150,67 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
   }
 
   Widget _buildPreview() {
-    if (_isPdf && widget.fileUrl != null && widget.fileUrl!.isNotEmpty) {
+    if (widget.fileUrl == null || widget.fileUrl!.trim().isEmpty) {
+      return _buildPreviewPlaceholder();
+    }
+
+    final url = widget.fileUrl!.trim();
+
+    debugPrint('📄 PREVIEW URL: $url');
+
+    if (_isPdf) {
+      if (kIsWeb) {
+        final viewId = 'pdf-preview-${url.hashCode}';
+
+        ui_web.platformViewRegistry.registerViewFactory(viewId, (int viewId) {
+          final previewUrl =
+              'https://docs.google.com/gview?embedded=true&url=${Uri.encodeComponent(url)}';
+
+          final iframe = html.IFrameElement()
+            ..src = previewUrl
+            ..style.border = 'none'
+            ..style.width = '100%'
+            ..style.height = '100%'
+            ..allowFullscreen = true;
+
+          return iframe;
+        });
+
+        return Container(
+          color: Colors.white,
+          child: HtmlElementView(viewType: viewId),
+        );
+      }
+
       return Container(
         color: Colors.white,
-        child: ClipRRect(
-          child: HtmlElementView(viewType: _viewType),
+        child: SfPdfViewer.network(
+          url,
+          canShowPaginationDialog: true,
+          canShowScrollHead: true,
+          canShowScrollStatus: true,
+          enableDoubleTapZooming: true,
+          pageSpacing: 4,
+          onDocumentLoaded: (details) {
+            debugPrint('✅ PDF cargado correctamente');
+          },
+          onDocumentLoadFailed: (details) {
+            debugPrint('❌ ERROR PDF');
+            debugPrint(details.description);
+          },
         ),
       );
     }
 
-    if (_isImage && widget.fileUrl != null && widget.fileUrl!.isNotEmpty) {
+    if (_isImage) {
       return Container(
-        color: Colors.black12,
+        color: Colors.black,
         child: InteractiveViewer(
           minScale: 0.8,
-          maxScale: 6.0,
+          maxScale: 6,
           child: Center(
             child: Image.network(
-              widget.fileUrl!,
+              url,
               fit: BoxFit.contain,
               errorBuilder: (_, __, ___) => _buildPreviewPlaceholder(),
               loadingBuilder: (_, child, loadingProgress) {
@@ -251,9 +295,10 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed:
-                      widget.fileUrl != null && widget.fileUrl!.trim().isNotEmpty
-                          ? () => _downloadDocument(context)
-                          : null,
+                      widget.fileUrl != null &&
+                          widget.fileUrl!.trim().isNotEmpty
+                      ? () => _downloadDocument(context)
+                      : null,
                   icon: const Icon(Icons.download_rounded),
                   label: const Text('Descargar'),
                   style: OutlinedButton.styleFrom(
@@ -282,7 +327,7 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
   }
 
   Future<void> _downloadDocument(BuildContext context) async {
-    if (widget.fileUrl == null || widget.fileUrl!.isEmpty) {
+    if (widget.fileUrl == null || widget.fileUrl!.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No hay archivo disponible para descargar'),
@@ -291,7 +336,32 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
       return;
     }
 
-    final Uri? uri = Uri.tryParse(widget.fileUrl!);
+    final originalUrl = widget.fileUrl!.trim();
+
+    final userName = _safeFileName(
+      widget.ownerName == null || widget.ownerName!.trim().isEmpty
+          ? 'usuario'
+          : widget.ownerName!,
+    );
+
+    final documentType = _safeFileName(widget.documentName);
+
+    final fileName = '${userName}_$documentType';
+
+    String downloadUrl = originalUrl;
+
+    // Quita el false de previsualización
+    downloadUrl = downloadUrl.replaceFirst('/fl_attachment:false/', '/');
+
+    // Cloudinary: fuerza descarga con nombre correcto
+    if (downloadUrl.contains('/upload/')) {
+      downloadUrl = downloadUrl.replaceFirst(
+        '/upload/',
+        '/upload/fl_attachment:$fileName/',
+      );
+    }
+
+    final Uri? uri = Uri.tryParse(downloadUrl);
 
     if (uri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -300,16 +370,28 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
       return;
     }
 
-    final bool launched = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
     if (!launched && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No se pudo descargar el documento')),
       );
     }
+  }
+
+  String _safeFileName(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[áàäâ]'), 'a')
+        .replaceAll(RegExp(r'[éèëê]'), 'e')
+        .replaceAll(RegExp(r'[íìïî]'), 'i')
+        .replaceAll(RegExp(r'[óòöô]'), 'o')
+        .replaceAll(RegExp(r'[úùüû]'), 'u')
+        .replaceAll('ñ', 'n')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
   }
 
   String _formatDate(DateTime date) {
