@@ -1,10 +1,5 @@
-// ignore: deprecated_member_use, avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-import 'dart:ui_web' as ui_web;
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:trackfile/widgets/documents/utils/pdf_preview_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class DocumentPreviewModal extends StatefulWidget {
@@ -159,47 +154,7 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
     debugPrint('📄 PREVIEW URL: $url');
 
     if (_isPdf) {
-      if (kIsWeb) {
-        final viewId = 'pdf-preview-${url.hashCode}';
-
-        ui_web.platformViewRegistry.registerViewFactory(viewId, (int viewId) {
-          final previewUrl =
-              'https://docs.google.com/gview?embedded=true&url=${Uri.encodeComponent(url)}';
-
-          final iframe = html.IFrameElement()
-            ..src = previewUrl
-            ..style.border = 'none'
-            ..style.width = '100%'
-            ..style.height = '100%'
-            ..allowFullscreen = true;
-
-          return iframe;
-        });
-
-        return Container(
-          color: Colors.white,
-          child: HtmlElementView(viewType: viewId),
-        );
-      }
-
-      return Container(
-        color: Colors.white,
-        child: SfPdfViewer.network(
-          url,
-          canShowPaginationDialog: true,
-          canShowScrollHead: true,
-          canShowScrollStatus: true,
-          enableDoubleTapZooming: true,
-          pageSpacing: 4,
-          onDocumentLoaded: (details) {
-            debugPrint('✅ PDF cargado correctamente');
-          },
-          onDocumentLoadFailed: (details) {
-            debugPrint('❌ ERROR PDF');
-            debugPrint(details.description);
-          },
-        ),
-      );
+      return buildPdfPreview(url);
     }
 
     if (_isImage) {
