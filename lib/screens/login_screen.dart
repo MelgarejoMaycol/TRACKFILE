@@ -1463,14 +1463,6 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // Wrap a section so it centers vertically when there's extra space, and scrolls when content is large
-  Widget _wrapCenter(Widget child) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 4, bottom: 4),
-      child: child,
-    );
-  }
-
   double _responsiveClamp({
     required double value,
     required double min,
