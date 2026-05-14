@@ -10,13 +10,20 @@ import './api_link.dart';
 import './document_service.dart';
 
 class ApiService {
+  static final http.Client _client = http.Client();
+  static String? _tokenCache;
   // URL base del servidor - siempre usa Onrender
   static String get _baseUrl => getApiLink();
 
   /// Obtiene el token desde SharedPreferences
   static Future<String?> _getToken() async {
+    if (_tokenCache != null && _tokenCache!.isNotEmpty) {
+      return _tokenCache;
+    }
+
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    _tokenCache = prefs.getString('auth_token');
+    return _tokenCache;
   }
 
   /// Construye headers con autenticación
@@ -26,6 +33,29 @@ class ApiService {
       'Content-Type': 'application/json',
       if (authToken != null) 'Authorization': 'Bearer $authToken',
     };
+  }
+
+  static List<Map<String, dynamic>> _asMapList(dynamic decoded) {
+    if (decoded is List) {
+      return decoded
+          .map(
+            (item) => item is Map<String, dynamic>
+                ? item
+                : item is Map
+                ? Map<String, dynamic>.from(item)
+                : <String, dynamic>{},
+          )
+          .toList();
+    }
+
+    if (decoded is Map) {
+      final data = decoded['data'] ?? decoded['content'] ?? decoded['items'];
+      if (data is List) {
+        return _asMapList(data);
+      }
+    }
+
+    return [];
   }
 
   // ==================== EMPRESA ====================
@@ -45,7 +75,7 @@ class ApiService {
         return null;
       }
 
-      final response = await http
+      final response = await _client
           .get(
             Uri.parse('$_baseUrl/api/empresas/$empresaId/detalle'),
             headers: headers,
@@ -54,7 +84,6 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        debugPrint('✅ Empresa obtenida: ${decoded['nombreEmpresa']}');
         return decoded is Map<String, dynamic> ? decoded : null;
       } else if (response.statusCode == 401) {
         debugPrint('❌ No autorizado para obtener empresa');
@@ -75,30 +104,13 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await http
+      final response = await _client
           .get(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        debugPrint('✅ Vehículos obtenidos');
-
-        if (decoded is List) {
-          return List<Map<String, dynamic>>.from(
-            decoded.map(
-              (item) =>
-                  item is Map<String, dynamic> ? item : <String, dynamic>{},
-            ),
-          );
-        }
-        if (decoded is Map && decoded['data'] is List) {
-          return List<Map<String, dynamic>>.from(
-            decoded['data'].map(
-              (item) =>
-                  item is Map<String, dynamic> ? item : <String, dynamic>{},
-            ),
-          );
-        }
+        return _asMapList(decoded);
       } else if (response.statusCode == 401) {
         debugPrint('❌ No autorizado para obtener vehículos');
       } else {
@@ -115,8 +127,6 @@ class ApiService {
 
     final role = (prefs.getString('role') ?? '').toUpperCase();
     final userId = prefs.getString('user_id');
-
-    debugPrint('🚦 getMisVehiculos => role=$role userId=$userId');
 
     if (userId == null || userId.isEmpty) {
       debugPrint('❌ No hay user_id guardado');
@@ -165,7 +175,6 @@ class ApiService {
       return false;
     }).toList();
 
-    debugPrint('✅ Vehículos filtrados para $role: ${filtrados.length}');
     return filtrados;
   }
 
@@ -177,7 +186,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await http
+      final response = await _client
           .get(
             Uri.parse('$_baseUrl/api/vehiculos/$vehiculoId/detalle'),
             headers: headers,
@@ -222,7 +231,7 @@ class ApiService {
         'kilometrajeActual': kilometrajeActual,
       };
 
-      final response = await http
+      final response = await _client
           .post(
             Uri.parse('$_baseUrl/api/vehiculos'),
             headers: headers,
@@ -269,7 +278,7 @@ class ApiService {
         if (kilometrajeActual != null) 'kilometrajeActual': kilometrajeActual,
       };
 
-      final response = await http
+      final response = await _client
           .put(
             Uri.parse('$_baseUrl/api/vehiculos/$vehiculoId'),
             headers: headers,
@@ -299,7 +308,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await http
+      final response = await _client
           .put(
             Uri.parse('$_baseUrl/api/vehiculos/$vehiculoId/asignar-conductor'),
             headers: headers,
@@ -328,7 +337,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await http
+      final response = await _client
           .put(
             Uri.parse(
               '$_baseUrl/api/vehiculos/$vehiculoId/desasignar-conductor',
@@ -363,7 +372,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders(token: token);
 
-      final response = await http
+      final response = await _client
           .get(
             Uri.parse('$_baseUrl/api/documentos?idUsuario=$userId'),
             headers: headers,
@@ -372,7 +381,6 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        debugPrint('✅ Documentos obtenidos para usuario $userId');
 
         if (decoded is List) {
           return List<Map<String, dynamic>>.from(
@@ -424,15 +432,12 @@ class ApiService {
         url += '?${queryParams.join('&')}';
       }
 
-      debugPrint('📡 Obteniendo documentos desde: $url');
-
-      final response = await http
+      final response = await _client
           .get(Uri.parse(url), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        debugPrint('✅ Documentos obtenidos');
 
         if (decoded is List) {
           return List<Map<String, dynamic>>.from(
@@ -466,51 +471,40 @@ class ApiService {
 
     final userId = prefs.getString('user_id');
     final role = prefs.getString('role') ?? '';
-    final conductorId = prefs.getString('conductor_id');
-    final propietarioId = prefs.getString('propietario_id');
 
     if (userId == null || userId.isEmpty) {
       debugPrint('❌ No hay user_id guardado');
       return [];
     }
 
-    debugPrint(
-      '📄 [getMisDocumentos] Role: $role, UserId: $userId, ConductorId: $conductorId, PropietarioId: $propietarioId',
-    );
-
     final List<Map<String, dynamic>> documentosFinales = [];
 
     // 1. Documentos personales del usuario
     final personales = await getDocumentos(userId: userId);
     documentosFinales.addAll(personales);
-    debugPrint(
-      '📄 [getMisDocumentos] Documentos personales: ${personales.length}',
-    );
 
     // 2. Documentos de vehículos asignados al conductor/propietario
     if (role.toLowerCase() == 'conductor' ||
         role.toLowerCase() == 'propietario') {
       final vehiculos = await getMisVehiculos();
-      debugPrint(
-        '📄 [getMisDocumentos] Vehículos del $role: ${vehiculos.length}',
-      );
 
-      for (final vehiculo in vehiculos) {
+      final futures = vehiculos.map((vehiculo) {
         final dynamic rawId = vehiculo['idVehiculo'] ?? vehiculo['id'];
         final int? vehiculoId = rawId is int
             ? rawId
             : int.tryParse(rawId?.toString() ?? '');
 
         if (vehiculoId == null) {
-          debugPrint('⚠️ No se pudo obtener ID del vehículo: $vehiculo');
-          continue;
+          return Future.value(<Map<String, dynamic>>[]);
         }
 
-        final docsVehiculo = await getDocumentosPorVehiculo(vehiculoId);
+        return getDocumentosPorVehiculo(vehiculoId);
+      }).toList();
+
+      final resultados = await Future.wait(futures);
+
+      for (final docsVehiculo in resultados) {
         documentosFinales.addAll(docsVehiculo);
-        debugPrint(
-          '📄 [getMisDocumentos] Documentos vehículo $vehiculoId: ${docsVehiculo.length}',
-        );
       }
     }
 
@@ -528,9 +522,6 @@ class ApiService {
 
       unicos[key] = doc;
     }
-    debugPrint(
-      '✅ [getMisDocumentos] Total documentos finales: ${unicos.length} para rol $role',
-    );
 
     return unicos.values.toList();
   }
@@ -555,7 +546,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await http
+      final response = await _client
           .get(
             Uri.parse('$_baseUrl/api/vehiculos/$vehiculoId/documentos'),
             headers: headers,
@@ -596,13 +587,12 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await http
+      final response = await _client
           .get(Uri.parse('$_baseUrl/api/conductores'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        debugPrint('✅ Conductores obtenidos');
 
         if (decoded is List) {
           return List<Map<String, dynamic>>.from(
@@ -639,13 +629,12 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await http
+      final response = await _client
           .get(Uri.parse('$_baseUrl/api/propietarios'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        debugPrint('✅ Propietarios obtenidos');
 
         if (decoded is List) {
           return List<Map<String, dynamic>>.from(
@@ -682,13 +671,12 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await http
+      final response = await _client
           .get(Uri.parse('$_baseUrl/api/usuarios'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        debugPrint('✅ Usuarios obtenidos');
 
         if (decoded is List) {
           return List<Map<String, dynamic>>.from(
@@ -722,7 +710,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await http
+      final response = await _client
           .get(Uri.parse('$_baseUrl/api/usuarios/actual'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
@@ -746,13 +734,12 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await http
+      final response = await _client
           .get(Uri.parse('$_baseUrl/api/usuarios/me'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        debugPrint('✅ Perfil obtenido');
         return decoded is Map<String, dynamic> ? decoded : null;
       } else {
         debugPrint('❌ Error perfil ${response.statusCode}: ${response.body}');
@@ -782,7 +769,7 @@ class ApiService {
         'direccion': direccion.trim(),
       };
 
-      final response = await http
+      final response = await _client
           .put(
             Uri.parse('$_baseUrl/api/usuarios/me'),
             headers: headers,
@@ -791,7 +778,6 @@ class ApiService {
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
-        debugPrint('✅ Perfil actualizado');
         return true;
       }
 
@@ -814,7 +800,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await http
+      final response = await _client
           .put(
             Uri.parse('$_baseUrl/api/usuarios/me/password'),
             headers: headers,
@@ -830,7 +816,6 @@ class ApiService {
           : <String, dynamic>{};
 
       if (response.statusCode == 200) {
-        debugPrint('✅ Contraseña actualizada');
         return {
           'ok': true,
           'mensaje':
@@ -854,13 +839,12 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await http
+      final response = await _client
           .get(Uri.parse('$_baseUrl/api/empresas/me'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        debugPrint('✅ Empresa actual obtenida');
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
@@ -888,7 +872,7 @@ class ApiService {
         'direccion': direccion.trim(),
       };
 
-      final response = await http
+      final response = await _client
           .put(
             Uri.parse('$_baseUrl/api/empresas/me'),
             headers: headers,
@@ -897,7 +881,6 @@ class ApiService {
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
-        debugPrint('✅ Empresa actualizada');
         return true;
       }
 
@@ -917,7 +900,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await http
+      final response = await _client
           .get(Uri.parse('$_baseUrl/api/tipos-solicitud'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
@@ -948,15 +931,12 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await http
+      final response = await _client
           .get(Uri.parse('$_baseUrl/api/solicitudes'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
-        debugPrint('📌 SOLICITUDES RAW: ${response.body}');
-
         final decoded = jsonDecode(response.body);
-        debugPrint('📌 SOLICITUDES RAW: ${response.body}');
 
         if (decoded is List) {
           return decoded
@@ -984,7 +964,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await http
+      final response = await _client
           .get(
             Uri.parse('$_baseUrl/api/solicitudes/$solicitudId/historial'),
             headers: headers,
@@ -1185,7 +1165,7 @@ class ApiService {
       final headers = await _buildHeaders();
       headers['Content-Type'] = 'application/json';
 
-      final response = await http
+      final response = await _client
           .put(
             Uri.parse('$_baseUrl/api/solicitudes/$solicitudId/estado'),
             headers: headers,
@@ -1224,21 +1204,12 @@ class ApiService {
       final headers = await _buildHeaders(token: token);
       final String url = '$_baseUrl/api/mantenimientos';
 
-      debugPrint('🔧 [getMantenimientos] URL: $url');
-      debugPrint('🔧 [getMantenimientos] Role: $role, UserId: $userId');
-
-      final response = await http
+      final response = await _client
           .get(Uri.parse(url), headers: headers)
           .timeout(const Duration(seconds: 20));
 
-      debugPrint('🔧 [getMantenimientos] Status: ${response.statusCode}');
-
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        debugPrint(
-          '🔧 [getMantenimientos] Decoded type: ${decoded.runtimeType}',
-        );
-
         List<dynamic> mantenimientosList = [];
 
         if (decoded is List) {
@@ -1255,14 +1226,6 @@ class ApiService {
           }
         }
 
-        debugPrint('🔧 [getMantenimientos] Body completo: ${response.body}');
-        debugPrint(
-          '🔧 [getMantenimientos] Lista final: ${mantenimientosList.length}',
-        );
-
-        debugPrint(
-          '✅ [getMantenimientos] Retornando ${mantenimientosList.length} mantenimientos',
-        );
         return List<Map<String, dynamic>>.from(
           mantenimientosList.map(
             (item) => item is Map<String, dynamic> ? item : <String, dynamic>{},
@@ -1322,9 +1285,7 @@ class ApiService {
           'observaciones': observaciones.trim(),
       };
 
-      debugPrint('🔧 [createMantenimiento] Body: $body');
-
-      final response = await http
+      final response = await _client
           .post(
             Uri.parse('$_baseUrl/api/mantenimientos'),
             headers: headers,
@@ -1332,11 +1293,8 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 20));
 
-      debugPrint('🔧 [createMantenimiento] Status: ${response.statusCode}');
-
       if (response.statusCode == 201 || response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        debugPrint('✅ [createMantenimiento] Mantenimiento creado: $decoded');
         return decoded is Map<String, dynamic> ? decoded : null;
       } else {
         debugPrint(
@@ -1377,21 +1335,14 @@ class ApiService {
           'observaciones': observaciones.trim(),
       };
 
-      debugPrint('🔧 [updateMantenimiento] ID: $mantenimientoId, Body: $body');
-
       final String url =
           '$_baseUrl/api/mantenimientos/$mantenimientoId/realizar';
-      final response = await http
+      final response = await _client
           .put(Uri.parse(url), headers: headers, body: jsonEncode(body))
           .timeout(const Duration(seconds: 20));
 
-      debugPrint('🔧 [updateMantenimiento] Status: ${response.statusCode}');
-
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        debugPrint(
-          '✅ [updateMantenimiento] Mantenimiento actualizado: $decoded',
-        );
         return decoded is Map<String, dynamic> ? decoded : null;
       } else {
         debugPrint(
@@ -1441,9 +1392,7 @@ class ApiService {
         if (estado != null) 'estado': estado,
       };
 
-      debugPrint('🔧 [editMantenimiento] ID: $mantenimientoId, Body: $body');
-
-      final response = await http
+      final response = await _client
           .put(
             Uri.parse('$_baseUrl/api/mantenimientos/$mantenimientoId'),
             headers: headers,
@@ -1451,11 +1400,8 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 20));
 
-      debugPrint('🔧 [editMantenimiento] Status: ${response.statusCode}');
-
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        debugPrint('✅ [editMantenimiento] Mantenimiento editado: $decoded');
         return decoded is Map<String, dynamic> ? decoded : null;
       } else {
         debugPrint(
@@ -1475,20 +1421,11 @@ class ApiService {
   }) async {
     try {
       final headers = await _buildHeaders(token: token);
-
       final url = Uri.parse('$_baseUrl/api/tipos-mantenimiento');
 
-      debugPrint('🔧 [getTiposMantenimiento] URL: $url');
-      debugPrint(
-        '🔧 [getTiposMantenimiento] Token: ${token != null ? "SÍ" : "NO"}',
-      );
-
-      final response = await http
+      final response = await _client
           .get(url, headers: headers)
           .timeout(const Duration(seconds: 20));
-
-      debugPrint('🔧 [getTiposMantenimiento] Status: ${response.statusCode}');
-      debugPrint('🔧 [getTiposMantenimiento] Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
@@ -1534,7 +1471,7 @@ class ApiService {
       if (role.toLowerCase() == 'empresa') {
         // Para empresa, obtener todos los vehículos
         final headers = await _buildHeaders(token: token);
-        final response = await http
+        final response = await _client
             .get(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
             .timeout(const Duration(seconds: 20));
 

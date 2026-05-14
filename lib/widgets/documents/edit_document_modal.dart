@@ -67,6 +67,7 @@ class _EditDocumentDateDialogState extends State<_EditDocumentDateDialog> {
   }
 
   Future<void> _guardar() async {
+    if (_guardando) return;
     setState(() => _guardando = true);
 
     try {

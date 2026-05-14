@@ -7,7 +7,7 @@ import 'package:trackfile/widgets/certificates/certificaciones.dart';
 import 'package:trackfile/widgets/documents/documentos_screen.dart';
 import 'package:trackfile/widgets/inicio.dart';
 import 'package:trackfile/widgets/maintenance/mantenimientos.dart';
-import 'package:trackfile/widgets/messages/mensajes.dart';
+import 'package:trackfile/widgets/notifications/notifications.dart';
 import 'package:trackfile/widgets/users/gestion_personas_widget.dart';
 import 'package:trackfile/widgets/users/perfil.dart';
 import 'package:trackfile/widgets/vehicles/vehiculos.dart';

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trackfile/services/api_link.dart';
@@ -69,6 +71,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
   String? _authToken;
   bool _showHistory = false;
   bool _openedFromUserPanel = false;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -78,11 +81,13 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
     _loadExplorerData();
   }
 
-  Future<void> _loadExplorerData() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  Future<void> _loadExplorerData({bool showLoader = true}) async {
+    if (showLoader) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       String? token = widget.token;
@@ -213,7 +218,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
     final previousVehicleId = _selectedVehicle?.id;
     final previousShowHistory = _showHistory;
 
-    await _loadExplorerData();
+    await _loadExplorerData(showLoader: false);
 
     if (!mounted) return;
 
@@ -244,11 +249,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
     List<_DocumentEntry> documents,
     List<Map<String, dynamic>> vehicles,
   ) {
-    final role = widget.role?.toLowerCase() ?? '';
     final currentUserId = (widget.userId ?? '').trim();
-
-    debugPrint('ROL DOCUMENTOS: $role');
-    debugPrint('USER ID DOCUMENTOS: $currentUserId');
 
     if (currentUserId.isEmpty) {
       return documents;
@@ -572,6 +573,12 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
       token: _authToken,
       onSuccess: _refreshExplorerDataKeepingCurrentView,
     );
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
   }
 
   @override
@@ -1254,7 +1261,13 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
   Widget _buildSearchBar() {
     return TextField(
       style: const TextStyle(color: Colors.white),
-      onChanged: (value) => setState(() => _searchQuery = value),
+      onChanged: (value) {
+        _searchDebounce?.cancel();
+        _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+          if (!mounted) return;
+          setState(() => _searchQuery = value);
+        });
+      },
       decoration: InputDecoration(
         hintText: 'Buscar por nombre o número de documento',
         prefixIcon: const Icon(Icons.search),
@@ -2567,9 +2580,6 @@ class _DocumentEntry {
           raw['archivoUrl'] ??
           raw['fileUrl'],
     );
-
-    debugPrint('📄 DOCUMENTO RAW: $raw');
-    debugPrint('📎 URL EXTRAÍDA: $value');
 
     if (value == null || value.isEmpty) return '';
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -75,6 +76,9 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
   String? _error;
   String _search = '';
   String _baseUrl = ApiConfig.fallbackBaseUrl();
+  final http.Client _client = http.Client();
+  String? _tokenCache;
+  Timer? _searchDebounce;
 
   String _iniciales(Map<String, dynamic> item) {
     final nombre = _value(item, ['nombre']).trim();
@@ -123,6 +127,10 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
       _esConductor ? Icons.badge_rounded : Icons.person_rounded;
 
   Future<String> _token() async {
+    if (_tokenCache != null && _tokenCache!.isNotEmpty) {
+      return _tokenCache!;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
 
@@ -130,6 +138,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
       throw Exception('No hay sesión activa');
     }
 
+    _tokenCache = token;
     return token;
   }
 
@@ -143,7 +152,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
       final token = await _token();
       final uri = ApiConfig.resolve(_baseUrl, _endpointBase);
 
-      final response = await http
+      final response = await _client
           .get(
             uri,
             headers: {
@@ -188,7 +197,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
       final token = await _token();
       final uri = ApiConfig.resolve(_baseUrl, '$_endpointBase/$id/detalle');
 
-      final response = await http
+      final response = await _client
           .get(
             uri,
             headers: {
@@ -212,7 +221,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
     final token = await _token();
     final uri = ApiConfig.resolve(_baseUrl, _endpointBase);
 
-    final response = await http.post(
+    final response = await _client.post(
       uri,
       headers: {
         'Authorization': 'Bearer $token',
@@ -232,7 +241,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
     final token = await _token();
     final uri = ApiConfig.resolve(_baseUrl, '$_endpointBase/$id');
 
-    final response = await http.put(
+    final response = await _client.put(
       uri,
       headers: {
         'Authorization': 'Bearer $token',
@@ -252,7 +261,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
     final token = await _token();
     final uri = ApiConfig.resolve(_baseUrl, '/api/usuarios');
 
-    final response = await http.post(
+    final response = await _client.post(
       uri,
       headers: {
         'Authorization': 'Bearer $token',
@@ -1547,7 +1556,13 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: TextField(
-        onChanged: (value) => setState(() => _search = value),
+        onChanged: (value) {
+          _searchDebounce?.cancel();
+          _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+            if (!mounted) return;
+            setState(() => _search = value);
+          });
+        },
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: _esConductor
@@ -1870,6 +1885,13 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _client.close();
+    super.dispose();
   }
 
   @override

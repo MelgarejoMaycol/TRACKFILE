@@ -58,14 +58,12 @@ Future<void> persistSession(Map<String, dynamic> userData) async {
   final userId = userData['id']?.toString();
   if (userId != null && userId.isNotEmpty) {
     await prefs.setString('user_id', userId);
-    debugPrint('👤 User ID guardado: $userId');
   }
 
   // Guardar el role
   final role = userData['rol']?.toString().toUpperCase();
   if (role != null && role.isNotEmpty) {
     await prefs.setString('role', role);
-    debugPrint('🎭 Role guardado: $role');
   }
 
   // Guardar conductor_id si es conductor
@@ -74,7 +72,6 @@ Future<void> persistSession(Map<String, dynamic> userData) async {
       userData['conductorId']?.toString();
   if (conductorId != null && conductorId.isNotEmpty) {
     await prefs.setString('conductor_id', conductorId);
-    debugPrint('🚗 Conductor ID guardado: $conductorId');
   } else if (role?.toUpperCase() == 'CONDUCTOR' && userId != null) {
     // Si es conductor pero no tenemos el ID, buscarlo en el backend
     final foundId = await _findConductorIdByUserId(userId, userData['token']);
@@ -90,7 +87,6 @@ Future<void> persistSession(Map<String, dynamic> userData) async {
       userData['propietarioId']?.toString();
   if (propietarioId != null && propietarioId.isNotEmpty) {
     await prefs.setString('propietario_id', propietarioId);
-    debugPrint('👨‍💼 Propietario ID guardado: $propietarioId');
   } else if (role?.toUpperCase() == 'PROPIETARIO' && userId != null) {
     // Si es propietario pero no tenemos el ID, buscarlo en el backend
     final foundId = await _findPropietarioIdByUserId(userId, userData['token']);
@@ -104,7 +100,6 @@ Future<void> persistSession(Map<String, dynamic> userData) async {
   final tokenValue = userData['token'];
   if (tokenValue != null && tokenValue.isNotEmpty) {
     await prefs.setString('auth_token', tokenValue);
-    debugPrint('🔐 Token JWT guardado: ${tokenValue.substring(0, 20)}...');
   } else {
     debugPrint('⚠️ No se encontró token en userData');
     await prefs.setString('auth_token', 'session_active');

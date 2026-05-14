@@ -1,5 +1,3 @@
-import 'dart:convert' show jsonEncode;
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -82,9 +80,12 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
   @override
   void initState() {
     super.initState();
-    _loadPersonas();
-    _loadDocumentTypes();
-    selectedVehicleValue = null; // Explícitamente null al inicio
+    selectedVehicleValue = null;
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    await Future.wait([_loadPersonas(), _loadDocumentTypes()]);
   }
 
   @override
@@ -273,16 +274,6 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     }
     final uniqueFiltered = uniqueById.values.toList();
 
-    // Debug: mostrar resultado del filtrado
-    debugPrint('📋 Filtrado de documentos:');
-    debugPrint('   - Vehículo seleccionado: $hasVehicle');
-    debugPrint('   - Total documentos disponibles: ${documentTypes.length}');
-    debugPrint('   - Documentos después de filtrar: ${uniqueFiltered.length}');
-    for (var doc in uniqueFiltered) {
-      final cat = _categorizeDocumentType(doc['nombre']?.toString() ?? '');
-      debugPrint('      ✓ ${doc['nombre']} (categoría: $cat)');
-    }
-
     return uniqueFiltered;
   }
 
@@ -310,30 +301,8 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     });
 
     try {
-      debugPrint('📋 [Modal] Cargando conductores y propietarios...');
-      debugPrint(
-        '📋 [Modal] Token pasado a modal: ${widget.token?.isNotEmpty == true ? "presente (${widget.token!.length} chars)" : "NULO"}',
-      );
-
       final conds = await DocumentService.getConductores(token: widget.token);
-      debugPrint('📋 [Modal] Conductores recibidos: ${conds.length}');
-      for (int i = 0; i < conds.length && i < 3; i++) {
-        debugPrint('   ===== CONDUCTOR $i =====');
-        debugPrint('   JSON: ${jsonEncode(conds[i])}');
-        conds[i].forEach((key, value) {
-          debugPrint('     $key: $value (tipo: ${value.runtimeType})');
-        });
-      }
-
       final props = await DocumentService.getPropietarios(token: widget.token);
-      debugPrint('📋 [Modal] Propietarios recibidos: ${props.length}');
-      for (int i = 0; i < props.length && i < 3; i++) {
-        debugPrint('   ===== PROPIETARIO $i =====');
-        debugPrint('   JSON: ${jsonEncode(props[i])}');
-        props[i].forEach((key, value) {
-          debugPrint('     $key: $value (tipo: ${value.runtimeType})');
-        });
-      }
 
       if (mounted) {
         setState(() {
@@ -369,15 +338,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     });
 
     try {
-      debugPrint('📋 [Modal] Cargando tipos de documento...');
       final types = await DocumentService.getDocumentTypes(token: widget.token);
-      debugPrint('📋 [Modal] Tipos de documento recibidos: ${types.length}');
-      for (int i = 0; i < types.length; i++) {
-        final nombre =
-            types[i]['nombre'] ?? types[i]['nombre_tipo'] ?? 'Sin nombre';
-        final cat = _categorizeDocumentType(nombre.toString());
-        debugPrint('   [$i] $nombre → Categoría: $cat');
-      }
 
       if (mounted) {
         setState(() {
@@ -1063,9 +1024,6 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                             idUsuario = persona['usuario']['id'] as int?;
                           }
                         }
-                        debugPrint(
-                          '📋 Conductor seleccionado: ID=$id, Usuario ID=$idUsuario',
-                        );
                       } else if (tipo == 'propietario') {
                         final persona = propietarios.firstWhere(
                           (p) => _getIdPersona(p) == id,
@@ -1080,9 +1038,6 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                             idUsuario = persona['usuario']['id'] as int?;
                           }
                         }
-                        debugPrint(
-                          '📋 Propietario seleccionado: ID=$id, Usuario ID=$idUsuario',
-                        );
                       }
 
                       setState(() {
@@ -1290,49 +1245,24 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                 : (value) {
                     setState(() {
                       selectedVehicleValue = value;
-                      debugPrint(
-                        '📍 [Vehicle Selection] onChanged value: $value',
-                      );
-
                       if (value != null && value.startsWith('vehicle_')) {
                         // Extraer el ID del valor
                         final idStr = value.replaceFirst('vehicle_', '');
                         selectedVehicleId = int.tryParse(idStr);
-
-                        debugPrint(
-                          '📍 [Vehicle Selection] ID extraído: $selectedVehicleId',
-                        );
-                        debugPrint(
-                          '📍 [Vehicle Selection] Buscando en lista de ${vehiculos.length} vehículos...',
-                        );
-
                         if (selectedVehicleId != null) {
                           final foundVehicle = vehiculos.firstWhere((v) {
                             final id = v['id'] is String
                                 ? int.parse(v['id'].toString())
                                 : v['id'];
                             final match = id == selectedVehicleId;
-                            debugPrint(
-                              '   - Comparando: ${v['placa']} (id: ${v['id']}, tipo: ${v['id'].runtimeType}) == $selectedVehicleId? $match',
-                            );
                             return match;
                           }, orElse: () => {});
 
                           selectedVehiclePlaca = foundVehicle['placa'];
-
-                          debugPrint(
-                            '📍 [Vehicle Selection] Vehículo seleccionado:',
-                          );
-                          debugPrint('   - Placa: $selectedVehiclePlaca');
-                          debugPrint('   - ID: $selectedVehicleId');
-                          debugPrint('   - Objeto completo: $foundVehicle');
                         }
                       } else {
                         selectedVehicleId = null;
                         selectedVehiclePlaca = null;
-                        debugPrint(
-                          '📍 [Vehicle Selection] Vehículo deseleccionado',
-                        );
                       }
                     });
                   },
@@ -1903,11 +1833,6 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
 
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
-        debugPrint('📁 Archivo seleccionado: ${file.name}');
-        debugPrint('   - Path: ${file.path}');
-        debugPrint(
-          '   - Bytes disponibles: ${file.bytes != null ? "sí (${file.bytes!.length} bytes)" : "no"}',
-        );
 
         setState(() {
           selectedFilePath = file.path ?? '';
@@ -1987,18 +1912,6 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     });
 
     try {
-      debugPrint('📤 Iniciando upload...');
-      debugPrint(
-        '   - Persona: ${selectedPersonaTipo?.toUpperCase()} (ID: $selectedPersonaIdInt)',
-      );
-      debugPrint(
-        '   - Vehículo: ${selectedVehicleId != null ? '$selectedVehicleId ($selectedVehiclePlaca)' : 'Sin vehículo'}',
-      );
-      debugPrint('   - Tipo de Documento: $selectedDocumentTypeId');
-      debugPrint('   - Área: $selectedArea');
-      debugPrint('   - Archivo: $selectedFileName');
-      debugPrint('   - Observación requerida: ${_isObservationRequired()}');
-
       final result = await DocumentService.uploadDocument(
         filePath: selectedFilePath!,
         fileName: selectedFileName ?? 'document',
@@ -2022,7 +1935,6 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
         });
 
         if (result != null) {
-          debugPrint('✅ Respuesta del servidor: $result');
           _showSuccessSnackBar('✅ Documento subido exitosamente');
           Future.delayed(const Duration(milliseconds: 800), () {
             if (mounted) {
@@ -2031,12 +1943,10 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             }
           });
         } else {
-          debugPrint('❌ Resultado NULL del upload');
           _showErrorSnackBar('❌ Error - Revisa los logs');
         }
       }
     } catch (e) {
-      debugPrint('❌ Excepción en upload: $e');
       if (mounted) {
         setState(() {
           isUploading = false;

@@ -114,8 +114,11 @@ class _PerfilWidgetState extends State<PerfilWidget> {
   @override
   void initState() {
     super.initState();
-    _cargarPreferenciasNotificaciones();
-    _cargarPerfil();
+    _cargarInicial();
+  }
+
+  Future<void> _cargarInicial() async {
+    await Future.wait([_cargarPreferenciasNotificaciones(), _cargarPerfil()]);
   }
 
   Future<void> _cargarPreferenciasNotificaciones() async {
@@ -128,11 +131,13 @@ class _PerfilWidgetState extends State<PerfilWidget> {
     });
   }
 
-  Future<void> _cargarPerfil() async {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
+  Future<void> _cargarPerfil({bool showLoader = true}) async {
+    if (showLoader) {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+    }
 
     try {
       final perfilBackend = await ApiService.getMiPerfil();
@@ -870,7 +875,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                                         );
 
                                         if (ok) {
-                                          await _cargarPerfil();
+                                          await _cargarPerfil(showLoader: false);
                                           await widget.onPerfilActualizado
                                               ?.call();
                                         }

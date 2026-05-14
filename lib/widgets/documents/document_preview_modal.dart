@@ -151,8 +151,6 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
 
     final url = widget.fileUrl!.trim();
 
-    debugPrint('📄 PREVIEW URL: $url');
-
     if (_isPdf) {
       return buildPdfPreview(url);
     }

@@ -240,8 +240,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
   static const Color _dangerColor = Color(0xFFE66B6B);
   static const Color _infoColor = Color(0xFF3DA9F5);
 
-  final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
-
   double _pagePadding(double width) {
     if (width < 380) return 12;
     if (width < 720) return 16;
@@ -251,7 +249,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
   bool _isLoading = true;
   bool _hasError = false;
   List<_MantenimientoDetalle> _detalles = const [];
-  List<_MantenimientoDetalle> _programados = const [];
   Map<String, int> _conteoEstados = const {};
 
   // Datos del backend
@@ -270,22 +267,18 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     _loadData();
   }
 
-  Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
+  Future<void> _loadData({bool showLoader = true}) async {
+    if (showLoader) {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+    }
 
     try {
-      // Obtener token y userId
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
       final userId = widget.userId ?? prefs.getString('user_id');
-
-      //debugPrint('🔧 Cargando datos desde backend...');
-      //debugPrint('   Role: ${widget.role}, UserId: $userId');
-
-      // Cargar datos en paralelo
       final results = await Future.wait([
         ApiService.getMantenimientos(
           role: widget.role,
@@ -306,27 +299,13 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       final mantenimientosData = results[0];
       final tiposData = results[1];
       final vehiculosData = results[2];
-
-      //debugPrint('✅ Datos obtenidos:');
-      //debugPrint('   Mantenimientos: ${mantenimientosData.length}');
-      //debugPrint('   Tipos: ${tiposData.length}');
-      //debugPrint('   Vehículos: ${vehiculosData.length}');
-      //debugPrint('TIPOS DATA: $tiposData');
-      //debugPrint('VEHICULOS DATA: $vehiculosData');
-      //debugPrint('🧪 MANTENIMIENTOS RAW: $mantenimientosData');
-
-      // Convertir tipos de mantenimiento
       final tipos = tiposData
           .map((map) => _TipoMantenimiento.fromMap(map))
           .toList();
       final tiposPorId = {for (final tipo in tipos) tipo.id: tipo};
-
-      // Convertir mantenimientos
       final mantenimientos = mantenimientosData
           .map((map) => _Mantenimiento.fromMap(map))
           .toList();
-
-      // Crear detalles
       final todos = mantenimientos.map((_Mantenimiento mantenimiento) {
         final _TipoMantenimiento? tipo = tiposPorId[mantenimiento.tipoId];
         return _MantenimientoDetalle(mantenimiento: mantenimiento, tipo: tipo);
@@ -358,31 +337,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           _vehiculos = vehiculosData;
           _tiposMantenimiento = tiposData;
           _detalles = filtrados;
-          _programados =
-              filtrados.where((detalle) {
-                final estado = detalle.mantenimiento.estado
-                    .toUpperCase()
-                    .trim();
-                return estado == 'SUGERIDO' || estado == 'PROGRAMADO';
-              }).toList()..sort((a, b) {
-                final prioridadA = priorityRank(a.mantenimiento.prioridad);
-                final prioridadB = priorityRank(b.mantenimiento.prioridad);
-
-                if (prioridadA != prioridadB) {
-                  return prioridadA.compareTo(prioridadB);
-                }
-
-                final fechaA =
-                    a.mantenimiento.fechaProgramada ??
-                    a.mantenimiento.fechaSugerida ??
-                    DateTime(2100);
-                final fechaB =
-                    b.mantenimiento.fechaProgramada ??
-                    b.mantenimiento.fechaSugerida ??
-                    DateTime(2100);
-
-                return fechaA.compareTo(fechaB);
-              });
           _conteoEstados = recalcularConteo(filtrados);
           _isLoading = false;
         });
@@ -495,34 +449,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
   }
 
   String maintenanceSearch = '';
-
-  List<_MantenimientoDetalle> filtrarPorRol(List<_MantenimientoDetalle> todos) {
-    if (!(_isConductor || _isPropietario)) {
-      return todos;
-    }
-
-    if (_vehiculos.isEmpty) {
-      //debugPrint('⚠️ No hay vehículos para filtrar mantenimientos.');
-      return todos;
-    }
-
-    final Set<int> vehiculoIds = _vehiculos.map((vehiculo) {
-      return int.tryParse(
-            (vehiculo['id'] ??
-                    vehiculo['id_vehiculo'] ??
-                    vehiculo['idVehiculo'] ??
-                    0)
-                .toString(),
-          ) ??
-          0;
-    }).toSet();
-
-    //debugPrint('🚗 Vehículos del usuario: $vehiculoIds');
-
-    return todos.where((detalle) {
-      return vehiculoIds.contains(detalle.mantenimiento.vehiculoId);
-    }).toList();
-  }
 
   List<_MantenimientoDetalle> filtrarPorRolConVehiculos(
     List<_MantenimientoDetalle> todos,
@@ -699,7 +625,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title shimmer
                   ShimmerSkeleton(
                     width: isCompact ? 200 : 300,
                     height: isCompact ? 18 : 22,
@@ -710,27 +635,23 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                     height: isCompact ? 12 : 13,
                   ),
                   const SizedBox(height: 20),
-                  // Summary chips shimmer
                   Wrap(
                     spacing: 14,
                     runSpacing: 12,
                     children: List.generate(3, (index) => ShimmerSummaryChip()),
                   ),
                   const SizedBox(height: 20),
-                  // Search field shimmer
                   ShimmerSkeleton(
                     width: double.infinity,
                     height: 50,
                     borderRadius: 14,
                   ),
                   const SizedBox(height: 20),
-                  // Active maintenances section
                   ShimmerSkeleton(
                     width: isCompact ? 180 : 200,
                     height: isCompact ? 16 : 18,
                   ),
                   const SizedBox(height: 12),
-                  // Expansion tiles shimmer
                   Column(
                     children: List.generate(
                       2,
@@ -758,7 +679,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                                 ],
                               ),
                             ),
-                            // Maintenance cards shimmer
                             Padding(
                               padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
                               child: Column(
@@ -842,13 +762,11 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // History section
                   ShimmerSkeleton(
                     width: isCompact ? 180 : 200,
                     height: isCompact ? 16 : 18,
                   ),
                   const SizedBox(height: 12),
-                  // History items shimmer
                   Column(
                     children: List.generate(
                       5,
@@ -1413,170 +1331,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     );
   }
 
-  Widget buildProgramadosSection({
-    required bool isTableCompact,
-    required bool isCompact,
-  }) {
-    final activos = filtrarBusqueda(_programados);
-
-    if (activos.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-        ),
-        child: Text(
-          'No hay mantenimientos activos en este momento.',
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: isCompact ? 12.5 : 13,
-          ),
-        ),
-      );
-    }
-
-    final sugeridos = activos
-        .where((d) => d.mantenimiento.estado.toUpperCase().trim() == 'SUGERIDO')
-        .toList();
-
-    final programados = activos
-        .where(
-          (d) => d.mantenimiento.estado.toUpperCase().trim() == 'PROGRAMADO',
-        )
-        .toList();
-
-    sugeridos.sort((a, b) {
-      final prioridadA = priorityRank(a.mantenimiento.prioridad);
-      final prioridadB = priorityRank(b.mantenimiento.prioridad);
-      if (prioridadA != prioridadB) return prioridadA.compareTo(prioridadB);
-
-      final fechaA = a.mantenimiento.fechaSugerida ?? DateTime(2100);
-      final fechaB = b.mantenimiento.fechaSugerida ?? DateTime(2100);
-      return fechaA.compareTo(fechaB);
-    });
-
-    programados.sort((a, b) {
-      final prioridadA = priorityRank(a.mantenimiento.prioridad);
-      final prioridadB = priorityRank(b.mantenimiento.prioridad);
-      if (prioridadA != prioridadB) return prioridadA.compareTo(prioridadB);
-
-      final fechaA = a.mantenimiento.fechaProgramada ?? DateTime(2100);
-      final fechaB = b.mantenimiento.fechaProgramada ?? DateTime(2100);
-      return fechaA.compareTo(fechaB);
-    });
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Mantenimientos activos',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: isCompact ? 16 : 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (sugeridos.isNotEmpty)
-          buildEstadoExpansion(
-            titulo: 'Sugeridos',
-            detalles: sugeridos,
-            color: _warningColor,
-          ),
-        if (programados.isNotEmpty)
-          buildEstadoExpansion(
-            titulo: 'Programados',
-            detalles: programados,
-            color: _accentColor,
-          ),
-      ],
-    );
-  }
-
-  Widget buildEstadoExpansion({
-    required String titulo,
-    required List<_MantenimientoDetalle> detalles,
-    required Color color,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          initiallyExpanded: true,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-          childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
-          iconColor: Colors.white70,
-          collapsedIconColor: Colors.white70,
-          title: Text(
-            titulo,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          subtitle: Text(
-            '${detalles.length} mantenimiento(s)',
-            style: const TextStyle(color: Colors.white60, fontSize: 12),
-          ),
-          children: detalles
-              .map(
-                (detalle) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: buildMantenimientoCard(detalle),
-                ),
-              )
-              .toList(),
-        ),
-      ),
-    );
-  }
-
-  Widget buildHistorialSection(bool isCompact) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Historial de mantenimientos',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: isCompact ? 16 : 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        buildHistorialReciente(isCompact),
-      ],
-    );
-  }
-
-  Widget buildMantenimientosView(
-    List<_MantenimientoDetalle> detalles,
-    bool isTableCompact,
-  ) {
-    if (isTableCompact || _isConductor || _isPropietario) {
-      return Column(
-        children: detalles
-            .map(
-              (detalle) => Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: buildMantenimientoCard(detalle),
-              ),
-            )
-            .toList(),
-      );
-    }
-    return buildDataTable(detalles);
-  }
-
   Widget buildSummaryChips(bool isCompact) {
     final List<Map<String, dynamic>> chipsData = [
       {
@@ -1638,98 +1392,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           ),
         );
       }).toList(),
-    );
-  }
-
-  Widget buildDataTable(List<_MantenimientoDetalle> detalles) {
-    final List<_MantenimientoDetalle> ordered =
-        List<_MantenimientoDetalle>.from(detalles)..sort((a, b) {
-          final fechaA =
-              a.mantenimiento.fechaProgramada ??
-              a.mantenimiento.fechaSugerida ??
-              DateTime(2100);
-          final fechaB =
-              b.mantenimiento.fechaProgramada ??
-              b.mantenimiento.fechaSugerida ??
-              DateTime(2100);
-          return fechaA.compareTo(fechaB);
-        });
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 1000),
-          child: DataTable(
-            headingTextStyle: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-            dataTextStyle: const TextStyle(color: Colors.white70),
-            columnSpacing: 28,
-            horizontalMargin: 18,
-            dataRowMinHeight: 70,
-            dataRowMaxHeight: 130,
-            columns: const [
-              DataColumn(label: Text('Vehículo')),
-              DataColumn(label: Text('Tipo')),
-              DataColumn(label: Text('Estado')),
-              DataColumn(label: Text('Fecha')),
-            ],
-            rows: ordered.map(buildDataRow).toList(),
-          ),
-        ),
-      ),
-    );
-  }
-
-  DataRow buildDataRow(_MantenimientoDetalle detalle) {
-    return DataRow(
-      onSelectChanged: (_) => showMantenimientoDetalleModal(detalle),
-      cells: [
-        DataCell(buildMantenimientoCell(detalle.mantenimiento)),
-        DataCell(
-          Text(
-            detalle.tipo?.nombre ?? 'Sin tipo',
-            style: const TextStyle(color: Colors.white),
-          ),
-        ),
-        DataCell(buildEstadoTag(detalle.estadoActual)),
-        DataCell(buildFechasCell(detalle.mantenimiento)),
-      ],
-    );
-  }
-
-  Widget buildMantenimientoCell(_Mantenimiento mantenimiento) {
-    return Text(
-      getVehiculoDisplayName(
-        mantenimiento.vehiculoId,
-        fallback: mantenimiento.vehiculoLabel,
-      ),
-      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-    );
-  }
-
-  Widget buildFechasCell(_Mantenimiento mantenimiento) {
-    DateTime? fecha;
-    String label;
-
-    if (mantenimiento.fechaRealizada != null) {
-      fecha = mantenimiento.fechaRealizada;
-      label = 'Finalizado';
-    } else {
-      fecha = mantenimiento.fechaProgramada ?? mantenimiento.fechaSugerida;
-      label = 'Programado';
-    }
-
-    return Text(
-      fecha == null ? 'Sin fecha' : '$label: ${formatDate(fecha)}',
-      style: const TextStyle(color: Colors.white70),
     );
   }
 
@@ -2128,154 +1790,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget buildHistorialReciente(bool isCompact) {
-    final completados =
-        filtrarBusqueda(
-          _detalles.where((detalle) {
-            return detalle.mantenimiento.estado.toUpperCase().trim() ==
-                'REALIZADO';
-          }).toList(),
-        )..sort((a, b) {
-          final fechaA = a.mantenimiento.fechaRealizada ?? DateTime(1900);
-          final fechaB = b.mantenimiento.fechaRealizada ?? DateTime(1900);
-          return fechaB.compareTo(fechaA);
-        });
-
-    if (completados.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-        ),
-        child: const Text(
-          'Aún no hay mantenimientos realizados.',
-          style: TextStyle(color: Colors.white70),
-        ),
-      );
-    }
-
-    final Map<String, List<_MantenimientoDetalle>> porVehiculo = {};
-
-    for (final detalle in completados) {
-      final mantenimiento = detalle.mantenimiento;
-      final vehiculoNombre = getVehiculoDisplayName(
-        mantenimiento.vehiculoId,
-        fallback: mantenimiento.vehiculoLabel,
-      );
-
-      porVehiculo.putIfAbsent(vehiculoNombre, () => []);
-      porVehiculo[vehiculoNombre]!.add(detalle);
-    }
-
-    final entries = porVehiculo.entries.toList()
-      ..sort((a, b) {
-        final fechaA =
-            a.value.first.mantenimiento.fechaRealizada ?? DateTime(1900);
-        final fechaB =
-            b.value.first.mantenimiento.fechaRealizada ?? DateTime(1900);
-        return fechaB.compareTo(fechaA);
-      });
-
-    return Column(
-      children: entries.map((entry) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              initiallyExpanded: false,
-              tilePadding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 4,
-              ),
-              childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
-              iconColor: Colors.white70,
-              collapsedIconColor: Colors.white70,
-              title: Text(
-                entry.key,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              subtitle: Text(
-                '${entry.value.length} mantenimiento(s) realizado(s)',
-                style: const TextStyle(color: Colors.white60, fontSize: 12),
-              ),
-              children: [
-                for (int i = 0; i < entry.value.length; i++) ...[
-                  buildHistorialMantenimientoItem(entry.value[i]),
-                  if (i != entry.value.length - 1)
-                    const Divider(color: Colors.white24),
-                ],
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget buildHistorialMantenimientoItem(_MantenimientoDetalle detalle) {
-    final mantenimiento = detalle.mantenimiento;
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () => showMantenimientoDetalleModal(detalle),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    detalle.tipo?.nombre ?? 'Sin tipo',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    getVehiculoDisplayName(
-                      mantenimiento.vehiculoId,
-                      fallback: mantenimiento.vehiculoLabel,
-                    ),
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Toca para ver detalles',
-                    style: TextStyle(color: Colors.white38, fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              formatShort(mantenimiento.fechaRealizada),
-              style: const TextStyle(color: Colors.white60, fontSize: 12),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -2693,7 +2207,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                                   ? 'PROGRAMADO'
                                   : 'REALIZADO';
 
-                              // Usar API para crear mantenimiento
                               final prefs =
                                   await SharedPreferences.getInstance();
                               final token = prefs.getString('auth_token');
@@ -2755,7 +2268,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                                     );
                                   }
                                 }
-                                await _loadData();
+                                await _loadData(showLoader: false);
 
                                 if (!ctx.mounted) return;
                                 Navigator.of(ctx).pop();
@@ -3034,7 +2547,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                                   ) ??
                                   0;
 
-                              // Usar API para actualizar mantenimiento
                               final prefs =
                                   await SharedPreferences.getInstance();
                               final token = prefs.getString('auth_token');
@@ -3056,8 +2568,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                                   );
 
                               if (result != null) {
-                                // Recargar datos
-                                await _loadData();
+                                await _loadData(showLoader: false);
 
                                 if (!ctx.mounted) return;
                                 Navigator.of(ctx).pop();
@@ -3152,25 +2663,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     );
   }
 
-  int statusPriority(String value) {
-    const Map<String, int> order = {
-      'SUGERIDO': 0,
-      'PROGRAMADO': 1,
-      'EN_PROCESO': 2,
-      'REALIZADO': 3,
-      'CANCELADO': 4,
-    };
-    return order[normalizeStatus(value)] ?? 9;
-  }
-
   String normalizeStatus(String value) => value.toUpperCase();
-
-  String formatDate(DateTime? value) {
-    if (value == null) {
-      return 'Sin fecha';
-    }
-    return _dateFormat.format(value.toLocal());
-  }
 
   String formatShort(DateTime? value) {
     if (value == null) {

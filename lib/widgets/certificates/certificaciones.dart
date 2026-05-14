@@ -268,20 +268,27 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     super.dispose();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool showLoader = true}) async {
     if (!mounted) return;
 
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
+    if (showLoader) {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+    }
 
     try {
+      final results = await Future.wait([
+        ApiService.getTiposSolicitud(),
+        ApiService.getSolicitudes(),
+      ]);
+
       final List<Map<String, dynamic>> tiposRaw =
-          await ApiService.getTiposSolicitud();
+          List<Map<String, dynamic>>.from(results[0]);
 
       final List<Map<String, dynamic>> solicitudesRaw =
-          await ApiService.getSolicitudes();
+          List<Map<String, dynamic>>.from(results[1]);
 
       final List<_TipoSolicitud> tipos = tiposRaw
           .map(_TipoSolicitud.fromMap)
@@ -297,27 +304,18 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
           .where((solicitud) => solicitud.id != 0)
           .toList();
 
-      final List<_SolicitudDetalle> todosDetalles = [];
-
-      for (final solicitud in solicitudes) {
-        final List<Map<String, dynamic>> historialRaw =
-            await ApiService.getHistorialSolicitud(solicitud.id);
-
-        final List<_Historial> historial = historialRaw
-            .map(_Historial.fromMap)
-            .toList();
-
-        todosDetalles.add(
-          _SolicitudDetalle(
-            solicitud: solicitud,
-            tipo: tiposById[solicitud.idTipo],
-            historial: historial,
-          ),
+      final List<_SolicitudDetalle> detallesSinHistorial = solicitudes.map((
+        solicitud,
+      ) {
+        return _SolicitudDetalle(
+          solicitud: solicitud,
+          tipo: tiposById[solicitud.idTipo],
+          historial: const [],
         );
-      }
+      }).toList();
 
       final List<_SolicitudDetalle> detallesSeleccionados =
-          _selectDetallesForRole(todosDetalles);
+          _selectDetallesForRole(detallesSinHistorial);
 
       if (!mounted) return;
 
@@ -336,6 +334,36 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
         _isLoading = false;
         _hasError = true;
       });
+    }
+  }
+
+  Future<void> _cargarHistorialSiHaceFalta(_SolicitudDetalle detalle) async {
+    if (detalle.historial.isNotEmpty) return;
+
+    try {
+      final historialRaw = await ApiService.getHistorialSolicitud(
+        detalle.solicitud.id,
+      );
+
+      final historial = historialRaw.map(_Historial.fromMap).toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _detalles = _detalles.map((item) {
+          if (item.solicitud.id != detalle.solicitud.id) return item;
+
+          return _SolicitudDetalle(
+            solicitud: item.solicitud,
+            tipo: item.tipo,
+            historial: historial,
+          );
+        }).toList();
+
+        _conteoEstados = _recalcularConteo(_detalles);
+      });
+    } catch (e) {
+      debugPrint('❌ Error cargando historial de solicitud: $e');
     }
   }
 
@@ -991,10 +1019,14 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onTap: () {
+        onTap: () async {
           setState(() {
             _expandedSolicitudId = isExpanded ? null : solicitud.id;
           });
+
+          if (!isExpanded) {
+            await _cargarHistorialSiHaceFalta(detalle);
+          }
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 240),
@@ -1136,10 +1168,25 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                                           alignment: WrapAlignment.end,
                                           children: [
                                             TextButton.icon(
-                                              onPressed: () =>
-                                                  _showHistorialDetalle(
-                                                    detalle,
-                                                  ),
+                                              onPressed: () async {
+                                                await _cargarHistorialSiHaceFalta(
+                                                  detalle,
+                                                );
+
+                                                final detalleActualizado =
+                                                    _detalles.firstWhere(
+                                                      (item) =>
+                                                          item.solicitud.id ==
+                                                          detalle.solicitud.id,
+                                                      orElse: () => detalle,
+                                                    );
+
+                                                if (!mounted) return;
+
+                                                _showHistorialDetalle(
+                                                  detalleActualizado,
+                                                );
+                                              },
                                               icon: const Icon(
                                                 Icons.timeline_rounded,
                                                 size: 18,
@@ -1532,7 +1579,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
       return;
     }
 
-    await _loadData();
+    await _loadData(showLoader: false);
 
     if (!mounted) return;
 
@@ -2009,7 +2056,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
                                   Navigator.pop(ctx);
                                 }
 
-                                await _loadData();
+                                await _loadData(showLoader: false);
 
                                 if (!mounted) return;
 

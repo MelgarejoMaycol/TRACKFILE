@@ -1,12 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:trackfile/services/api_service.dart';
-import 'package:trackfile/utils/api_config.dart';
-import 'package:trackfile/widgets/utils/shimmer_skeleton.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:trackfile/services/api_service.dart';
+import 'package:trackfile/utils/api_config.dart';
+import 'package:trackfile/widgets/utils/shimmer_skeleton.dart';
 
 /// Visualiza los registros de la tabla vehiculos con filtros basados en estado y busqueda.
 class VehiculosWidget extends StatefulWidget {
@@ -128,7 +128,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
 
   bool _isLoading = true;
   List<_Vehicle> _vehicles = const [];
-  final Map<String, List<Map<String, dynamic>>> _vehicleDocumentsByPlate = {};
   final Map<int, Map<String, dynamic>> _propietariosMap = {};
   final Map<int, Map<String, dynamic>> _conductoresMap = {};
   String? _statusFilter;
@@ -158,16 +157,13 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
 
   Future<void> _initialize() async {
     await _initBaseUrl();
-    await _loadAllData();
+    await _loadAllData(showLoader: false);
   }
 
-  Future<void> _loadAllData() async {
-    await Future.wait([
-      _loadPropietariosFromApi(),
-      _loadConductoresFromApi(),
-      _loadDocumentsFromApi(),
-    ]);
-    await _loadVehicles();
+  Future<void> _loadAllData({bool showLoader = true}) async {
+    await Future.wait([_loadPropietariosFromApi(), _loadConductoresFromApi()]);
+
+    await _loadVehicles(showLoader: showLoader);
   }
 
   Future<void> _initBaseUrl() async {
@@ -206,9 +202,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
             _propietariosMap[id] = {...prop, 'nombre': nombre};
           }
         }
-        debugPrint(
-          '✅ Propietarios cargados: ${_propietariosMap.length} registros',
-        );
       }
     } catch (e) {
       debugPrint('❌ Error cargando propietarios: $e');
@@ -245,21 +238,20 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
             _conductoresMap[id] = {...cond, 'nombre': nombre};
           }
         }
-        debugPrint(
-          '✅ Conductores cargados: ${_conductoresMap.length} registros',
-        );
       }
     } catch (e) {
       debugPrint('❌ Error cargando conductores: $e');
     }
   }
 
-  Future<void> _loadVehicles() async {
+  Future<void> _loadVehicles({bool showLoader = true}) async {
     try {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
+      if (showLoader) {
+        setState(() {
+          _isLoading = true;
+          _error = null;
+        });
+      }
 
       // Obtener token de SharedPreferences
       final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -269,14 +261,8 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
         throw Exception('No hay sesión activa');
       }
 
-      // Construir URL según el rol y el ownerId
-      String endpoint = '/api/vehiculos';
-      debugPrint(
-        '🔍 VehiculosWidget - role: ${widget.role}, ownerId: ${widget.ownerId}',
-      );
 
-      final uri = ApiConfig.resolve(_baseUrl, endpoint);
-      debugPrint('🔗 Cargando vehículos desde: $uri');
+      final uri = ApiConfig.resolve(_baseUrl, '/api/vehiculos');
 
       final response = await http
           .get(
@@ -288,26 +274,15 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
           )
           .timeout(const Duration(seconds: 15));
 
-      debugPrint('📡 Respuesta: ${response.statusCode}');
-
       if (!mounted) return;
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body) as List<dynamic>;
         final List<_Vehicle> vehicles = _parseVehiclesFromApi(data);
 
-        // Cargar detalles completos de cada vehículo en paralelo
-        final List<_Vehicle> detailedVehicles = await _loadVehiclesDetails(
+        final List<_Vehicle> vehiclesWithDocuments = _enrichVehiclesWithNames(
           vehicles,
-          token,
         );
-        final List<_Vehicle> enrichedVehicles = _enrichVehiclesWithNames(
-          detailedVehicles,
-        );
-
-        // Enriquecer vehículos con documentos cargados desde la API
-        final List<_Vehicle> vehiclesWithDocuments =
-            _enrichVehiclesWithDocuments(enrichedVehicles);
 
         vehiclesWithDocuments.sort((a, b) => a.placa.compareTo(b.placa));
 
@@ -316,16 +291,11 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
           _isLoading = false;
         });
 
-        debugPrint(
-          '✅ ${vehiclesWithDocuments.length} vehículos cargados con detalles completos desde API',
-        );
       } else if (response.statusCode == 401) {
         throw Exception('Sesión expirada. Por favor inicia sesión nuevamente.');
       } else if (response.statusCode == 403) {
         throw Exception('No tienes permisos para ver los vehículos.');
       } else if (response.statusCode == 404) {
-        debugPrint('⚠️ No se encontraron vehículos en el endpoint: $endpoint');
-        // Para 404, intentar cargar desde el endpoint general como fallback
         throw Exception('No se encontraron vehículos para este usuario.');
       } else {
         throw Exception(
@@ -343,28 +313,11 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     }
   }
 
-  Future<List<_Vehicle>> _loadVehiclesDetails(
-    List<_Vehicle> vehicles,
-    String token,
-  ) async {
-    final List<Future<_Vehicle>> futures = [];
-
-    for (final vehicle in vehicles) {
-      futures.add(_loadVehicleDetail(vehicle, token));
-    }
-
-    final results = await Future.wait(futures, eagerError: false);
-    return results.whereType<_Vehicle>().toList();
-  }
-
   Future<_Vehicle> _loadVehicleDetail(_Vehicle vehicle, String token) async {
     try {
       final uri = ApiConfig.resolve(
         _baseUrl,
         '/api/vehiculos/${vehicle.idVehiculo}/detalle',
-      );
-      debugPrint(
-        '📡 Cargando detalle de vehículo ${vehicle.idVehiculo} desde: $uri',
       );
 
       final response = await http
@@ -380,14 +333,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       if (response.statusCode == 200) {
         final Map<String, dynamic> data =
             json.decode(response.body) as Map<String, dynamic>;
-        debugPrint('✅ Respuesta recibida para vehículo ${vehicle.idVehiculo}');
-        debugPrint('   - Claves disponibles: ${data.keys.toList()}');
-        debugPrint('   - nombrePropietario: ${data['nombrePropietario']}');
-        debugPrint('   - nombreConductor: ${data['nombreConductor']}');
-        debugPrint(
-          '   - propietario (está?): ${data.containsKey('propietario')}',
-        );
-        debugPrint('   - conductor (está?): ${data.containsKey('conductor')}');
 
         return _enrichVehicleFromDetalle(vehicle, data);
       } else {
@@ -400,8 +345,36 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
         '❌ Error cargando detalle de vehículo ${vehicle.idVehiculo}: $e',
       );
     }
-    debugPrint('↩️  Retornando vehículo sin enriquecimiento: ${vehicle.placa}');
     return vehicle;
+  }
+
+  Future<_Vehicle> _getVehicleDetailOnDemand(_Vehicle vehicle) async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? token = prefs.getString('auth_token');
+
+      if (token == null || token.isEmpty) {
+        return vehicle;
+      }
+
+      final detailedVehicle = await _loadVehicleDetail(vehicle, token);
+
+      if (!mounted) return detailedVehicle;
+
+      setState(() {
+        _vehicles = _vehicles.map((item) {
+          if (item.idVehiculo == detailedVehicle.idVehiculo) {
+            return detailedVehicle;
+          }
+          return item;
+        }).toList();
+      });
+
+      return detailedVehicle;
+    } catch (e) {
+      debugPrint('❌ Error cargando detalle bajo demanda: $e');
+      return vehicle;
+    }
   }
 
   _Vehicle _enrichVehicleFromDetalle(
@@ -532,19 +505,12 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       }
     }
 
-    debugPrint(
-      '🔄 Vehículo ${vehicle.placa}: Prop=$nombreProp (Doc:$docProp), Tel:$telProp, Cond=$nombreCond',
-    );
-
     // Extraer documentos del detalle si vienen en la respuesta
     List<Map<String, dynamic>> documentsFromDetail = [];
     if (data['documentos'] is List) {
       documentsFromDetail = (data['documentos'] as List)
           .whereType<Map<String, dynamic>>()
           .toList();
-      debugPrint(
-        '📄 Documentos encontrados en detalle: ${documentsFromDetail.length}',
-      );
     }
 
     return _Vehicle(
@@ -717,111 +683,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
     }).toList();
   }
 
-  List<_Vehicle> _enrichVehiclesWithDocuments(List<_Vehicle> vehicles) {
-    return vehicles.map((vehicle) {
-      // Obtener documentos para este vehículo desde el mapa cargado
-      final docs = _vehicleDocumentsByPlate[vehicle.placa] ?? [];
-
-      // Si el vehículo ya tiene documentos del detalle, no sobrescribir
-      final docsToUse = vehicle.documentosVehiculo.isNotEmpty
-          ? vehicle.documentosVehiculo
-          : docs;
-
-      if (docsToUse.isNotEmpty) {
-        debugPrint(
-          '📄 Vehículo ${vehicle.placa}: ${docsToUse.length} documentos asignados',
-        );
-      }
-
-      return _Vehicle(
-        idVehiculo: vehicle.idVehiculo,
-        idPropietario: vehicle.idPropietario,
-        idConductor: vehicle.idConductor,
-        placa: vehicle.placa,
-        vin: vehicle.vin,
-        marca: vehicle.marca,
-        modelo: vehicle.modelo,
-        anio: vehicle.anio,
-        color: vehicle.color,
-        kilometrajeActual: vehicle.kilometrajeActual,
-        estadoVehiculo: vehicle.estadoVehiculo,
-        fechaCreacion: vehicle.fechaCreacion,
-        nombrePropietario: vehicle.nombrePropietario,
-        nombreConductor: vehicle.nombreConductor,
-        telefonoPropietario: vehicle.telefonoPropietario,
-        emailPropietario: vehicle.emailPropietario,
-        documentoPropietario: vehicle.documentoPropietario,
-        direccionPropietario: vehicle.direccionPropietario,
-        tipoDocumentoPropietario: vehicle.tipoDocumentoPropietario,
-        apellidoPropietario: vehicle.apellidoPropietario,
-        telefonoConductor: vehicle.telefonoConductor,
-        emailConductor: vehicle.emailConductor,
-        licenciaConductor: vehicle.licenciaConductor,
-        categoriaConductor: vehicle.categoriaConductor,
-        direccionConductor: vehicle.direccionConductor,
-        tipoDocumentoConductor: vehicle.tipoDocumentoConductor,
-        documentoConductor: vehicle.documentoConductor,
-        apellidoConductor: vehicle.apellidoConductor,
-        fechaVencimientoLicencia: vehicle.fechaVencimientoLicencia,
-        documentosVehiculo: docsToUse,
-        cantidadDocumentosVigentes: vehicle.cantidadDocumentosVigentes,
-      );
-    }).toList();
-  }
-
-  Future<void> _loadDocumentsFromApi() async {
-    try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? token = prefs.getString('auth_token');
-      if (token == null) return;
-
-      final uri = ApiConfig.resolve(_baseUrl, '/api/documentos/tabla');
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-          )
-          .timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body) as List<dynamic>;
-        _vehicleDocumentsByPlate.clear();
-
-        for (final doc in data.whereType<Map<String, dynamic>>()) {
-          // Filtrar solo documentos de vehículos (id_usuario = null)
-          final idUsuario = doc['idUsuario'];
-          if (idUsuario == null) {
-            final placa =
-                doc['vehiculoPlaca']?.toString() ??
-                doc['placa']?.toString() ??
-                '';
-            if (placa.isNotEmpty) {
-              if (!_vehicleDocumentsByPlate.containsKey(placa)) {
-                _vehicleDocumentsByPlate[placa] = [];
-              }
-              _vehicleDocumentsByPlate[placa]!.add(doc);
-              debugPrint(
-                '📄 Documento de vehículo encontrado: $placa - ${doc['nombre']?.toString() ?? 'Sin nombre'}',
-              );
-            }
-          }
-        }
-        debugPrint(
-          '✅ Documentos de vehículos cargados: ${_vehicleDocumentsByPlate.values.fold<int>(0, (sum, list) => sum + list.length)} registros',
-        );
-      } else {
-        debugPrint(
-          '⚠️ Error ${response.statusCode} cargando documentos: ${response.body}',
-        );
-      }
-    } catch (e) {
-      debugPrint('❌ Error cargando documentos: $e');
-    }
-  }
-
   List<_Vehicle> get _filteredVehicles {
     Iterable<_Vehicle> filtered = _vehiclesForCurrentUser;
 
@@ -937,6 +798,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       _statusFilter = null;
       _searchTerm = '';
     });
+
   }
 
   Widget _buildVehicleTopActions(bool isCompact) {
@@ -1094,7 +956,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                                 if (!mounted) return;
                                 navigator.pop();
 
-                                await _loadAllData();
+                                await _loadAllData(showLoader: false);
 
                                 if (!mounted) return;
 
@@ -1208,7 +1070,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                             if (!mounted) return;
                             navigator.pop();
 
-                            await _loadAllData();
+                            await _loadAllData(showLoader: false);
 
                             if (!mounted) return;
 
@@ -1302,7 +1164,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                               if (!mounted) return;
                               navigator.pop();
 
-                              await _loadAllData();
+                              await _loadAllData(showLoader: false);
 
                               if (!mounted) return;
 
@@ -1564,7 +1426,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       vehiculoId: vehicle.idVehiculo,
     );
 
-    await _loadAllData();
+    await _loadAllData(showLoader: false);
 
     if (!mounted) return;
 
@@ -1610,7 +1472,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
               ),
               const SizedBox(height: 20),
               ElevatedButton.icon(
-                onPressed: _loadVehicles,
+                onPressed: () => _loadVehicles(),
                 icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Reintentar'),
                 style: ElevatedButton.styleFrom(
@@ -2013,7 +1875,13 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
   Widget _buildVehicleGridCard(_Vehicle vehicle, bool isCompact) {
     return InkWell(
       borderRadius: BorderRadius.circular(18),
-      onTap: () => _showVehicleModal(vehicle, isCompact),
+      onTap: () async {
+        final detailedVehicle = await _getVehicleDetailOnDemand(vehicle);
+
+        if (!mounted) return;
+
+        _showVehicleModal(detailedVehicle, isCompact);
+      },
       child: Container(
         padding: EdgeInsets.all(isCompact ? 13 : 15),
         decoration: BoxDecoration(

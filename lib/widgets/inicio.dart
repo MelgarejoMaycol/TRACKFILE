@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -55,12 +54,16 @@ class _InicioWidgetState extends State<InicioWidget> {
   String? _userProfileImage;
 
   @override
+  @override
   void initState() {
     super.initState();
+
     _role = (widget.role ?? '').trim();
+
     _documents = widget.documents != null
         ? Map<String, DateTime>.from(widget.documents!)
         : <String, DateTime>{};
+
     _initializeData();
   }
 
@@ -2487,13 +2490,11 @@ class DocumentCountdown extends StatefulWidget {
 
 class _DocumentCountdownState extends State<DocumentCountdown> {
   late Duration _remaining;
-  late Timer _timer;
 
   @override
   void initState() {
     super.initState();
     _updateRemaining();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
   }
 
   void _updateRemaining() {
@@ -2509,19 +2510,6 @@ class _DocumentCountdownState extends State<DocumentCountdown> {
     );
     _remaining = expiryOnly.difference(todayOnly);
     // No clamp to zero for expired documents
-  }
-
-  void _tick() {
-    if (!mounted) return;
-    setState(() {
-      _updateRemaining();
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    super.dispose();
   }
 
   @override

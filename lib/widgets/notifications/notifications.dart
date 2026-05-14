@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../services/notificaciones_service.dart';
 import '../utils/shimmer_skeleton.dart';
+import 'alert_card.dart';
 
 class MensajesWidget extends StatefulWidget {
   final String? role;
@@ -28,8 +29,8 @@ class _AlertNotification {
   final String message;
   final DateTime createdAt;
   final DateTime? dueDate;
-  final _AlertType type;
-  final _AlertUrgency urgency;
+  final AlertType type;
+  final AlertUrgency urgency;
   final bool pushSent;
   final bool emailSent;
   final String estado;
@@ -82,11 +83,11 @@ class _AlertNotification {
       message: (map['mensaje'] ?? map['message'] ?? 'Sin detalles').toString(),
       createdAt: createdAt ?? DateTime.now(),
       dueDate: dueDate,
-      type: _AlertTypeX.parse(
+      type: _parseAlertType(
         (map['tipoAlerta'] ?? map['tipo_alerta'] ?? map['type'] ?? 'SISTEMA')
             .toString(),
       ),
-      urgency: _AlertUrgencyX.parse(
+      urgency: _parseAlertUrgency(
         (map['urgencia'] ?? map['urgency'] ?? 'MEDIA').toString(),
       ),
       pushSent: (map['pushEnviado'] ?? map['push_enviado'] ?? false) == true,
@@ -112,102 +113,53 @@ class _AlertNotification {
   }
 }
 
-enum _AlertType {
-  documentoVencimiento,
-  documentoVencido,
-  solicitudCreada,
-  solicitudActualizada,
-  mantenimientoActualizado,
-  mantenimientoProgramado,
-  mantenimientoSugerido,
-  sistema,
-  otro,
-}
-
-enum _AlertUrgency { baja, media, alta, critica }
-
-class _AlertTypeX {
-  static _AlertType parse(String raw) {
-    switch (raw.toUpperCase()) {
-      case 'DOCUMENTO_VENCIMIENTO':
-        return _AlertType.documentoVencimiento;
-      case 'DOCUMENTO_VENCIDO':
-        return _AlertType.documentoVencido;
-      case 'SOLICITUD_CREADA':
-        return _AlertType.solicitudCreada;
-      case 'SOLICITUD_ACTUALIZADA':
-        return _AlertType.solicitudActualizada;
-      case 'MANTENIMIENTO_ACTUALIZADO':
-        return _AlertType.mantenimientoActualizado;
-      case 'MANTENIMIENTO_PROGRAMADO':
-        return _AlertType.mantenimientoProgramado;
-      case 'MANTENIMIENTO_SUGERIDO':
-        return _AlertType.mantenimientoSugerido;
-      case 'SISTEMA':
-        return _AlertType.sistema;
-      default:
-        return _AlertType.otro;
-    }
-  }
-
-  static String label(_AlertType type) {
-    switch (type) {
-      case _AlertType.documentoVencimiento:
-        return 'Documento por vencer';
-      case _AlertType.documentoVencido:
-        return 'Documento vencido';
-      case _AlertType.solicitudCreada:
-        return 'Solicitud pendiente';
-      case _AlertType.solicitudActualizada:
-        return 'Solicitud actualizada';
-      case _AlertType.mantenimientoActualizado:
-        return 'Mantenimiento actualizado';
-      case _AlertType.mantenimientoProgramado:
-        return 'Mantenimiento programado';
-      case _AlertType.mantenimientoSugerido:
-        return 'Mantenimiento sugerido';
-      case _AlertType.sistema:
-        return 'Sistema';
-      case _AlertType.otro:
-        return 'Otro';
-    }
+AlertType _parseAlertType(String raw) {
+  switch (raw.toUpperCase()) {
+    case 'DOCUMENTO_VENCIMIENTO':
+      return AlertType.documentoVencimiento;
+    case 'DOCUMENTO_VENCIDO':
+      return AlertType.documentoVencido;
+    case 'SOLICITUD_CREADA':
+      return AlertType.solicitudCreada;
+    case 'SOLICITUD_ACTUALIZADA':
+      return AlertType.solicitudActualizada;
+    case 'MANTENIMIENTO_ACTUALIZADO':
+      return AlertType.mantenimientoActualizado;
+    case 'MANTENIMIENTO_PROGRAMADO':
+      return AlertType.mantenimientoProgramado;
+    case 'MANTENIMIENTO_SUGERIDO':
+      return AlertType.mantenimientoSugerido;
+    case 'SISTEMA':
+      return AlertType.sistema;
+    default:
+      return AlertType.otro;
   }
 }
 
-class _AlertUrgencyX {
-  static _AlertUrgency parse(String raw) {
-    switch (raw.toUpperCase()) {
-      case 'CRITICA':
-        return _AlertUrgency.critica;
-      case 'ALTA':
-        return _AlertUrgency.alta;
-      case 'BAJA':
-        return _AlertUrgency.baja;
-      case 'MEDIA':
-      default:
-        return _AlertUrgency.media;
-    }
-  }
-
-  static String label(_AlertUrgency urgency) {
-    switch (urgency) {
-      case _AlertUrgency.alta:
-        return 'Alta';
-      case _AlertUrgency.baja:
-        return 'Baja';
-      case _AlertUrgency.media:
-        return 'Media';
-      case _AlertUrgency.critica:
-        return 'Crítica';
-    }
+AlertUrgency _parseAlertUrgency(String raw) {
+  switch (raw.toUpperCase()) {
+    case 'CRITICA':
+      return AlertUrgency.critica;
+    case 'ALTA':
+      return AlertUrgency.alta;
+    case 'BAJA':
+      return AlertUrgency.baja;
+    case 'MEDIA':
+    default:
+      return AlertUrgency.media;
   }
 }
 
 class _MensajesWidgetState extends State<MensajesWidget> {
+  bool _showReadAlerts = false;
   bool _isLoading = true;
   late String _role;
   List<_AlertNotification> _alerts = const [];
-  bool _showReadAlerts = false;
+  List<_AlertNotification> get _unreadAlerts =>
+      _alerts.where((a) => a.isUnread).toList();
+
+  List<_AlertNotification> get _readAlerts =>
+      _alerts.where((a) => !a.isUnread).toList();
 
   @override
   void initState() {
@@ -219,14 +171,9 @@ class _MensajesWidgetState extends State<MensajesWidget> {
   Future<void> _loadThreads() async {
     try {
       final data = await NotificacionesService.listar();
-
-      final parsedAlerts = data
-          .map((item) => _AlertNotification.fromMap(item))
-          .toList();
-
-      final filteredAlerts = _filtrarPorRol(parsedAlerts);
-
-      filteredAlerts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final filteredAlerts = _filtrarPorRol(
+        data.map((item) => _AlertNotification.fromMap(item)).toList(),
+      )..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       if (!mounted) return;
 
@@ -236,8 +183,6 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       });
       widget.onNotificationsChanged?.call();
     } catch (e) {
-      debugPrint('Error cargando notificaciones: $e');
-
       if (!mounted) return;
 
       setState(() {
@@ -290,9 +235,8 @@ class _MensajesWidgetState extends State<MensajesWidget> {
   }
 
   Widget _buildSummaryRow({required bool isCompact}) {
-    final int unreadAlerts = _alerts.where((alert) => alert.isUnread).length;
-
-    final int readAlerts = _alerts.where((alert) => !alert.isUnread).length;
+    final unreadAlerts = _unreadAlerts.length;
+    final readAlerts = _readAlerts.length;
 
     return Wrap(
       spacing: 12,
@@ -369,8 +313,8 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       return _buildAlertsEmptyState(isCompact: isCompact);
     }
 
-    final unreadAlerts = _alerts.where((a) => a.isUnread).toList();
-    final readAlerts = _alerts.where((a) => !a.isUnread).toList();
+    final unreadAlerts = _unreadAlerts;
+    final readAlerts = _readAlerts;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,12 +377,10 @@ class _MensajesWidgetState extends State<MensajesWidget> {
             ),
           ),
           const SizedBox(height: 10),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: unreadAlerts.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (_, index) => _buildAlertCard(unreadAlerts[index]),
+          Column(
+            children: unreadAlerts
+                .map((alert) => _buildAlertCard(alert))
+                .toList(),
           ),
         ] else
           Container(
@@ -503,13 +445,10 @@ class _MensajesWidgetState extends State<MensajesWidget> {
             firstChild: const SizedBox.shrink(),
             secondChild: Padding(
               padding: const EdgeInsets.only(top: 10),
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: readAlerts.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (_, index) =>
-                    _buildAlertCard(readAlerts[index], isReadStyle: true),
+              child: Column(
+                children: readAlerts
+                    .map((alert) => _buildAlertCard(alert, isReadStyle: true))
+                    .toList(),
               ),
             ),
             crossFadeState: _showReadAlerts
@@ -590,27 +529,27 @@ class _MensajesWidgetState extends State<MensajesWidget> {
           : _role.toLowerCase();
 
       switch (alert.type) {
-        case _AlertType.documentoVencimiento:
-        case _AlertType.documentoVencido:
+        case AlertType.documentoVencimiento:
+        case AlertType.documentoVencido:
           context.goNamed('documentos', pathParameters: {'role': role});
           break;
 
-        case _AlertType.solicitudCreada:
-        case _AlertType.solicitudActualizada:
+        case AlertType.solicitudCreada:
+        case AlertType.solicitudActualizada:
           context.goNamed('certificaciones', pathParameters: {'role': role});
           break;
 
-        case _AlertType.mantenimientoActualizado:
-        case _AlertType.mantenimientoProgramado:
-        case _AlertType.mantenimientoSugerido:
+        case AlertType.mantenimientoActualizado:
+        case AlertType.mantenimientoProgramado:
+        case AlertType.mantenimientoSugerido:
           context.goNamed('mantenimientos', pathParameters: {'role': role});
           break;
 
-        case _AlertType.sistema:
+        case AlertType.sistema:
           context.goNamed('inicio', pathParameters: {'role': role});
           break;
 
-        case _AlertType.otro:
+        case AlertType.otro:
           context.goNamed('perfil', pathParameters: {'role': role});
           break;
       }
@@ -625,239 +564,17 @@ class _MensajesWidgetState extends State<MensajesWidget> {
   }
 
   Widget _buildAlertCard(_AlertNotification alert, {bool isReadStyle = false}) {
-    final Color baseColor = _alertBaseColor(alert.type);
-    final IconData icon = _alertIcon(alert.type);
-    final String dueLabel = _dueDateLabel(alert.dueDate);
-    final Color urgencyColor = _urgencyColor(alert.urgency);
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool isMobile = constraints.maxWidth < 600;
-
-        return InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: () => _abrirNotificacion(alert),
-          child: Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: EdgeInsets.all(isMobile ? 14 : 18),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  baseColor.withValues(alpha: isReadStyle ? 0.28 : 0.95),
-                  baseColor.withValues(alpha: isReadStyle ? 0.18 : 0.72),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-              boxShadow: [
-                BoxShadow(
-                  color: baseColor.withValues(alpha: isReadStyle ? 0.08 : 0.22),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: isMobile ? 38 : 46,
-                  height: isMobile ? 38 : 46,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    icon,
-                    color: Colors.white,
-                    size: isMobile ? 20 : 24,
-                  ),
-                ),
-                SizedBox(width: isMobile ? 10 : 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        runSpacing: 4,
-                        children: [
-                          Text(
-                            alert.title,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: isMobile ? 14 : 16,
-                            ),
-                          ),
-                          Text(
-                            _formatTimestamp(alert.createdAt),
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: isMobile ? 11 : 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        alert.message,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: isMobile ? 12.5 : 14,
-                          height: 1.35,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _buildAlertChip(_AlertTypeX.label(alert.type)),
-                          if (alert.isUnread)
-                            _buildAlertChip(
-                              'No leída',
-                              color: const Color(0xFFFFC857),
-                            ),
-                          _buildAlertChip(
-                            'Urgencia ${_AlertUrgencyX.label(alert.urgency)}',
-                            color: urgencyColor,
-                          ),
-                          _buildAlertChip(
-                            dueLabel,
-                            color: Colors.white.withValues(alpha: 0.25),
-                          ),
-                          if (alert.isDueSoon)
-                            _buildAlertChip(
-                              'Atención esta semana',
-                              color: Colors.white.withValues(alpha: 0.35),
-                            ),
-                          if (alert.isExpired)
-                            _buildAlertChip(
-                              'Vencida',
-                              color: const Color(0xFFFF6B6B),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    return AlertCard(
+      title: alert.title,
+      message: alert.message,
+      createdAt: alert.createdAt,
+      dueDate: alert.dueDate,
+      type: alert.type,
+      urgency: alert.urgency,
+      isUnread: alert.isUnread,
+      isReadStyle: isReadStyle,
+      onTap: () => _abrirNotificacion(alert),
     );
-  }
-
-  Widget _buildAlertChip(String text, {Color? color}) {
-    final Color resolved = color ?? Colors.white.withValues(alpha: 0.22);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: resolved,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  Color _alertBaseColor(_AlertType type) {
-    switch (type) {
-      case _AlertType.documentoVencimiento:
-      case _AlertType.documentoVencido:
-        return const Color(0xFFFF6B6B);
-
-      case _AlertType.solicitudCreada:
-      case _AlertType.solicitudActualizada:
-        return const Color(0xFF4F4CE8);
-
-      case _AlertType.mantenimientoActualizado:
-      case _AlertType.mantenimientoProgramado:
-      case _AlertType.mantenimientoSugerido:
-        return const Color(0xFF16C79A);
-
-      case _AlertType.sistema:
-      case _AlertType.otro:
-        return const Color(0xFF1F9EDC);
-    }
-  }
-
-  IconData _alertIcon(_AlertType type) {
-    switch (type) {
-      case _AlertType.documentoVencimiento:
-        return Icons.event_busy_rounded;
-      case _AlertType.documentoVencido:
-        return Icons.warning_rounded;
-
-      case _AlertType.solicitudCreada:
-        return Icons.assignment_late_rounded;
-      case _AlertType.solicitudActualizada:
-        return Icons.assignment_turned_in_rounded;
-
-      case _AlertType.mantenimientoActualizado:
-      case _AlertType.mantenimientoProgramado:
-      case _AlertType.mantenimientoSugerido:
-        return Icons.build_circle_rounded;
-
-      case _AlertType.sistema:
-      case _AlertType.otro:
-        return Icons.info_rounded;
-    }
-  }
-
-  Color _urgencyColor(_AlertUrgency urgency) {
-    switch (urgency) {
-      case _AlertUrgency.alta:
-        return const Color(0xFFFF6B6B);
-      case _AlertUrgency.baja:
-        return const Color(0xFF7ED957);
-      case _AlertUrgency.media:
-        return Colors.white.withValues(alpha: 0.22);
-      case _AlertUrgency.critica:
-        return const Color(0xFFFF3B30);
-    }
-  }
-
-  String _dueDateLabel(DateTime? dueDate) {
-    if (dueDate == null) {
-      return 'Sin fecha límite';
-    }
-    final DateTime now = DateTime.now();
-    final Duration diff = dueDate.difference(now);
-    if (diff.inDays < 0) {
-      return 'Vencida ${_formatDate(dueDate)}';
-    }
-    if (diff.inDays == 0) {
-      return 'Vence hoy';
-    }
-    if (diff.inDays == 1) {
-      return 'Vence mañana';
-    }
-    if (diff.inDays <= 7) {
-      return 'Vence en ${diff.inDays} días';
-    }
-    return 'Vence el ${_formatDate(dueDate)}';
-  }
-
-  String _formatDate(DateTime date) {
-    final String day = date.day.toString().padLeft(2, '0');
-    final String month = date.month.toString().padLeft(2, '0');
-    return '$day/$month';
   }
 
   Widget _empresaMensajes() {
@@ -917,31 +634,5 @@ class _MensajesWidgetState extends State<MensajesWidget> {
         );
       },
     );
-  }
-
-  String _formatTimestamp(DateTime timestamp) {
-    final DateTime localTime = timestamp.toLocal();
-    final DateTime now = DateTime.now();
-
-    final Duration diff = now.difference(localTime);
-
-    final String hour = localTime.hour.toString().padLeft(2, '0');
-    final String minute = localTime.minute.toString().padLeft(2, '0');
-
-    // Hoy -> solo hora
-    final bool sameDay =
-        localTime.year == now.year &&
-        localTime.month == now.month &&
-        localTime.day == now.day;
-
-    if (sameDay || (diff.inHours < 24 && !diff.isNegative)) {
-      return '$hour:$minute';
-    }
-
-    // Más de un día -> fecha + hora
-    final String day = localTime.day.toString().padLeft(2, '0');
-    final String month = localTime.month.toString().padLeft(2, '0');
-
-    return '$day/$month $hour:$minute';
   }
 }

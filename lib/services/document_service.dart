@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import './api_link.dart';
 
 class DocumentService {
+  static final http.Client _client = http.Client();
+  static String? _tokenCache;
   // URL base - siempre usa Onrender
   static String get _baseUrl => getApiLink();
 
@@ -20,7 +22,7 @@ class DocumentService {
     try {
       final headers = _buildHeaders(token);
 
-      final response = await http
+      final response = await _client
           .get(
             Uri.parse('$_baseUrl/api/documentos?idUsuario=$userId'),
             headers: headers,
@@ -81,15 +83,12 @@ class DocumentService {
         url += '?${queryParams.join('&')}';
       }
 
-      debugPrint('📡 Obteniendo documentos de empresa desde: $url');
-
-      final response = await http
+      final response = await _client
           .get(Uri.parse(url), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        debugPrint('📄 Respuesta recibida, parseando documentos...');
 
         if (decoded is List) {
           final List<Map<String, dynamic>> docs =
@@ -99,7 +98,6 @@ class DocumentService {
                       item is Map<String, dynamic> ? item : <String, dynamic>{},
                 ),
               );
-          debugPrint('✅ Se obtuvieron ${docs.length} documentos de la empresa');
           return docs;
         }
         if (decoded is Map && decoded['data'] is List) {
@@ -110,9 +108,6 @@ class DocumentService {
                       item is Map<String, dynamic> ? item : <String, dynamic>{},
                 ),
               );
-          debugPrint(
-            '✅ Se obtuvieron ${docs.length} documentos de la empresa (con envolvente data)',
-          );
           return docs;
         }
       } else if (response.statusCode == 401) {
@@ -133,7 +128,7 @@ class DocumentService {
     try {
       final headers = _buildHeaders(token);
 
-      final response = await http
+      final response = await _client
           .get(
             Uri.parse('$_baseUrl/api/documentos/$documentoId/detalle'),
             headers: headers,
@@ -166,11 +161,6 @@ class DocumentService {
     String? token,
   }) async {
     try {
-      // Todos los roles usan el mismo endpoint: /api/documentos/tabla
-      // El frontend filtra según el rol
-      debugPrint(
-        '📡 Obteniendo todos los documentos desde /api/documentos/tabla',
-      );
       return await getCompanyDocuments(token: token);
     } catch (e) {
       debugPrint('❌ Error obteniendo documentos por rol: $e');
@@ -195,22 +185,12 @@ class DocumentService {
     List<int>? fileBytes, // Bytes del archivo (para web)
   }) async {
     try {
-      debugPrint('📤 DocumentService.uploadDocument() iniciado');
-      debugPrint('   URL: $_baseUrl/api/documentos');
-      debugPrint('   Token presente: ${token?.isNotEmpty == true}');
-      debugPrint(
-        '   Usando bytes: ${fileBytes != null ? "sí (${fileBytes.length} bytes)" : "no"}',
-      );
-      debugPrint('   personaId: $personaId');
-      debugPrint('   personaIdUsuario: $personaIdUsuario');
-
       // En web usar bytes directamente, en nativo intentar leer del filesystem
       final file = fileBytes ?? await _readFile(filePath);
       if (file == null) {
         debugPrint('❌ No se pudo leer el archivo: $filePath');
         return null;
       }
-      debugPrint('   Archivo: ${file.length} bytes');
 
       // Para multipart requests, NO incluir Content-Type application/json
       // MultipartRequest lo maneja automáticamente
@@ -218,7 +198,6 @@ class DocumentService {
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       }
-      debugPrint('   Headers: $headers');
 
       // Crear multipart request
       final request = http.MultipartRequest(
@@ -232,11 +211,6 @@ class DocumentService {
       // Agregar campos - NO enviar idVehiculo si es null
       if (vehicleId != null && vehicleId > 0) {
         request.fields['idVehiculo'] = vehicleId.toString();
-        debugPrint(
-          '   ✅ idVehiculo enviado: $vehicleId (vehículo seleccionado)',
-        );
-      } else {
-        debugPrint('   ⚠️ idVehiculo NO enviado (no seleccionado)');
       }
 
       // IMPORTANTE: La BD tiene restricción CHECK que NO permite ambos idVehiculo e idUsuario NOT NULL
@@ -246,24 +220,15 @@ class DocumentService {
         // Sin vehículo: enviar idUsuario
         if (personaIdUsuario != null) {
           request.fields['idUsuario'] = personaIdUsuario.toString();
-          debugPrint(
-            '   ✅ idUsuario enviado: $personaIdUsuario (usuario sin vehículo)',
-          );
         } else if (personaId != null) {
           // Fallback: si no tenemos idUsuario, enviar el id
           request.fields['idUsuario'] = personaId.toString();
-          debugPrint('   ✅ idUsuario enviado: $personaId (id como fallback)');
         } else {
           debugPrint(
             '   ⚠️ idUsuario NO enviado (no hay persona seleccionada)',
           );
         }
-      } else {
-        // Con vehículo: NO enviar idUsuario (se deduce del vehículo)
-        debugPrint(
-          '   ⚠️ idUsuario NO enviado (vehículo ya tiene propietario asignado)',
-        );
-      }
+      } 
 
       request.fields['idTipo'] = documentTypeId.toString();
       request.fields['area'] = area;
@@ -278,41 +243,19 @@ class DocumentService {
       // Enviar responsableUsuarioId: el usuario autenticado (quien sube el documento)
       if (responsibleUserId != null && responsibleUserId != 0) {
         request.fields['responsableUsuarioId'] = responsibleUserId.toString();
-        debugPrint(
-          '   responsableUsuarioId enviado: $responsibleUserId (usuario autenticado)',
-        );
-      } else {
-        debugPrint(
-          '   ⚠️ responsableUsuarioId NO enviado (no hay usuario autenticado)',
-        );
-      }
-
-      // NOTA: personaId NO se envía al backend, es solo para control en frontend
-
-      debugPrint('   Campos enviados:');
-      request.fields.forEach((k, v) {
-        debugPrint('     - $k: $v');
-      });
-
+      } 
       // Agregar archivo
       request.files.add(
         http.MultipartFile.fromBytes('archivo', file, filename: fileName),
       );
-      debugPrint('   Archivo multipart: $fileName');
-
-      debugPrint('🔄 Enviando request...');
       final streamedResponse = await request.send().timeout(
         const Duration(seconds: 60),
       );
       final response = await http.Response.fromStream(streamedResponse);
 
-      debugPrint('📨 Respuesta recibida: ${response.statusCode}');
-      debugPrint('   Body: ${response.body}');
-
       if (response.statusCode == 200 || response.statusCode == 201) {
         final dynamic decoded = jsonDecode(response.body);
         if (decoded is Map<String, dynamic>) {
-          debugPrint('✅ Documento subido exitosamente: $decoded');
           return decoded;
         }
       } else if (response.statusCode == 401) {
@@ -355,15 +298,6 @@ class DocumentService {
       {'id': 14, 'nombre': 'PERMISO_CIRCULACION'},
     ];
 
-    debugPrint(
-      '📋 [getDocumentTypes] Retornando ${documentTypes.length} tipos de documento',
-    );
-    for (int i = 0; i < documentTypes.length; i++) {
-      debugPrint(
-        '   [$i] ID: ${documentTypes[i]['id']}, Nombre: ${documentTypes[i]['nombre']}',
-      );
-    }
-
     return documentTypes;
   }
 
@@ -374,53 +308,22 @@ class DocumentService {
     try {
       final headers = _buildHeaders(token);
       final url = Uri.parse('$_baseUrl/api/conductores');
-
-      debugPrint('🔍 [getConductores] URL: $url');
-      debugPrint(
-        '🔍 [getConductores] Token: ${token?.isNotEmpty == true ? "presente (${token!.length} chars)" : "NULO/VACÍO"}',
-      );
-      debugPrint('🔍 [getConductores] Headers: $headers');
-
-      final response = await http
+      final response = await _client
           .get(url, headers: headers)
           .timeout(const Duration(seconds: 20));
 
-      debugPrint('🔍 [getConductores] Status: ${response.statusCode}');
-      debugPrint(
-        '🔍 [getConductores] Response body (primeros 500 chars): ${response.body.length > 500 ? '${response.body.substring(0, 500)}...' : response.body}',
-      );
-
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        debugPrint('🔍 [getConductores] Decoded type: ${decoded.runtimeType}');
 
         if (decoded is List) {
-          debugPrint(
-            '✅ [getConductores] Es una List con ${decoded.length} elementos',
-          );
-
-          // Imprimir estructura de cada elemento
-          for (int i = 0; i < decoded.length && i < 3; i++) {
-            debugPrint('🔍 [getConductores] Elemento $i: ${decoded[i]}');
-            if (decoded[i] is Map) {
-              debugPrint('   Keys: ${(decoded[i] as Map).keys.toList()}');
-            }
-          }
-
           final result = List<Map<String, dynamic>>.from(
             decoded.map(
               (item) =>
                   item is Map<String, dynamic> ? item : <String, dynamic>{},
             ),
           );
-          debugPrint(
-            '✅ [getConductores] Retornando ${result.length} conductores',
-          );
           return result;
         } else if (decoded is Map && decoded['data'] is List) {
-          debugPrint(
-            '✅ [getConductores] Response es Map con campo data, la lista tiene ${(decoded['data'] as List).length} elementos',
-          );
           final result = List<Map<String, dynamic>>.from(
             (decoded['data'] as List).map(
               (item) =>
@@ -441,7 +344,6 @@ class DocumentService {
         debugPrint(
           '   ⚠️ Verifica que iniciaste sesión como EMPRESA, no como PROPIETARIO o CONDUCTOR',
         );
-        debugPrint('   Response: ${response.body}');
         throw Exception(
           'Error del servidor (500): No se pudo obtener los conductores. Verifica que la empresa esté correctamente configurada.',
         );
@@ -482,53 +384,21 @@ class DocumentService {
     try {
       final headers = _buildHeaders(token);
       final url = Uri.parse('$_baseUrl/api/propietarios');
-
-      debugPrint('🔍 [getPropietarios] URL: $url');
-      debugPrint(
-        '🔍 [getPropietarios] Token: ${token?.isNotEmpty == true ? "presente (${token!.length} chars)" : "NULO/VACÍO"}',
-      );
-      debugPrint('🔍 [getPropietarios] Headers: $headers');
-
-      final response = await http
+      final response = await _client
           .get(url, headers: headers)
           .timeout(const Duration(seconds: 20));
 
-      debugPrint('🔍 [getPropietarios] Status: ${response.statusCode}');
-      debugPrint(
-        '🔍 [getPropietarios] Response body (primeros 500 chars): ${response.body.length > 500 ? '${response.body.substring(0, 500)}...' : response.body}',
-      );
-
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        debugPrint('🔍 [getPropietarios] Decoded type: ${decoded.runtimeType}');
-
         if (decoded is List) {
-          debugPrint(
-            '✅ [getPropietarios] Es una List con ${decoded.length} elementos',
-          );
-
-          // Imprimir estructura de cada elemento
-          for (int i = 0; i < decoded.length && i < 3; i++) {
-            debugPrint('🔍 [getPropietarios] Elemento $i: ${decoded[i]}');
-            if (decoded[i] is Map) {
-              debugPrint('   Keys: ${(decoded[i] as Map).keys.toList()}');
-            }
-          }
-
           final result = List<Map<String, dynamic>>.from(
             decoded.map(
               (item) =>
                   item is Map<String, dynamic> ? item : <String, dynamic>{},
             ),
           );
-          debugPrint(
-            '✅ [getPropietarios] Retornando ${result.length} propietarios',
-          );
           return result;
         } else if (decoded is Map && decoded['data'] is List) {
-          debugPrint(
-            '✅ [getPropietarios] Response es Map con campo data, la lista tiene ${(decoded['data'] as List).length} elementos',
-          );
           final result = List<Map<String, dynamic>>.from(
             (decoded['data'] as List).map(
               (item) =>
@@ -536,15 +406,9 @@ class DocumentService {
             ),
           );
           return result;
-        } else {
-          debugPrint(
-            '⚠️ [getPropietarios] Response no es List ni Map.data, es: ${decoded.runtimeType}',
-          );
-          debugPrint('   Contenido: $decoded');
         }
       } else if (response.statusCode == 500) {
         debugPrint('🔴 [getPropietarios] ERROR 500 en servidor');
-        debugPrint('   Response: ${response.body}');
         throw Exception(
           'Error del servidor (500): No se pudo obtener los propietarios.',
         );
@@ -585,41 +449,22 @@ class DocumentService {
     try {
       final headers = _buildHeaders(token);
       final url = Uri.parse('$_baseUrl/api/usuarios');
-
-      debugPrint('🔍 [getUsuariosEmpresa] URL: $url');
-      debugPrint(
-        '🔍 [getUsuariosEmpresa] Token: ${token?.isNotEmpty == true ? "presente" : "NULO/VACÍO"}',
-      );
-
-      final response = await http
+      final response = await _client
           .get(url, headers: headers)
           .timeout(const Duration(seconds: 20));
 
-      debugPrint('🔍 [getUsuariosEmpresa] Status: ${response.statusCode}');
-
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        debugPrint(
-          '🔍 [getUsuariosEmpresa] Decoded type: ${decoded.runtimeType}',
-        );
 
         if (decoded is List) {
-          debugPrint(
-            '✅ [getUsuariosEmpresa] Es una List con ${decoded.length} elementos',
-          );
-
           final result = List<Map<String, dynamic>>.from(
             decoded.map(
               (item) =>
                   item is Map<String, dynamic> ? item : <String, dynamic>{},
             ),
           );
-          debugPrint(
-            '✅ [getUsuariosEmpresa] Retornando ${result.length} usuarios',
-          );
           return result;
         } else if (decoded is Map && decoded['data'] is List) {
-          debugPrint('✅ [getUsuariosEmpresa] Response es Map con campo data');
           final result = List<Map<String, dynamic>>.from(
             (decoded['data'] as List).map(
               (item) =>
@@ -647,26 +492,13 @@ class DocumentService {
   }) async {
     try {
       final headers = _buildHeaders(token);
-
-      debugPrint(
-        '🚗 [getVehiculosPorConductor] Obteniendo vehículos para conductor ID: $conductorId',
-      );
-
-      final response = await http
+      final response = await _client
           .get(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
           .timeout(const Duration(seconds: 20));
-
-      debugPrint(
-        '🚗 [getVehiculosPorConductor] Status: ${response.statusCode}',
-      );
 
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         if (decoded is List) {
-          debugPrint(
-            '🚗 [getVehiculosPorConductor] Total vehículos en respuesta: ${decoded.length}',
-          );
-
           // Filtrar vehículos que tienen este conductor asignado
           final vehiculosFiltrados = <Map<String, dynamic>>[];
 
@@ -675,8 +507,6 @@ class DocumentService {
               debugPrint('   ⚠️ Skip: item no es Map');
               continue;
             }
-
-            debugPrint('   📋 Analizando vehículo: ${item['placa']}');
 
             if (item['conductor'] == null) {
               debugPrint('      ❌ Sin conductor');
@@ -690,12 +520,6 @@ class DocumentService {
             }
 
             final idCond = conductorObj['id'];
-            debugPrint(
-              '      Conductor ID en JSON: $idCond (tipo: ${idCond.runtimeType})',
-            );
-            debugPrint(
-              '      Conductor ID buscado: $conductorId (tipo: ${conductorId.runtimeType})',
-            );
 
             if (idCond == null) {
               debugPrint('      ❌ Conductor ID es null');
@@ -708,26 +532,13 @@ class DocumentService {
                   : int.parse(idCond.toString());
               final match = idCondInt == conductorId;
 
-              debugPrint(
-                '      Comparación: $idCondInt == $conductorId = $match',
-              );
-
               if (match) {
-                debugPrint(
-                  '✅ [getVehiculosPorConductor] ¡COINCIDENCIA ENCONTRADA!',
-                );
-                debugPrint('   - Placa: ${item['placa']}');
-                debugPrint('   - ID Vehículo: ${item['id']}');
                 vehiculosFiltrados.add(item);
               }
             } catch (e) {
               debugPrint('      ❌ Error parseando ID: $e');
             }
           }
-
-          debugPrint(
-            '✅ [getVehiculosPorConductor] Total encontrados: ${vehiculosFiltrados.length}',
-          );
 
           return vehiculosFiltrados;
         }
@@ -750,26 +561,13 @@ class DocumentService {
   }) async {
     try {
       final headers = _buildHeaders(token);
-
-      debugPrint(
-        '🚗 [getVehiculosPorPropietario] Obteniendo vehículos para propietario ID: $propietarioId',
-      );
-
-      final response = await http
+      final response = await _client
           .get(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
           .timeout(const Duration(seconds: 20));
-
-      debugPrint(
-        '🚗 [getVehiculosPorPropietario] Status: ${response.statusCode}',
-      );
 
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         if (decoded is List) {
-          debugPrint(
-            '🚗 [getVehiculosPorPropietario] Total vehículos en respuesta: ${decoded.length}',
-          );
-
           // Filtrar vehículos que pertenecen a este propietario
           final vehiculosFiltrados = <Map<String, dynamic>>[];
 
@@ -778,8 +576,6 @@ class DocumentService {
               debugPrint('   ⚠️ Skip: item no es Map');
               continue;
             }
-
-            debugPrint('   📋 Analizando vehículo: ${item['placa']}');
 
             if (item['propietario'] == null) {
               debugPrint('      ❌ Sin propietario');
@@ -793,12 +589,6 @@ class DocumentService {
             }
 
             final idProp = propietarioObj['id'];
-            debugPrint(
-              '      Propietario ID en JSON: $idProp (tipo: ${idProp.runtimeType})',
-            );
-            debugPrint(
-              '      Propietario ID buscado: $propietarioId (tipo: ${propietarioId.runtimeType})',
-            );
 
             if (idProp == null) {
               debugPrint('      ❌ Propietario ID es null');
@@ -811,26 +601,13 @@ class DocumentService {
                   : int.parse(idProp.toString());
               final match = idPropInt == propietarioId;
 
-              debugPrint(
-                '      Comparación: $idPropInt == $propietarioId = $match',
-              );
-
               if (match) {
-                debugPrint(
-                  '✅ [getVehiculosPorPropietario] ¡COINCIDENCIA ENCONTRADA!',
-                );
-                debugPrint('   - Placa: ${item['placa']}');
-                debugPrint('   - ID Vehículo: ${item['id']}');
                 vehiculosFiltrados.add(item);
               }
             } catch (e) {
               debugPrint('      ❌ Error parseando ID: $e');
             }
           }
-
-          debugPrint(
-            '✅ [getVehiculosPorPropietario] Total encontrados: ${vehiculosFiltrados.length}',
-          );
 
           return vehiculosFiltrados;
         }
@@ -852,19 +629,13 @@ class DocumentService {
   }) async {
     try {
       final headers = _buildHeaders(token);
-
-      debugPrint('🚗 [getAllVehicles] Obteniendo todos los vehículos');
-
-      final response = await http
+      final response = await _client
           .get(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         if (decoded is List) {
-          debugPrint(
-            '✅ [getAllVehicles] Se obtuvieron ${decoded.length} vehículos',
-          );
           return List<Map<String, dynamic>>.from(
             decoded.map(
               (item) =>
@@ -883,8 +654,13 @@ class DocumentService {
 
   /// Obtiene el token guardado locally
   static Future<String?> getToken() async {
+    if (_tokenCache != null && _tokenCache!.isNotEmpty) {
+      return _tokenCache;
+    }
+
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    _tokenCache = prefs.getString('auth_token');
+    return _tokenCache;
   }
 
   /// Construye los headers con autenticación
@@ -945,11 +721,7 @@ class DocumentService {
       };
 
       final requestBody = jsonEncode(bodyMap);
-
-      debugPrint('📝 Editando documento $documentoId');
-      debugPrint('   Body: $requestBody');
-
-      final response = await http
+      final response = await _client
           .put(
             Uri.parse('$_baseUrl/api/documentos/$documentoId'),
             headers: headers,
@@ -957,10 +729,7 @@ class DocumentService {
           )
           .timeout(const Duration(seconds: 20));
 
-      debugPrint('   Response: ${response.statusCode}');
-
       if (response.statusCode == 200 || response.statusCode == 204) {
-        debugPrint('✅ Documento $documentoId editado exitosamente');
       } else if (response.statusCode == 401) {
         debugPrint('❌ 401: No autorizado - Token inválido');
         throw Exception('No autorizado - Token inválido');
@@ -987,23 +756,14 @@ class DocumentService {
     try {
       final headers = _buildHeaders(token);
       final url = Uri.parse('$_baseUrl/api/vehiculos');
-
-      debugPrint(
-        '🚗 [getVehiculos] Obteniendo todos los vehículos desde: $url',
-      );
-
-      final response = await http
+      final response = await _client
           .get(url, headers: headers)
           .timeout(const Duration(seconds: 20));
 
-      debugPrint('🚗 [getVehiculos] Status: ${response.statusCode}');
-
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        debugPrint('🚗 [getVehiculos] Decoded type: ${decoded.runtimeType}');
 
         if (decoded is List) {
-          debugPrint('✅ [getVehiculos] Retornando ${decoded.length} vehículos');
           return List<Map<String, dynamic>>.from(
             decoded.map(
               (item) =>
@@ -1016,9 +776,6 @@ class DocumentService {
               (item) =>
                   item is Map<String, dynamic> ? item : <String, dynamic>{},
             ),
-          );
-          debugPrint(
-            '✅ [getVehiculos] Retornando ${result.length} vehículos (con envolvente data)',
           );
           return result;
         }
@@ -1046,25 +803,14 @@ class DocumentService {
         '$_baseUrl/api/documentos/tabla?diasMaximos=$diasMaximos',
       );
 
-      debugPrint(
-        '📄 [getDocumentosProximosAVencer] Obteniendo documentos que vencen en $diasMaximos días',
-      );
-
-      final response = await http
+      final response = await _client
           .get(url, headers: headers)
           .timeout(const Duration(seconds: 20));
-
-      debugPrint(
-        '📄 [getDocumentosProximosAVencer] Status: ${response.statusCode}',
-      );
 
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
 
         if (decoded is List) {
-          debugPrint(
-            '✅ [getDocumentosProximosAVencer] Retornando ${decoded.length} documentos',
-          );
           return List<Map<String, dynamic>>.from(
             decoded.map(
               (item) =>
@@ -1077,9 +823,6 @@ class DocumentService {
               (item) =>
                   item is Map<String, dynamic> ? item : <String, dynamic>{},
             ),
-          );
-          debugPrint(
-            '✅ [getDocumentosProximosAVencer] Retornando ${result.length} documentos (con envolvente data)',
           );
           return result;
         }
@@ -1124,13 +867,9 @@ class DocumentService {
       headers['Content-Type'] = 'application/json';
 
       final Map<String, dynamic> bodyMap = {'estadoDocumento': estado};
-
       final requestBody = jsonEncode(bodyMap);
 
-      debugPrint('📝 Actualizando estado de documento $documentoId a $estado');
-      debugPrint('   Body: $requestBody');
-
-      final response = await http
+      final response = await _client
           .put(
             Uri.parse('$_baseUrl/api/documentos/$documentoId/status'),
             headers: headers,
@@ -1138,12 +877,7 @@ class DocumentService {
           )
           .timeout(const Duration(seconds: 20));
 
-      debugPrint('   Response: ${response.statusCode}');
-
       if (response.statusCode == 200 || response.statusCode == 204) {
-        debugPrint(
-          '✅ Estado de documento $documentoId actualizado exitosamente a $estado',
-        );
       } else if (response.statusCode == 401) {
         debugPrint('❌ 401: No autorizado - Token inválido');
         throw Exception('No autorizado - Token inválido');
