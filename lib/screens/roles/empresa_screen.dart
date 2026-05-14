@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:html' as html;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:trackfile/services/api_service.dart';
@@ -13,7 +11,7 @@ import 'package:trackfile/widgets/messages/mensajes.dart';
 import 'package:trackfile/widgets/users/gestion_personas_widget.dart';
 import 'package:trackfile/widgets/users/perfil.dart';
 import 'package:trackfile/widgets/vehicles/vehiculos.dart';
-import 'package:go_router/go_router.dart';
+import 'package:trackfile/utils/browser_url.dart';
 
 import '../../services/notifications/notificaciones_realtime_service.dart';
 
@@ -339,7 +337,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     _ => 'inicio',
   };
 
-  html.window.history.pushState(null, '', '#/dashboard/empresa/$slug');
+  updateBrowserUrl('#/dashboard/empresa/$slug');
 }
 
   void _onBottomMenuTap(int index) {

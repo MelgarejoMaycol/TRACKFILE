@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
 import 'package:trackfile/services/api_service.dart';
@@ -13,6 +12,7 @@ import 'package:trackfile/widgets/messages/mensajes.dart';
 import 'package:trackfile/widgets/users/empresa.dart';
 import 'package:trackfile/widgets/users/perfil.dart';
 import 'package:trackfile/widgets/vehicles/vehiculos.dart';
+import 'package:trackfile/utils/browser_url.dart';
 
 class _MenuOption {
   final String label;
@@ -253,7 +253,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
       _ => 'inicio',
     };
 
-    html.window.history.pushState(null, '', '#/dashboard/conductor/$slug');
+    updateBrowserUrl('#/dashboard/conductor/$slug');
   }
 
   void _onUpperMenuTap(int idx) {

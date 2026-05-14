@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,6 +18,7 @@ import 'package:trackfile/widgets/users/empresa.dart';
 import 'package:trackfile/widgets/users/perfil.dart';
 import 'package:trackfile/widgets/utils/logout_button.dart';
 import 'package:trackfile/widgets/vehicles/vehiculos.dart';
+import 'package:trackfile/utils/browser_url.dart';
 
 class _MenuOption {
   final String label;
@@ -610,7 +610,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       _ => 'inicio',
     };
 
-    html.window.history.pushState(null, '', '#/dashboard/propietario/$slug');
+    updateBrowserUrl('#/dashboard/propietario/$slug');
   }
 
   void _onUpperMenuTap(int idx) {
