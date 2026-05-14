@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
 import 'package:trackfile/services/api_service.dart';
@@ -27,6 +28,7 @@ class ConductorScreen extends StatefulWidget {
   final String personName;
   final int notificationsCount;
   final String? userId; // ID del usuario
+  final String? initialSection;
 
   const ConductorScreen({
     super.key,
@@ -35,6 +37,7 @@ class ConductorScreen extends StatefulWidget {
     this.personName = 'Nombre Persona',
     this.notificationsCount = 0,
     this.userId,
+    this.initialSection,
   });
 
   @override
@@ -70,6 +73,8 @@ class _ConductorScreenState extends State<ConductorScreen> {
   @override
   void initState() {
     super.initState();
+    _activeSection = widget.initialSection ?? 'Inicio';
+    _syncSelectedMenuWithSection(_activeSection);
     NotificacionesRealtimeService.start();
     _loadUserData();
     _loadNotificationsCount();
@@ -199,88 +204,88 @@ class _ConductorScreenState extends State<ConductorScreen> {
     _MenuOption('Perfil', Icons.person_rounded, 'Perfil'),
   ];
 
-  void _onUpperMenuTap(int idx) {
+  void _syncSelectedMenuWithSection(String section) {
+    final upperIndex = _upperMenuOptions.indexWhere(
+      (option) => option.section == section || option.label == section,
+    );
+
+    final lowerIndex = _lowerMenuOptions.indexWhere(
+      (option) => option.section == section || option.label == section,
+    );
+
+    if (lowerIndex != -1) {
+      _selectedLowerIndex = lowerIndex;
+      _selectedUpperIndex = null;
+      _selectedTopIndex = null;
+      return;
+    }
+
+    if (upperIndex != -1) {
+      _selectedUpperIndex = upperIndex;
+      _selectedTopIndex = upperIndex;
+      _selectedLowerIndex = null;
+      return;
+    }
+
+    _selectedLowerIndex = null;
+    _selectedUpperIndex = null;
+    _selectedTopIndex = null;
+  }
+
+  void _goToSection(String section) {
+    final active = section == 'Vehículos' ? 'Vehículo' : section;
+
     setState(() {
       _contentRefreshKey++;
-      _selectedUpperIndex = idx;
-      _selectedLowerIndex = null;
-      _activeSection = _upperMenuOptions[idx].label;
+      _activeSection = active;
+      _syncSelectedMenuWithSection(active);
     });
+
+    final slug = switch (section) {
+      'Inicio' => 'inicio',
+      'Documentos' => 'documentos',
+      'Certificaciones' => 'certificaciones',
+      'Perfil' => 'perfil',
+      'Mensajes' => 'mensajes',
+      'Vehículo' || 'Vehículos' => 'vehiculos',
+      'Empresa' => 'empresa-info',
+      'Mantenimientos' => 'mantenimientos',
+      _ => 'inicio',
+    };
+
+    html.window.history.pushState(null, '', '#/dashboard/conductor/$slug');
+  }
+
+  void _onUpperMenuTap(int idx) {
+    _goToSection(_upperMenuOptions[idx].section);
   }
 
   void _onLowerMenuTap(int idx) {
-    setState(() {
-      _contentRefreshKey++;
-      _selectedLowerIndex = idx;
-      _selectedUpperIndex = null;
-      _activeSection = _lowerMenuOptions[idx].label;
-    });
+    _goToSection(_lowerMenuOptions[idx].section);
   }
 
   void _onBottomTap(String label) {
-    setState(() {
-      _contentRefreshKey++;
-      _activeSection = label;
-      final int upperIdx = _upperMenuOptions.indexWhere(
-        (option) => option.label == label,
-      );
-      _selectedUpperIndex = upperIdx != -1 ? upperIdx : null;
-      final int lowerIdx = _lowerMenuOptions.indexWhere(
-        (option) => option.label == label,
-      );
-      _selectedLowerIndex = lowerIdx != -1 ? lowerIdx : null;
-    });
+    _goToSection(label);
   }
 
   void _navigateToDocuments() {
-    final int docsIndex = _lowerMenuOptions.indexWhere(
-      (option) => option.label == 'Documentos',
-    );
-    if (docsIndex != -1) {
-      _onLowerMenuTap(docsIndex);
-    }
+    _goToSection('Documentos');
   }
 
   void _navigateToProfile() {
-    final int profileIndex = _lowerMenuOptions.indexWhere(
-      (option) => option.label == 'Perfil',
-    );
-    if (profileIndex != -1) {
-      _onLowerMenuTap(profileIndex);
-    }
+    _goToSection('Perfil');
   }
 
   void _navigateToMessages() {
-    final int messagesIndex = _upperMenuOptions.indexWhere(
-      (option) => option.label == 'Mensajes',
-    );
-    if (messagesIndex != -1) {
-      _onUpperMenuTap(messagesIndex);
-      _loadNotificationsCount();
-    }
+    _goToSection('Mensajes');
   }
 
   void _onTopMenuTap(int index) {
-    setState(() {
-      _contentRefreshKey++;
-      _selectedTopIndex = index;
-      _activeSection = _upperMenuOptions[index].label;
-    });
+    _goToSection(_upperMenuOptions[index].section);
   }
 
   void _activateSection(String section) {
-    setState(() {
-      _contentRefreshKey++;
-      _activeSection = section;
-      final int topIdx = _upperMenuOptions.indexWhere(
-        (option) => option.label == section,
-      );
-      _selectedTopIndex = topIdx != -1 ? topIdx : null;
-      final int lowerIdx = _lowerMenuOptions.indexWhere(
-        (option) => option.label == section,
-      );
-      _selectedLowerIndex = lowerIdx != -1 ? lowerIdx : null;
-    });
+    _goToSection(section);
   }
 
   Widget _buildDesktopTopBar() {

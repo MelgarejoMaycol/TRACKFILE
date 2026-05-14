@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../services/notificaciones_service.dart';
 import '../utils/shimmer_skeleton.dart';
@@ -572,6 +573,57 @@ class _MensajesWidgetState extends State<MensajesWidget> {
     );
   }
 
+  Future<void> _abrirNotificacion(_AlertNotification alert) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      if (alert.isUnread) {
+        await NotificacionesService.marcarComoLeida(alert.id);
+        await _loadThreads();
+        widget.onNotificationsChanged?.call();
+      }
+
+      if (!mounted) return;
+
+      final String role = _role.toLowerCase().isEmpty
+          ? 'empresa'
+          : _role.toLowerCase();
+
+      switch (alert.type) {
+        case _AlertType.documentoVencimiento:
+        case _AlertType.documentoVencido:
+          context.goNamed('documentos', pathParameters: {'role': role});
+          break;
+
+        case _AlertType.solicitudCreada:
+        case _AlertType.solicitudActualizada:
+          context.goNamed('certificaciones', pathParameters: {'role': role});
+          break;
+
+        case _AlertType.mantenimientoActualizado:
+        case _AlertType.mantenimientoProgramado:
+        case _AlertType.mantenimientoSugerido:
+          context.goNamed('mantenimientos', pathParameters: {'role': role});
+          break;
+
+        case _AlertType.sistema:
+          context.goNamed('inicio', pathParameters: {'role': role});
+          break;
+
+        case _AlertType.otro:
+          context.goNamed('perfil', pathParameters: {'role': role});
+          break;
+      }
+    } catch (e) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo abrir la notificación'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
   Widget _buildAlertCard(_AlertNotification alert, {bool isReadStyle = false}) {
     final Color baseColor = _alertBaseColor(alert.type);
     final IconData icon = _alertIcon(alert.type);
@@ -584,22 +636,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
 
         return InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: () async {
-            final messenger = ScaffoldMessenger.of(context);
-
-            try {
-              await NotificacionesService.marcarComoLeida(alert.id);
-              await _loadThreads();
-              widget.onNotificationsChanged?.call();
-            } catch (e) {
-              messenger.showSnackBar(
-                const SnackBar(
-                  content: Text('No se pudo marcar la notificación como leída'),
-                  backgroundColor: Colors.redAccent,
-                ),
-              );
-            }
-          },
+          onTap: () => _abrirNotificacion(alert),
           child: Container(
             width: double.infinity,
             margin: const EdgeInsets.only(bottom: 10),

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +13,7 @@ import 'package:trackfile/widgets/messages/mensajes.dart';
 import 'package:trackfile/widgets/users/gestion_personas_widget.dart';
 import 'package:trackfile/widgets/users/perfil.dart';
 import 'package:trackfile/widgets/vehicles/vehiculos.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../services/notifications/notificaciones_realtime_service.dart';
 
@@ -24,11 +26,17 @@ class _MenuOption {
 }
 
 class EmpresaScreen extends StatefulWidget {
-  const EmpresaScreen({super.key, this.usuario, this.empresa});
+  const EmpresaScreen({
+    super.key,
+    this.usuario,
+    this.empresa,
+    this.initialSection,
+  });
   static const route = '/empresa';
 
   final Map<String, dynamic>? usuario;
   final Map<String, dynamic>? empresa;
+  final String? initialSection;
 
   @override
   State<EmpresaScreen> createState() => _EmpresaScreenState();
@@ -99,6 +107,8 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   @override
   void initState() {
     super.initState();
+    _activeSection = widget.initialSection ?? 'Inicio';
+    _syncSelectedMenuWithSection(_activeSection);
     NotificacionesRealtimeService.start();
     _hydrateCompany();
     _loadDashboard();
@@ -284,74 +294,64 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     }
   }
 
-  void _onBottomMenuTap(int index) {
-    setState(() {
-      _contentRefreshKey++;
+  void _syncSelectedMenuWithSection(String section) {
+    final bottomIndex = _bottomMenuOptions.indexWhere(
+      (option) => option.section == section,
+    );
 
-      _selectedBottomIndex = index;
+    final topIndex = _topMenuOptions.indexWhere(
+      (option) => option.section == section,
+    );
+
+    if (bottomIndex != -1) {
+      _selectedBottomIndex = bottomIndex;
       _selectedTopIndex = null;
-      _activeSection = _bottomMenuOptions[index].section;
+      return;
+    }
 
-      if (_activeSection == 'Documentos') {
-        _selectedDocumentsUserId = null;
-        _selectedDocumentsVehicleId = null;
-        _selectedDocumentsVehiclePlate = null;
-      }
-    });
+    if (topIndex != -1) {
+      _selectedBottomIndex = -1;
+      _selectedTopIndex = topIndex;
+      return;
+    }
+
+    _selectedBottomIndex = -1;
+    _selectedTopIndex = null;
+  }
+
+  void _goToSection(String section) {
+  setState(() {
+    _contentRefreshKey++;
+    _activeSection = section;
+    _syncSelectedMenuWithSection(section);
+  });
+
+  final slug = switch (section) {
+    'Inicio' => 'inicio',
+    'Conductores' => 'conductores',
+    'Propietarios' => 'propietarios',
+    'Documentos' => 'documentos',
+    'Perfil' => 'perfil',
+    'Mensajes' => 'mensajes',
+    'Certificaciones' => 'certificaciones',
+    'Vehículos' => 'vehiculos',
+    'Mantenimientos' => 'mantenimientos',
+    _ => 'inicio',
+  };
+
+  html.window.history.pushState(null, '', '#/dashboard/empresa/$slug');
+}
+
+  void _onBottomMenuTap(int index) {
+    _goToSection(_bottomMenuOptions[index].section);
   }
 
   void _onTopMenuTap(int index) {
-    setState(() {
-      _contentRefreshKey++;
-
-      _selectedTopIndex = index;
-      _selectedBottomIndex = -1;
-      _activeSection = _topMenuOptions[index].section;
-
-      if (_topMenuOptions[index].section == 'Vehículos') {
-        _selectedPersonaVehiculoUserId = null;
-        _selectedPersonaVehiculoTipo = null;
-        _selectedPersonaVehiculoNombre = null;
-      }
-
-      if (_topMenuOptions[index].section == 'Mantenimientos') {
-        _selectedMaintenanceUserId = null;
-        _selectedMaintenanceRole = null;
-        _selectedMaintenancePersonName = null;
-        _selectedMaintenanceVehicleId = null;
-        _selectedMaintenanceVehiclePlate = null;
-      }
-
-      if (_topMenuOptions[index].section == 'Certificaciones') {
-        _selectedCertificadosUserId = null;
-        _selectedCertificadosRole = null;
-        _selectedCertificadosPersonName = null;
-      }
-    });
+    _goToSection(_topMenuOptions[index].section);
   }
 
   void _activateSection(String section) {
-    if (_bottomMenuOptions.any((option) => option.section == section)) {
-      final int index = _bottomMenuOptions.indexWhere(
-        (option) => option.section == section,
-      );
-      _onBottomMenuTap(index);
-      return;
-    }
-
-    if (_topMenuOptions.any((option) => option.section == section)) {
-      final int index = _topMenuOptions.indexWhere(
-        (option) => option.section == section,
-      );
-      _onTopMenuTap(index);
-      return;
-    }
-
-    setState(() => _activeSection = section);
-
-    if (section == 'Mensajes') {
-      _loadNotificationsCount();
-    }
+    _goToSection(section);
   }
 
   Widget _buildContentView() {

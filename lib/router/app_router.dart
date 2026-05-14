@@ -5,28 +5,25 @@ import 'package:shared_preferences/shared_preferences.dart';
 // Screens principales
 import '../screens/login_screen.dart';
 import '../screens/onboarding_screen.dart';
+
 // Dashboards por rol
 import '../screens/roles/admin_screen.dart';
 import '../screens/roles/conductor_screen.dart';
 import '../screens/roles/empresa_screen.dart';
 import '../screens/roles/propietario_screen.dart';
 import '../screens/roles/secretaria_screen.dart';
+
 import '../utils/role_router.dart';
-import '../widgets/certificates/certificaciones.dart';
-import '../widgets/documents/documentos_screen.dart';
-// Widgets / pantallas internas
-import '../widgets/inicio.dart';
-import '../widgets/maintenance/mantenimientos.dart';
-import '../widgets/messages/mensajes.dart';
-import '../widgets/payments/pagos.dart';
-import '../widgets/users/empresa.dart';
-import '../widgets/users/gestion_personas_widget.dart';
-import '../widgets/users/perfil.dart';
 
 class DashboardSessionLoader extends StatelessWidget {
   final String role;
+  final String? section;
 
-  const DashboardSessionLoader({super.key, required this.role});
+  const DashboardSessionLoader({
+    super.key,
+    required this.role,
+    this.section,
+  });
 
   String _text(dynamic value) {
     if (value == null) return '';
@@ -54,6 +51,7 @@ class DashboardSessionLoader extends StatelessWidget {
         }
 
         final session = snapshot.data;
+
         if (session == null) {
           return const LoginScreen();
         }
@@ -78,13 +76,18 @@ class DashboardSessionLoader extends StatelessWidget {
 
         switch (role.toLowerCase()) {
           case 'empresa':
-            return EmpresaScreen(usuario: session, empresa: empresa);
+            return EmpresaScreen(
+              usuario: session,
+              empresa: empresa,
+              initialSection: section,
+            );
 
           case 'propietario':
             return PropietarioScreen(
               userId: userId,
               personName: nombreCompleto,
               companyName: nombreEmpresa,
+              initialSection: section,
             );
 
           case 'conductor':
@@ -92,6 +95,7 @@ class DashboardSessionLoader extends StatelessWidget {
               userId: userId,
               personName: nombreCompleto,
               companyName: nombreEmpresa,
+              initialSection: section,
             );
 
           case 'admin':
@@ -108,6 +112,33 @@ class DashboardSessionLoader extends StatelessWidget {
   }
 }
 
+String _sectionFromUrl(String sectionUrl) {
+  switch (sectionUrl.toLowerCase()) {
+    case 'inicio':
+      return 'Inicio';
+    case 'documentos':
+      return 'Documentos';
+    case 'perfil':
+      return 'Perfil';
+    case 'mensajes':
+      return 'Mensajes';
+    case 'certificaciones':
+      return 'Certificaciones';
+    case 'vehiculos':
+      return 'Vehículos';
+    case 'mantenimientos':
+      return 'Mantenimientos';
+    case 'empresa-info':
+      return 'Empresa';
+    case 'conductores':
+      return 'Conductores';
+    case 'propietarios':
+      return 'Propietarios';
+    default:
+      return 'Inicio';
+  }
+}
+
 final GoRouter appRouter = GoRouter(
   initialLocation: '/login',
 
@@ -115,21 +146,18 @@ final GoRouter appRouter = GoRouter(
     final prefs = await SharedPreferences.getInstance();
 
     final token = prefs.getString('auth_token') ?? prefs.getString('token');
-
     final rol = prefs.getString('role') ?? prefs.getString('rol');
 
-    final String rutaActual = state.uri.toString();
+    final rutaActual = state.uri.path;
 
     final bool enLogin = rutaActual == '/login';
     final bool enOnboarding = rutaActual == '/onboarding';
 
-    // ❌ NO hay sesión → login
     if (token == null || token.isEmpty) {
       if (enLogin || enOnboarding) return null;
       return '/login';
     }
 
-    // ✅ YA logueado → no quedarse en login
     if (enLogin || enOnboarding) {
       final rolRuta = (rol ?? 'empresa').toLowerCase();
       return '/dashboard/$rolRuta';
@@ -151,110 +179,65 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const OnboardingScreen(),
     ),
 
-    // Ruta base del dashboard
     GoRoute(
       path: '/dashboard',
       name: 'dashboard',
       redirect: (context, state) async {
+        final rutaActual = state.uri.path;
+
+        if (rutaActual != '/dashboard') {
+          return null;
+        }
+
         final prefs = await SharedPreferences.getInstance();
         final rol =
             prefs.getString('role') ?? prefs.getString('rol') ?? 'empresa';
+
         return '/dashboard/${rol.toLowerCase()}';
       },
       routes: [
         GoRoute(
-          path: 'empresa',
-          name: 'dashboard_empresa',
-          builder: (context, state) =>
-              const DashboardSessionLoader(role: 'empresa'),
-        ),
-        GoRoute(
-          path: 'propietario',
-          name: 'dashboard_propietario',
-          builder: (context, state) =>
-              const DashboardSessionLoader(role: 'propietario'),
-        ),
-        GoRoute(
-          path: 'conductor',
-          name: 'dashboard_conductor',
-          builder: (context, state) =>
-              const DashboardSessionLoader(role: 'conductor'),
-        ),
-        GoRoute(
-          path: 'admin',
-          name: 'dashboard_admin',
-          builder: (context, state) => const AdminScreen(),
-        ),
-        GoRoute(
-          path: 'secretaria',
-          name: 'dashboard_secretaria',
-          builder: (context, state) =>
-              const DashboardSessionLoader(role: 'secretaria'),
+          path: ':role',
+          name: 'dashboard_role',
+          builder: (context, state) {
+            final role = state.pathParameters['role'] ?? 'empresa';
+
+            if (role == 'admin') {
+              return const AdminScreen();
+            }
+
+            if (role == 'secretaria') {
+              return const SecretariaScreen();
+            }
+
+            return DashboardSessionLoader(
+              role: role,
+              section: 'Inicio',
+            );
+          },
         ),
 
-        // Pantallas internas
         GoRoute(
-          path: 'inicio',
-          name: 'inicio',
-          builder: (context, state) => const InicioWidget(),
-        ),
-        GoRoute(
-          path: ':role/perfil',
-          name: 'perfil',
+          path: ':role/:section',
+          name: 'dashboard_section',
           builder: (context, state) {
             final role = state.pathParameters['role'] ?? 'empresa';
-            return PerfilWidget(role: role);
+            final sectionUrl = state.pathParameters['section'] ?? 'inicio';
+            final section = _sectionFromUrl(sectionUrl);
+
+            if (role == 'admin') {
+              return const AdminScreen();
+            }
+
+            if (role == 'secretaria') {
+              return const SecretariaScreen();
+            }
+
+            return DashboardSessionLoader(
+              role: role,
+              section: section,
+            );
           },
-        ),
-        GoRoute(
-          path: 'documentos',
-          name: 'documentos',
-          builder: (context, state) => const DocumentosScreen(),
-        ),
-        GoRoute(
-          path: ':role/mantenimientos',
-          name: 'mantenimientos',
-          builder: (context, state) {
-            final role = state.pathParameters['role'] ?? 'empresa';
-            return MantenimientosWidget(role: role);
-          },
-        ),
-        GoRoute(
-          path: 'mensajes',
-          name: 'mensajes',
-          builder: (context, state) => const MensajesWidget(),
-        ),
-        GoRoute(
-          path: ':role/pagos',
-          name: 'pagos',
-          builder: (context, state) {
-            final role = state.pathParameters['role'] ?? 'empresa';
-            return PagosWidget(role: role);
-          },
-        ),
-        GoRoute(
-          path: ':role/certificaciones',
-          name: 'certificaciones',
-          builder: (context, state) {
-            final role = state.pathParameters['role'] ?? 'empresa';
-            return CertificacionesWidget(role: role);
-          },
-        ),
-        GoRoute(
-          path: 'empresa-info',
-          name: 'empresa_info',
-          builder: (context, state) => const EmpresaWidget(),
-        ),
-        GoRoute(
-          path: 'propietarios',
-          name: 'propietarios',
-          builder: (context, state) =>
-              const DashboardSessionLoader(role: 'propietario'),
-        ),
-        GoRoute(
-          path: 'gestion-personas',
-          name: 'gestion_personas',
-          builder: (context, state) => const GestionPersonasWidget(),
         ),
       ],
     ),
