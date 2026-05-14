@@ -10,10 +10,9 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trackfile/services/api_link.dart';
+import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
 import 'package:trackfile/utils/api_config.dart';
 import 'package:trackfile/utils/role_router.dart';
-
-import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
 
 class LoginScreen extends StatefulWidget {
   static const route = '/login';
@@ -1091,10 +1090,6 @@ class _LoginScreenState extends State<LoginScreen>
 
     final double horizontalPadding = size.width < 380 ? 12 : 16;
 
-    final double tabContentHeight = _tabController.index == 0
-        ? (size.height * 0.50).clamp(390.0, 470.0)
-        : (size.height * 0.38).clamp(290.0, 360.0);
-
     // More responsive and smaller logo with better scaling for web
     final double logoFactor = isDesktop ? 0.18 : 0.25;
     final double logoDiameter = _responsiveClamp(
@@ -1118,10 +1113,7 @@ class _LoginScreenState extends State<LoginScreen>
                     Container(
                       width: cardWidthLimited,
                       margin: EdgeInsets.only(top: logoRadius * 1.2),
-                      constraints: BoxConstraints(
-                        minHeight: 0,
-                        maxHeight: size.height * 0.76,
-                      ),
+                      constraints: const BoxConstraints(minHeight: 0),
                       child: Card(
                         color: Colors.white,
                         elevation: 0,
@@ -1175,18 +1167,13 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                               const SizedBox(height: 8),
                               // Let the TabBarView expand to fill available space inside the card
-                              Flexible(
-                                fit: FlexFit.loose,
-                                child: SizedBox(
-                                  height: tabContentHeight,
-                                  child: TabBarView(
-                                    controller: _tabController,
-                                    children: [
-                                      _wrapCenter(_buildUneteSection(darkBlue)),
-                                      _wrapCenter(_buildLoginSection(darkBlue)),
-                                    ],
-                                  ),
-                                ),
+                              AnimatedSize(
+                                duration: const Duration(milliseconds: 250),
+                                curve: Curves.easeInOut,
+                                alignment: Alignment.topCenter,
+                                child: _tabController.index == 0
+                                    ? _buildUneteSection(darkBlue)
+                                    : _buildLoginSection(darkBlue),
                               ),
                             ],
                           ),
