@@ -1919,7 +1919,6 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
     await showDialog(
       context: context,
       barrierDismissible: true,
-
       builder: (context) {
         final bool isVehicleDocument = document.vehicleId.isNotEmpty;
 
@@ -1945,246 +1944,250 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
               maxWidth: 620,
               maxHeight: MediaQuery.of(context).size.height * 0.88,
             ),
-            padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
-              color: _cardColor,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+              borderRadius: BorderRadius.circular(28),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF20276D),
+                  Color(0xFF121842),
+                  Color(0xFF0D1234),
+                ],
+              ),
+              border: Border.all(color: Colors.white24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 28,
+                  offset: const Offset(0, 18),
+                ),
+              ],
             ),
-            child: SingleChildScrollView(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(28),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: _accentColor.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Icon(
-                          _getDocumentIcon(document),
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Text(
-                          document.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
+                  _buildDocumentModalHeroHeader(
+                    title: document.name,
+                    subtitle: document.estadoDocumento
+                        ? 'Documento activo'
+                        : 'Documento histórico / inactivo',
+                    icon: _getDocumentIcon(document),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(22),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildDetailRow(
+                            Icons.category_rounded,
+                            'Tipo',
+                            document.name,
                           ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close, color: Colors.white),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 22),
-
-                  _buildDetailRow(
-                    Icons.category_rounded,
-                    'Tipo',
-                    document.name,
-                  ),
-
-                  _buildDetailRow(
-                    Icons.info_rounded,
-                    'Estado',
-                    document.estadoDocumento ? 'Activo' : 'Histórico/Inactivo',
-                  ),
-
-                  _buildDetailRow(
-                    Icons.event_available_rounded,
-                    'Fecha de creación',
-                    document.creationDate != null
-                        ? '${document.creationDate!.day.toString().padLeft(2, '0')}/${document.creationDate!.month.toString().padLeft(2, '0')}/${document.creationDate!.year}'
-                        : 'Sin fecha registrada',
-                  ),
-
-                  _buildDetailRow(
-                    Icons.calendar_today_rounded,
-                    'Fecha de vencimiento',
-                    document.expiryDate != null
-                        ? document.formattedExpiry
-                        : 'Sin fecha registrada',
-                  ),
-
-                  _buildDetailRow(
-                    Icons.warning_amber_rounded,
-                    'Tiempo restante',
-                    document.expiryDate != null
-                        ? document.remainingLabel
-                        : 'No aplica',
-                  ),
-
-                  _buildDetailRow(
-                    Icons.person_rounded,
-                    'Persona asociada',
-                    document.ownerName.isNotEmpty
-                        ? document.ownerName
-                        : 'No disponible',
-                  ),
-
-                  if (document.documentNumber.isNotEmpty)
-                    _buildDetailRow(
-                      Icons.badge_rounded,
-                      'Documento de identidad',
-                      document.documentNumber,
-                    ),
-
-                  _buildDetailRow(
-                    Icons.directions_car_rounded,
-                    'Tipo de documento',
-                    isVehicleDocument
-                        ? 'Documento de vehículo'
-                        : 'Documento personal',
-                  ),
-
-                  if (document.vehiclePlate.isNotEmpty)
-                    _buildDetailRow(
-                      Icons.confirmation_number_rounded,
-                      'Placa del vehículo',
-                      document.vehiclePlate,
-                    ),
-
-                  if (linkedVehicle != null) ...[
-                    _buildDetailRow(
-                      Icons.directions_car_filled_rounded,
-                      'Vehículo',
-                      '${linkedVehicle.title} • Placa ${linkedVehicle.plate}',
-                    ),
-
-                    _buildDetailRow(
-                      Icons.home_rounded,
-                      'Propietario',
-                      linkedVehicle.propietario.isNotEmpty
-                          ? linkedVehicle.propietario
-                          : 'No asignado',
-                    ),
-
-                    _buildDetailRow(
-                      Icons.person_pin_rounded,
-                      'Conductor',
-                      linkedVehicle.conductor.isNotEmpty
-                          ? linkedVehicle.conductor
-                          : 'No asignado',
-                    ),
-                  ],
-
-                  if (document.observations.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Observaciones',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        document.observations,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
-
-                  const SizedBox(height: 24),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed:
-                              document.expiryDate == null ||
-                                  document.idTipo == 0 ||
-                                  document.isExpired
-                              ? null
-                              : () {
-                                  Navigator.pop(context);
-
-                                  EditDocumentModal.show(
-                                    context: this.context,
-                                    documentoId: int.parse(document.id),
-                                    idTipo: document.idTipo,
-                                    area: document.area,
-                                    fechaVencimiento: document.expiryDate!,
-                                    observaciones: document.observations,
-                                    idVehiculo: document.vehicleId.isNotEmpty
-                                        ? int.tryParse(document.vehicleId)
-                                        : null,
-                                    idUsuario: document.vehicleId.isEmpty
-                                        ? int.tryParse(document.ownerId)
-                                        : null,
-                                    onSuccess:
-                                        _refreshExplorerDataKeepingCurrentView,
-                                  );
-                                },
-                          icon: const Icon(Icons.edit_calendar_rounded),
-                          label: Text(
-                            document.isExpired
-                                ? 'Debe subir nuevo'
-                                : 'Editar fecha',
+                          _buildDetailRow(
+                            Icons.info_rounded,
+                            'Estado',
+                            document.estadoDocumento
+                                ? 'Activo'
+                                : 'Histórico/Inactivo',
                           ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.white24),
-                            padding: const EdgeInsets.symmetric(vertical: 15),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                          _buildDetailRow(
+                            Icons.event_available_rounded,
+                            'Fecha de creación',
+                            document.creationDate != null
+                                ? '${document.creationDate!.day.toString().padLeft(2, '0')}/${document.creationDate!.month.toString().padLeft(2, '0')}/${document.creationDate!.year}'
+                                : 'Sin fecha registrada',
+                          ),
+                          _buildDetailRow(
+                            Icons.calendar_today_rounded,
+                            'Fecha de vencimiento',
+                            document.expiryDate != null
+                                ? document.formattedExpiry
+                                : 'Sin fecha registrada',
+                          ),
+                          _buildDetailRow(
+                            Icons.warning_amber_rounded,
+                            'Tiempo restante',
+                            document.expiryDate != null
+                                ? document.remainingLabel
+                                : 'No aplica',
+                          ),
+                          _buildDetailRow(
+                            Icons.person_rounded,
+                            'Persona asociada',
+                            document.ownerName.isNotEmpty
+                                ? document.ownerName
+                                : 'No disponible',
+                          ),
+                          if (document.documentNumber.isNotEmpty)
+                            _buildDetailRow(
+                              Icons.badge_rounded,
+                              'Documento de identidad',
+                              document.documentNumber,
                             ),
+                          _buildDetailRow(
+                            Icons.directions_car_rounded,
+                            'Tipo de documento',
+                            isVehicleDocument
+                                ? 'Documento de vehículo'
+                                : 'Documento personal',
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: fileUrl.trim().isEmpty
-                              ? null
-                              : () {
-                                  Navigator.pop(context);
-
-                                  DocumentPreviewModal.show(
-                                    context: this.context,
-                                    documentName: document.name,
-                                    fileUrl: fileUrl,
-                                    expiryDate: document.expiryDate,
-                                    observations: document.observations,
-                                    ownerName: document.ownerName,
-                                  );
-                                },
-                          icon: const Icon(Icons.visibility_rounded),
-                          label: const Text('Ver documento'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _accentColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 15),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                          if (document.vehiclePlate.isNotEmpty)
+                            _buildDetailRow(
+                              Icons.confirmation_number_rounded,
+                              'Placa del vehículo',
+                              document.vehiclePlate,
                             ),
+                          if (linkedVehicle != null) ...[
+                            _buildDetailRow(
+                              Icons.directions_car_filled_rounded,
+                              'Vehículo',
+                              '${linkedVehicle.title} • Placa ${linkedVehicle.plate}',
+                            ),
+                            _buildDetailRow(
+                              Icons.home_rounded,
+                              'Propietario',
+                              linkedVehicle.propietario.isNotEmpty
+                                  ? linkedVehicle.propietario
+                                  : 'No asignado',
+                            ),
+                            _buildDetailRow(
+                              Icons.person_pin_rounded,
+                              'Conductor',
+                              linkedVehicle.conductor.isNotEmpty
+                                  ? linkedVehicle.conductor
+                                  : 'No asignado',
+                            ),
+                          ],
+                          if (document.observations.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            const Text(
+                              'Observaciones',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.06),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                ),
+                              ),
+                              child: Text(
+                                document.observations,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed:
+                                      document.expiryDate == null ||
+                                          document.idTipo == 0 ||
+                                          document.isExpired
+                                      ? null
+                                      : () {
+                                          Navigator.pop(context);
+
+                                          EditDocumentModal.show(
+                                            context: this.context,
+                                            documentoId: int.parse(document.id),
+                                            idTipo: document.idTipo,
+                                            area: document.area,
+                                            fechaVencimiento:
+                                                document.expiryDate!,
+                                            observaciones:
+                                                document.observations,
+                                            idVehiculo:
+                                                document.vehicleId.isNotEmpty
+                                                ? int.tryParse(
+                                                    document.vehicleId,
+                                                  )
+                                                : null,
+                                            idUsuario:
+                                                document.vehicleId.isEmpty
+                                                ? int.tryParse(document.ownerId)
+                                                : null,
+                                            onSuccess:
+                                                _refreshExplorerDataKeepingCurrentView,
+                                          );
+                                        },
+                                  icon: const Icon(Icons.edit_calendar_rounded),
+                                  label: Text(
+                                    document.isExpired
+                                        ? 'Debe subir nuevo'
+                                        : 'Editar fecha',
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white70,
+                                    side: BorderSide(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.18,
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: fileUrl.trim().isEmpty
+                                      ? null
+                                      : () {
+                                          Navigator.pop(context);
+
+                                          DocumentPreviewModal.show(
+                                            context: this.context,
+                                            documentName: document.name,
+                                            fileUrl: fileUrl,
+                                            expiryDate: document.expiryDate,
+                                            observations: document.observations,
+                                            ownerName: document.ownerName,
+                                          );
+                                        },
+                                  icon: const Icon(Icons.visibility_rounded),
+                                  label: const Text('Ver documento'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _accentColor,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -2192,6 +2195,72 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildDocumentModalHeroHeader({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(22, 20, 16, 18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6C63FF), Color(0xFF4F4CE8)],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: _accentColor.withValues(alpha: 0.35),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 26),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close_rounded, color: Colors.white70),
+          ),
+        ],
+      ),
     );
   }
 

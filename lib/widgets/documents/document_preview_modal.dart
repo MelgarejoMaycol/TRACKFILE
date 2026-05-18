@@ -91,52 +91,99 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
         maxHeight: MediaQuery.of(context).size.height * 0.92,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1F6B),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF20276D), Color(0xFF121842), Color(0xFF0D1234)],
+        ),
+        border: Border.all(color: Colors.white24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 28,
+            offset: const Offset(0, 18),
+          ),
+        ],
       ),
-      child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.88,
-        child: Column(
-          children: [
-            _buildHeader(context),
-            Expanded(child: _buildPreview()),
-            const Divider(height: 1, color: Colors.white24),
-            _buildFooter(context),
-          ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.88,
+          child: Column(
+            children: [
+              _buildHeader(context),
+              Expanded(child: _buildPreview()),
+              const Divider(height: 1, color: Colors.white24),
+              _buildFooter(context),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(22, 20, 16, 18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+        ),
+      ),
       child: Row(
         children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6C63FF), Color(0xFF4F4CE8)],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4F4CE8).withValues(alpha: 0.35),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.visibility_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   widget.documentName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   widget.expiryDate != null
                       ? 'Vencimiento: ${_formatDate(widget.expiryDate!)}'
                       : 'Fecha de vencimiento no disponible',
-                  style: const TextStyle(color: Colors.white70),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close_rounded, color: Colors.white),
+            icon: const Icon(Icons.close_rounded, color: Colors.white70),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],

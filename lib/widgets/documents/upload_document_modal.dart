@@ -400,301 +400,352 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
   Widget _buildLoadingModalState(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 600),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF11698E), Color(0xFF19456B)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
+        constraints: BoxConstraints(
+          maxWidth: 600,
+          maxHeight: MediaQuery.of(context).size.height * 0.90,
         ),
-        padding: const EdgeInsets.all(16),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Subir Documento',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+        decoration: _modalDecoration(),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildUploadHeroHeader(context),
+                Padding(
+                  padding: const EdgeInsets.all(22),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const ShimmerSkeleton(
+                        width: double.infinity,
+                        height: 54,
+                        borderRadius: 14,
+                      ),
+                      const SizedBox(height: 12),
+                      const ShimmerSkeleton(
+                        width: double.infinity,
+                        height: 54,
+                        borderRadius: 14,
+                      ),
+                      const SizedBox(height: 12),
+                      const ShimmerSkeleton(
+                        width: double.infinity,
+                        height: 58,
+                        borderRadius: 14,
+                      ),
+                      const SizedBox(height: 12),
+                      const ShimmerSkeleton(
+                        width: double.infinity,
+                        height: 54,
+                        borderRadius: 14,
+                      ),
+                      const SizedBox(height: 12),
+                      const ShimmerSkeleton(
+                        width: double.infinity,
+                        height: 54,
+                        borderRadius: 14,
+                      ),
+                      const SizedBox(height: 12),
+                      const ShimmerSkeleton(
+                        width: double.infinity,
+                        height: 54,
+                        borderRadius: 14,
+                      ),
+                      const SizedBox(height: 12),
+                      const ShimmerSkeleton(
+                        width: double.infinity,
+                        height: 92,
+                        borderRadius: 14,
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: const [
+                          Expanded(
+                            child: ShimmerSkeleton(
+                              height: 48,
+                              borderRadius: 16,
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: ShimmerSkeleton(
+                              height: 48,
+                              borderRadius: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Usuario
-              ShimmerSkeleton(
-                width: double.infinity,
-                height: 50,
-                borderRadius: 8,
-                margin: EdgeInsets.zero,
-              ),
-              const SizedBox(height: 12),
-              // Vehículo
-              ShimmerSkeleton(
-                width: double.infinity,
-                height: 50,
-                borderRadius: 8,
-                margin: EdgeInsets.zero,
-              ),
-              const SizedBox(height: 12),
-              // Archivo
-              ShimmerSkeleton(
-                width: double.infinity,
-                height: 50,
-                borderRadius: 8,
-                margin: EdgeInsets.zero,
-              ),
-              const SizedBox(height: 12),
-              // Tipo de documento
-              ShimmerSkeleton(
-                width: double.infinity,
-                height: 50,
-                borderRadius: 8,
-                margin: EdgeInsets.zero,
-              ),
-              const SizedBox(height: 12),
-              // Área
-              ShimmerSkeleton(
-                width: double.infinity,
-                height: 50,
-                borderRadius: 8,
-                margin: EdgeInsets.zero,
-              ),
-              const SizedBox(height: 12),
-              // Fecha
-              ShimmerSkeleton(
-                width: double.infinity,
-                height: 50,
-                borderRadius: 8,
-                margin: EdgeInsets.zero,
-              ),
-              const SizedBox(height: 12),
-              // Observaciones
-              ShimmerSkeleton(
-                width: double.infinity,
-                height: 80,
-                borderRadius: 8,
-                margin: EdgeInsets.zero,
-              ),
-              const SizedBox(height: 16),
-              // Botones
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ShimmerSkeleton(
-                    width: 80,
-                    height: 36,
-                    borderRadius: 8,
-                    margin: EdgeInsets.zero,
-                  ),
-                  const SizedBox(width: 12),
-                  ShimmerSkeleton(
-                    width: 100,
-                    height: 36,
-                    borderRadius: 8,
-                    margin: EdgeInsets.zero,
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
+  Widget _buildUploadHeroHeader(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(22, 20, 16, 18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6C63FF), Color(0xFF4F4CE8)],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4F4CE8).withValues(alpha: 0.35),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.upload_file_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Subir documento',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Carga un archivo y asígnalo a una persona o vehículo.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close_rounded, color: Colors.white70),
+            onPressed: isUploading ? null : () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  BoxDecoration _modalDecoration() {
+    return BoxDecoration(
+      borderRadius: BorderRadius.circular(28),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF20276D), Color(0xFF121842), Color(0xFF0D1234)],
+      ),
+      border: Border.all(color: Colors.white24),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.35),
+          blurRadius: 28,
+          offset: const Offset(0, 18),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Si el modal está cargando, mostrar shimmer de toda la página
     if (_isLoadingModal) {
       return _buildLoadingModalState(context);
     }
 
     return Dialog(
       backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 600),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF11698E), Color(0xFF19456B)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
+        constraints: BoxConstraints(
+          maxWidth: 600,
+          maxHeight: MediaQuery.of(context).size.height * 0.90,
         ),
-        padding: const EdgeInsets.all(16),
-        child: Stack(
-          children: [
-            SingleChildScrollView(
-              child: Column(
+        decoration: _modalDecoration(),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: Stack(
+            children: [
+              Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Subir Documento',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: isUploading
-                            ? null
-                            : () => Navigator.of(context).pop(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  _buildPersonaSection(),
-                  const SizedBox(height: 12),
-
-                  _buildVehicleSection(),
-                  const SizedBox(height: 12),
-
-                  _buildFilePickerSection(),
-                  const SizedBox(height: 12),
-
-                  _buildDocumentTypeSection(),
-                  const SizedBox(height: 12),
-
-                  _buildAreaSection(),
-                  const SizedBox(height: 12),
-
-                  _buildExpiryDateSection(),
-                  const SizedBox(height: 12),
-
-                  _buildObservationsSection(),
-                  const SizedBox(height: 16),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: isUploading
-                            ? null
-                            : () => Navigator.of(context).pop(),
-                        child: const Text(
-                          'Cancelar',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        onPressed: isUploading
-                            ? null
-                            : ((selectedFilePath == null ||
-                                          selectedFilePath!.isEmpty) &&
-                                      selectedFileBytes == null) ||
-                                  selectedDocumentTypeId == null ||
-                                  selectedExpiryDate == null ||
-                                  selectedPersonaId == null ||
-                                  selectedArea == null
-                            ? null
-                            : _uploadDocument,
-                        icon: isUploading
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation(
-                                    Colors.white,
+                  _buildUploadHeroHeader(context),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(22),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildPersonaSection(),
+                          const SizedBox(height: 12),
+                          _buildVehicleSection(),
+                          const SizedBox(height: 12),
+                          _buildFilePickerSection(),
+                          const SizedBox(height: 12),
+                          _buildDocumentTypeSection(),
+                          const SizedBox(height: 12),
+                          _buildAreaSection(),
+                          const SizedBox(height: 12),
+                          _buildExpiryDateSection(),
+                          const SizedBox(height: 12),
+                          _buildObservationsSection(),
+                          const SizedBox(height: 18),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: isUploading
+                                      ? null
+                                      : () => Navigator.of(context).pop(),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white70,
+                                    side: BorderSide(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.18,
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  child: const Text('Cancelar'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: isUploading
+                                      ? null
+                                      : ((selectedFilePath == null ||
+                                                    selectedFilePath!
+                                                        .isEmpty) &&
+                                                selectedFileBytes == null) ||
+                                            selectedDocumentTypeId == null ||
+                                            selectedExpiryDate == null ||
+                                            selectedPersonaId == null ||
+                                            selectedArea == null
+                                      ? null
+                                      : _uploadDocument,
+                                  icon: isUploading
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor: AlwaysStoppedAnimation(
+                                              Colors.white,
+                                            ),
+                                          ),
+                                        )
+                                      : const Icon(Icons.upload_rounded),
+                                  label: Text(
+                                    isUploading ? 'Subiendo...' : 'Subir',
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF4F4CE8),
+                                    foregroundColor: Colors.white,
+                                    disabledBackgroundColor: Colors.white
+                                        .withValues(alpha: 0.12),
+                                    disabledForegroundColor: Colors.white38,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
                                   ),
                                 ),
-                              )
-                            : const Icon(Icons.upload, color: Colors.white),
-                        label: Text(
-                          isUploading ? 'Subiendo...' : 'Subir',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF16C79A),
-                          disabledBackgroundColor: Colors.grey,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            if (isUploading)
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Center(
-                    child: Container(
-                      width: 270,
-                      padding: const EdgeInsets.all(22),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1B1F6B),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.14),
-                        ),
-                      ),
-                      child: const Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 3,
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            'Subiendo documento...',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Por favor espera. Estamos guardando el archivo.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
-                            ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
-          ],
+              if (isUploading)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 270,
+                        padding: const EdgeInsets.all(22),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1B1F6B),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.14),
+                          ),
+                        ),
+                        child: const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 3,
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'Subiendo documento...',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                              ),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Por favor espera. Estamos guardando el archivo.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

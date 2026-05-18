@@ -113,106 +113,204 @@ class _EditDocumentDateDialogState extends State<_EditDocumentDateDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 430),
-        padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1F6B),
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(28),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF20276D), Color(0xFF121842), Color(0xFF0D1234)],
+          ),
           border: Border.all(color: Colors.white24),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.calendar_month_rounded, color: Colors.white),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Editar fecha de vencimiento',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: _guardando
-                  ? null
-                  : () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: _fechaSeleccionada,
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime(2100),
-                      );
-
-                      if (picked != null) {
-                        setState(() => _fechaSeleccionada = picked);
-                      }
-                    },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white24),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.event_rounded, color: Colors.white70),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        '${_fechaSeleccionada.day.toString().padLeft(2, '0')}/${_fechaSeleccionada.month.toString().padLeft(2, '0')}/${_fechaSeleccionada.year}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const Icon(Icons.edit_calendar, color: Colors.white70),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _guardando ? null : () => Navigator.pop(context),
-                    child: const Text('Cancelar'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _guardando ? null : _guardar,
-                    icon: _guardando
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.save_rounded),
-                    label: Text(_guardando ? 'Guardando...' : 'Guardar'),
-                  ),
-                ),
-              ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 28,
+              offset: const Offset(0, 18),
             ),
           ],
         ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildHeroHeader(context),
+              Padding(
+                padding: const EdgeInsets.all(22),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: _guardando
+                          ? null
+                          : () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: _fechaSeleccionada,
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime(2100),
+                              );
+
+                              if (picked != null) {
+                                setState(() => _fechaSeleccionada = picked);
+                              }
+                            },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.white24),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.event_rounded,
+                              color: Colors.white70,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                '${_fechaSeleccionada.day.toString().padLeft(2, '0')}/${_fechaSeleccionada.month.toString().padLeft(2, '0')}/${_fechaSeleccionada.year}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const Icon(
+                              Icons.edit_calendar,
+                              color: Colors.white70,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _guardando
+                                ? null
+                                : () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white70,
+                              side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.18),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: const Text('Cancelar'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _guardando ? null : _guardar,
+                            icon: _guardando
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.save_rounded),
+                            label: Text(
+                              _guardando ? 'Guardando...' : 'Guardar',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF4F4CE8),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroHeader(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(22, 20, 16, 18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6C63FF), Color(0xFF4F4CE8)],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4F4CE8).withValues(alpha: 0.35),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.calendar_month_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Editar fecha',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Actualiza la fecha de vencimiento del documento.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _guardando ? null : () => Navigator.pop(context),
+            icon: const Icon(Icons.close_rounded, color: Colors.white70),
+          ),
+        ],
       ),
     );
   }
