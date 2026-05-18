@@ -478,6 +478,25 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
     return '$aliasLimpio@${_dominioEmpresa()}';
   }
 
+  BoxDecoration _modalGradientDecoration(double radius) {
+    return BoxDecoration(
+      borderRadius: BorderRadius.circular(radius),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF20276D), Color(0xFF121842), Color(0xFF0D1234)],
+      ),
+      border: Border.all(color: Colors.white24),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.35),
+          blurRadius: 28,
+          offset: Offset(0, 18),
+        ),
+      ],
+    );
+  }
+
   void _showDetalle(Map<String, dynamic> persona) {
     final id = persona['id'];
 
@@ -500,19 +519,8 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
               expand: false,
               builder: (context, scrollController) {
                 return Container(
-                  decoration: const BoxDecoration(
-                    color: _cardColor,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(28),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black54,
-                        blurRadius: 24,
-                        offset: Offset(0, -4),
-                      ),
-                    ],
-                  ),
+                  margin: const EdgeInsets.fromLTRB(14, 14, 14, 18),
+                  decoration: _modalGradientDecoration(28),
                   child: SingleChildScrollView(
                     controller: scrollController,
                     padding: const EdgeInsets.fromLTRB(24, 18, 24, 30),
@@ -788,19 +796,9 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                 maxHeight: height * 0.86,
               ),
               child: Container(
-                decoration: BoxDecoration(
-                  color: _cardColor,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      blurRadius: 30,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
-                ),
+                decoration: _modalGradientDecoration(28),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(28),
                   child: StatefulBuilder(
                     builder: (context, setModalState) {
                       Future<void> guardar() async {
