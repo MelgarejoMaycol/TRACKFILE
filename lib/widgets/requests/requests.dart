@@ -229,8 +229,6 @@ class _SolicitudDetalle {
 
 class _SolicitudesWidgetState extends State<SolicitudesWidget> {
   static const Color _accentColor = Color(0xFF4F4CE8);
-  static const Color _cardColor = Color(0xFF1B1F6B);
-  static const Color _surfaceColor = Color(0xFF131741);
   static const Color _successColor = Color(0xFF16C79A);
   static const Color _warningColor = Color(0xFFEFB549);
   static const Color _dangerColor = Color(0xFFE66B6B);
@@ -388,9 +386,6 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
   }
 
   Widget _buildRoleContent(bool isCompact, bool isTableCompact) {
-    debugPrint(
-      '=== BUILD ROLE CONTENT === Role: $_roleNormalized | isCompact: $isCompact',
-    );
     if (_viendoPersona) {
       return _buildPersonaSolicitudesLayout(isCompact, isTableCompact);
     }
@@ -1336,184 +1331,330 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
     );
   }
 
+  Widget _buildFloatingModalShell({
+    required BuildContext ctx,
+    required Widget child,
+    double maxWidth = 560,
+    double maxHeightFactor = 0.88,
+  }) {
+    return Center(
+      child: Container(
+        width: MediaQuery.of(ctx).size.width > maxWidth
+            ? maxWidth
+            : MediaQuery.of(ctx).size.width * 0.92,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * maxHeightFactor,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF20276D), Color(0xFF121842), Color(0xFF0D1234)],
+          ),
+          border: Border.all(color: Colors.white24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 28,
+              offset: const Offset(0, 18),
+            ),
+          ],
+        ),
+        child: ClipRRect(borderRadius: BorderRadius.circular(28), child: child),
+      ),
+    );
+  }
+
+  Widget _buildFloatingModalHeader({
+    required BuildContext ctx,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(22, 20, 16, 18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6C63FF), Color(0xFF4F4CE8)],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: _accentColor.withValues(alpha: 0.35),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 26),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.pop(ctx),
+            icon: const Icon(Icons.close_rounded, color: Colors.white70),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showSolicitudCertificadoModal() async {
     final TextEditingController descriptionController = TextEditingController();
     String selectedTipoId = '';
 
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: _surfaceColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setState) {
             return Padding(
               padding: EdgeInsets.fromLTRB(
-                24,
-                24,
-                24,
-                MediaQuery.of(context).viewInsets.bottom + 32,
+                14,
+                14,
+                14,
+                MediaQuery.of(ctx).viewInsets.bottom + 14,
               ),
-              child: SingleChildScrollView(
+              child: _buildFloatingModalShell(
+                ctx: ctx,
+                maxWidth: 560,
+                maxHeightFactor: 0.88,
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
-                      child: Container(
-                        width: 44,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white24,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
+                    _buildFloatingModalHeader(
+                      ctx: ctx,
+                      title: 'Solicitar certificado',
+                      subtitle:
+                          'Completa el formulario para crear una solicitud.',
+                      icon: Icons.verified_rounded,
                     ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Solicitar certificado',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Completa el formulario para solicitar un nuevo certificado laboral.',
-                      style: TextStyle(color: Colors.white70, fontSize: 13),
-                    ),
-                    const SizedBox(height: 24),
 
-                    // Tipo de certificado
-                    Text(
-                      'Tipo de certificado',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.1),
-                        ),
-                      ),
-                      child: DropdownButtonFormField<String>(
-                        initialValue: selectedTipoId.isEmpty
-                            ? null
-                            : selectedTipoId,
-                        decoration: InputDecoration(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                          border: InputBorder.none,
-                          hintText: 'Selecciona un tipo',
-                          hintStyle: const TextStyle(color: Colors.white54),
-                        ),
-                        dropdownColor: _cardColor,
-                        style: const TextStyle(color: Colors.white),
-                        icon: const Icon(
-                          Icons.expand_more,
-                          color: Colors.white70,
-                        ),
-                        items: _buildTiposCertificadoItems(),
-                        onChanged: (value) {
-                          setState(() => selectedTipoId = value ?? '');
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Descripción
-                    Text(
-                      'Descripción',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.1),
-                        ),
-                      ),
-                      child: TextField(
-                        controller: descriptionController,
-                        maxLines: 3,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          contentPadding: const EdgeInsets.all(16),
-                          border: InputBorder.none,
-                          hintText: 'Describe brevemente tu solicitud...',
-                          hintStyle: const TextStyle(color: Colors.white54),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Botones
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              side: BorderSide(
-                                color: Colors.white.withValues(alpha: 0.2),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(22),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Tipo de certificado',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                            child: const Text(
-                              'Cancelar',
-                              style: TextStyle(color: Colors.white70),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: selectedTipoId.isEmpty
-                                ? null
-                                : () => _submitSolicitudCertificado(
-                                    selectedTipoId,
-                                    descriptionController.text,
-                                    null,
-                                    ctx,
+                            const SizedBox(height: 10),
+
+                            DropdownButtonFormField<String>(
+                              initialValue: selectedTipoId.isEmpty
+                                  ? null
+                                  : selectedTipoId,
+                              dropdownColor: const Color(0xFF151B47),
+                              style: const TextStyle(color: Colors.white),
+                              icon: const Icon(
+                                Icons.expand_more,
+                                color: Colors.white70,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Selecciona un tipo',
+                                hintStyle: const TextStyle(
+                                  color: Colors.white54,
+                                ),
+                                filled: true,
+                                fillColor: Colors.white.withValues(alpha: 0.08),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.10),
                                   ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _accentColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              disabledBackgroundColor: _accentColor.withValues(
-                                alpha: 0.5,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.10),
+                                  ),
+                                ),
+                                focusedBorder: const OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(16),
+                                  ),
+                                  borderSide: BorderSide(color: _accentColor),
+                                ),
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                              items: _buildTiposCertificadoItems(),
+                              onChanged: (value) {
+                                setState(() => selectedTipoId = value ?? '');
+                              },
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            const Text(
+                              'Descripción',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                            child: const Text(
-                              'Solicitar',
-                              style: TextStyle(fontWeight: FontWeight.w600),
+                            const SizedBox(height: 10),
+
+                            TextField(
+                              controller: descriptionController,
+                              maxLines: 4,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'Describe brevemente tu solicitud...',
+                                hintStyle: const TextStyle(
+                                  color: Colors.white54,
+                                ),
+                                filled: true,
+                                fillColor: Colors.white.withValues(alpha: 0.08),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.10),
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.10),
+                                  ),
+                                ),
+                                focusedBorder: const OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(16),
+                                  ),
+                                  borderSide: BorderSide(color: _accentColor),
+                                ),
+                              ),
                             ),
-                          ),
+
+                            const SizedBox(height: 22),
+
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: _accentColor.withValues(alpha: 0.10),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: _accentColor.withValues(alpha: 0.25),
+                                ),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline_rounded,
+                                    color: Colors.white70,
+                                    size: 18,
+                                  ),
+                                  SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'La empresa revisará tu solicitud y responderá con el certificado si es aprobada.',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 24),
+
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.white70,
+                                      side: BorderSide(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.18,
+                                        ),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    child: const Text('Cancelar'),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: selectedTipoId.isEmpty
+                                        ? null
+                                        : () => _submitSolicitudCertificado(
+                                            selectedTipoId,
+                                            descriptionController.text,
+                                            null,
+                                            ctx,
+                                          ),
+                                    icon: const Icon(Icons.send_rounded),
+                                    label: const Text('Solicitar'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _accentColor,
+                                      foregroundColor: Colors.white,
+                                      disabledBackgroundColor: _accentColor
+                                          .withValues(alpha: 0.45),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -1523,6 +1664,8 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
         );
       },
     );
+
+    descriptionController.dispose();
   }
 
   List<DropdownMenuItem<String>> _buildTiposCertificadoItems() {
@@ -1619,6 +1762,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         final List<_Historial> ordered =
@@ -1630,42 +1774,26 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
               return bDate.compareTo(aDate);
             });
 
-        return SafeArea(
-          child: Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(ctx).size.height * 0.82,
-            ),
-            margin: const EdgeInsets.symmetric(horizontal: 18),
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-            decoration: BoxDecoration(
-              color: _surfaceColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-            ),
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            14,
+            14,
+            14,
+            MediaQuery.of(ctx).viewInsets.bottom + 14,
+          ),
+          child: _buildFloatingModalShell(
+            ctx: ctx,
+            maxWidth: 560,
+            maxHeightFactor: 0.86,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 44,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                _buildFloatingModalHeader(
+                  ctx: ctx,
+                  title: 'Historial de la solicitud',
+                  subtitle: '${ordered.length} movimiento(s) registrados',
+                  icon: Icons.timeline_rounded,
                 ),
-                const SizedBox(height: 18),
-                const Text(
-                  'Historial de la solicitud',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Flexible(
+                Expanded(
                   child: ordered.isEmpty
                       ? const Center(
                           child: Text(
@@ -1674,67 +1802,79 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
                           ),
                         )
                       : ListView.separated(
-                          shrinkWrap: true,
+                          padding: const EdgeInsets.all(22),
                           itemCount: ordered.length,
                           separatorBuilder: (_, __) =>
-                              const Divider(color: Colors.white24, height: 28),
+                              const SizedBox(height: 14),
                           itemBuilder: (context, index) {
                             final registro = ordered[index];
                             final color = _statusColor(registro.accion);
 
-                            return Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                CircleAvatar(
-                                  radius: 20,
-                                  backgroundColor: color.withValues(
-                                    alpha: 0.18,
-                                  ),
-                                  child: Icon(
-                                    _statusIcon(registro.accion),
-                                    color: color,
-                                    size: 22,
-                                  ),
+                            return Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.07),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: color.withValues(alpha: 0.30),
                                 ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _statusLabel(registro.accion),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        _formatOnlyDateColombia(registro.fecha),
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                      if (registro
-                                          .observaciones
-                                          .isNotEmpty) ...[
-                                        const SizedBox(height: 4),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 21,
+                                    backgroundColor: color.withValues(
+                                      alpha: 0.18,
+                                    ),
+                                    child: Icon(
+                                      _statusIcon(registro.accion),
+                                      color: color,
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
                                         Text(
-                                          registro.observaciones,
+                                          _statusLabel(registro.accion),
                                           style: const TextStyle(
-                                            color: Colors.white60,
-                                            fontSize: 13,
-                                            height: 1.35,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 15,
                                           ),
                                         ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _formatOnlyDateColombia(
+                                            registro.fecha,
+                                          ),
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        if (registro.observaciones
+                                            .trim()
+                                            .isNotEmpty) ...[
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            registro.observaciones.trim(),
+                                            style: const TextStyle(
+                                              color: Colors.white60,
+                                              fontSize: 13,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                        ],
                                       ],
-                                    ],
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             );
                           },
                         ),
@@ -1851,264 +1991,403 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
         TextEditingController();
 
     String estadoSeleccionado = 'ACEPTADA';
-
     PlatformFile? archivoSeleccionado;
     bool subiendoArchivo = false;
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: _surfaceColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final bool aceptada = estadoSeleccionado == 'ACEPTADA';
+            final Color actionColor = aceptada ? _successColor : _dangerColor;
+
             return Padding(
               padding: EdgeInsets.fromLTRB(
-                24,
-                24,
-                24,
-                MediaQuery.of(ctx).viewInsets.bottom + 32,
+                14,
+                14,
+                14,
+                MediaQuery.of(ctx).viewInsets.bottom + 14,
               ),
-              child: SingleChildScrollView(
+              child: _buildFloatingModalShell(
+                ctx: ctx,
+                maxWidth: 560,
+                maxHeightFactor: 0.90,
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Enviar respuesta',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    _buildFloatingModalHeader(
+                      ctx: ctx,
+                      title: 'Enviar respuesta',
+                      subtitle:
+                          detalle.tipo?.nombre ?? 'Solicitud de certificación',
+                      icon: Icons.reply_rounded,
                     ),
-
-                    const SizedBox(height: 20),
-
-                    const Text(
-                      'Estado',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    DropdownButtonFormField<String>(
-                      initialValue: estadoSeleccionado,
-                      dropdownColor: _cardColor,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.06),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'ACEPTADA',
-                          child: Text('Aceptar'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'RECHAZADA',
-                          child: Text('Rechazar'),
-                        ),
-                      ],
-                      onChanged: subiendoArchivo
-                          ? null
-                          : (value) {
-                              setModalState(() {
-                                estadoSeleccionado = value ?? 'ACEPTADA';
-                              });
-                            },
-                    ),
-                    if (estadoSeleccionado == 'ACEPTADA') ...[
-                      const Text(
-                        'Certificado PDF',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      OutlinedButton.icon(
-                        onPressed: subiendoArchivo
-                            ? null
-                            : () async {
-                                final result = await FilePicker.platform
-                                    .pickFiles(
-                                      type: FileType.custom,
-                                      allowedExtensions: ['pdf'],
-                                      withData: true,
-                                    );
-
-                                if (result == null || result.files.isEmpty) {
-                                  return;
-                                }
-
-                                setModalState(() {
-                                  archivoSeleccionado = result.files.first;
-                                });
-                              },
-                        icon: const Icon(Icons.upload_file),
-                        label: Text(
-                          archivoSeleccionado == null
-                              ? 'Seleccionar PDF'
-                              : archivoSeleccionado!.name,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Observaciones',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    TextField(
-                      controller: observacionesController,
-                      enabled: !subiendoArchivo,
-                      maxLines: 3,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'Escribe una observación...',
-                        hintStyle: const TextStyle(color: Colors.white54),
-                        filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.06),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: subiendoArchivo
-                            ? null
-                            : () async {
-                                if (estadoSeleccionado == 'ACEPTADA' &&
-                                    archivoSeleccionado == null) {
-                                  ScaffoldMessenger.of(
-                                    this.context,
-                                  ).showSnackBar(
-                                    SnackBar(
-                                      content: const Text(
-                                        'Debes seleccionar un PDF.',
-                                      ),
-                                      backgroundColor: _warningColor,
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                setModalState(() {
-                                  subiendoArchivo = true;
-                                });
-
-                                final respuesta =
-                                    await ApiService.responderSolicitudConArchivo(
-                                      solicitudId: detalle.solicitud.id,
-                                      estado: estadoSeleccionado,
-                                      observaciones:
-                                          observacionesController.text
-                                              .trim()
-                                              .isEmpty
-                                          ? estadoSeleccionado == 'ACEPTADA'
-                                                ? 'Solicitud revisada y aprobada correctamente.'
-                                                : 'Solicitud rechazada.'
-                                          : observacionesController.text.trim(),
-                                      archivo: estadoSeleccionado == 'ACEPTADA'
-                                          ? archivoSeleccionado
-                                          : null,
-                                    );
-
-                                if (!mounted) return;
-
-                                if (respuesta == null) {
-                                  setModalState(() {
-                                    subiendoArchivo = false;
-                                  });
-                                  ScaffoldMessenger.of(
-                                    this.context,
-                                  ).showSnackBar(
-                                    SnackBar(
-                                      content: const Text(
-                                        'No se pudo responder la solicitud.',
-                                      ),
-                                      backgroundColor: _dangerColor,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                if (ctx.mounted) {
-                                  Navigator.pop(ctx);
-                                }
-
-                                await _loadData(showLoader: false);
-
-                                if (!mounted) return;
-
-                                setState(() {
-                                  _expandedSolicitudId = null;
-                                  _searchQuery = '';
-                                  _searchController.clear();
-                                });
-
-                                ScaffoldMessenger.of(this.context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      estadoSeleccionado == 'ACEPTADA'
-                                          ? 'Solicitud aceptada correctamente.'
-                                          : 'Solicitud rechazada correctamente.',
-                                    ),
-                                    backgroundColor:
-                                        estadoSeleccionado == 'ACEPTADA'
-                                        ? _successColor
-                                        : _dangerColor,
-                                  ),
-                                );
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: estadoSeleccionado == 'ACEPTADA'
-                              ? _successColor
-                              : _dangerColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        child: subiendoArchivo
-                            ? const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.4,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  SizedBox(width: 10),
-                                  Text('Subiendo archivo...'),
-                                ],
-                              )
-                            : Text(
-                                estadoSeleccionado == 'ACEPTADA'
-                                    ? 'Aceptar solicitud'
-                                    : 'Rechazar solicitud',
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(22),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Estado de la solicitud',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
                               ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            DropdownButtonFormField<String>(
+                              initialValue: estadoSeleccionado,
+                              dropdownColor: const Color(0xFF151B47),
+                              style: const TextStyle(color: Colors.white),
+                              iconEnabledColor: Colors.white70,
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: Colors.white.withValues(alpha: 0.08),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.10),
+                                  ),
+                                ),
+                                focusedBorder: const OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(16),
+                                  ),
+                                  borderSide: BorderSide(color: _accentColor),
+                                ),
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'ACEPTADA',
+                                  child: Text('Aceptar'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'RECHAZADA',
+                                  child: Text('Rechazar'),
+                                ),
+                              ],
+                              onChanged: subiendoArchivo
+                                  ? null
+                                  : (value) {
+                                      setModalState(() {
+                                        estadoSeleccionado =
+                                            value ?? 'ACEPTADA';
+                                        if (estadoSeleccionado == 'RECHAZADA') {
+                                          archivoSeleccionado = null;
+                                        }
+                                      });
+                                    },
+                            ),
+
+                            if (aceptada) ...[
+                              const SizedBox(height: 20),
+                              const Text(
+                                'Certificado PDF',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+
+                              OutlinedButton.icon(
+                                onPressed: subiendoArchivo
+                                    ? null
+                                    : () async {
+                                        final result = await FilePicker.platform
+                                            .pickFiles(
+                                              type: FileType.custom,
+                                              allowedExtensions: ['pdf'],
+                                              withData: true,
+                                            );
+
+                                        if (result == null ||
+                                            result.files.isEmpty) {
+                                          return;
+                                        }
+
+                                        setModalState(() {
+                                          archivoSeleccionado =
+                                              result.files.first;
+                                        });
+                                      },
+                                icon: const Icon(Icons.upload_file_rounded),
+                                label: Text(
+                                  archivoSeleccionado == null
+                                      ? 'Seleccionar PDF'
+                                      : archivoSeleccionado!.name,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white70,
+                                  side: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.20),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                              ),
+                            ],
+
+                            const SizedBox(height: 20),
+
+                            const Text(
+                              'Observaciones',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            TextField(
+                              controller: observacionesController,
+                              enabled: !subiendoArchivo,
+                              maxLines: 4,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'Escribe una observación...',
+                                hintStyle: const TextStyle(
+                                  color: Colors.white54,
+                                ),
+                                filled: true,
+                                fillColor: Colors.white.withValues(alpha: 0.08),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.10),
+                                  ),
+                                ),
+                                focusedBorder: const OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(16),
+                                  ),
+                                  borderSide: BorderSide(color: _accentColor),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 22),
+
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: actionColor.withValues(alpha: 0.10),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: actionColor.withValues(alpha: 0.25),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    aceptada
+                                        ? Icons.check_circle_outline_rounded
+                                        : Icons.cancel_outlined,
+                                    color: Colors.white70,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      aceptada
+                                          ? 'Para aceptar debes adjuntar el certificado PDF.'
+                                          : 'Al rechazar, no se requiere adjuntar documento.',
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 24),
+
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: subiendoArchivo
+                                        ? null
+                                        : () => Navigator.pop(ctx),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.white70,
+                                      side: BorderSide(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.18,
+                                        ),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    child: const Text('Cancelar'),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: subiendoArchivo
+                                        ? null
+                                        : () async {
+                                            if (estadoSeleccionado ==
+                                                    'ACEPTADA' &&
+                                                archivoSeleccionado == null) {
+                                              ScaffoldMessenger.of(
+                                                this.context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: const Text(
+                                                    'Debes seleccionar un PDF.',
+                                                  ),
+                                                  backgroundColor:
+                                                      _warningColor,
+                                                ),
+                                              );
+                                              return;
+                                            }
+
+                                            setModalState(() {
+                                              subiendoArchivo = true;
+                                            });
+
+                                            final respuesta =
+                                                await ApiService.responderSolicitudConArchivo(
+                                                  solicitudId:
+                                                      detalle.solicitud.id,
+                                                  estado: estadoSeleccionado,
+                                                  observaciones:
+                                                      observacionesController
+                                                          .text
+                                                          .trim()
+                                                          .isEmpty
+                                                      ? estadoSeleccionado ==
+                                                                'ACEPTADA'
+                                                            ? 'Solicitud revisada y aprobada correctamente.'
+                                                            : 'Solicitud rechazada.'
+                                                      : observacionesController
+                                                            .text
+                                                            .trim(),
+                                                  archivo:
+                                                      estadoSeleccionado ==
+                                                          'ACEPTADA'
+                                                      ? archivoSeleccionado
+                                                      : null,
+                                                );
+
+                                            if (!mounted) return;
+
+                                            if (respuesta == null) {
+                                              setModalState(() {
+                                                subiendoArchivo = false;
+                                              });
+                                              ScaffoldMessenger.of(
+                                                this.context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: const Text(
+                                                    'No se pudo responder la solicitud.',
+                                                  ),
+                                                  backgroundColor: _dangerColor,
+                                                ),
+                                              );
+                                              return;
+                                            }
+
+                                            if (ctx.mounted) {
+                                              Navigator.pop(ctx);
+                                            }
+
+                                            await _loadData(showLoader: false);
+
+                                            if (!mounted) return;
+
+                                            setState(() {
+                                              _expandedSolicitudId = null;
+                                              _searchQuery = '';
+                                              _searchController.clear();
+                                            });
+
+                                            ScaffoldMessenger.of(
+                                              this.context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  estadoSeleccionado ==
+                                                          'ACEPTADA'
+                                                      ? 'Solicitud aceptada correctamente.'
+                                                      : 'Solicitud rechazada correctamente.',
+                                                ),
+                                                backgroundColor:
+                                                    estadoSeleccionado ==
+                                                        'ACEPTADA'
+                                                    ? _successColor
+                                                    : _dangerColor,
+                                              ),
+                                            );
+                                          },
+                                    icon: subiendoArchivo
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.4,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : Icon(
+                                            aceptada
+                                                ? Icons.check_rounded
+                                                : Icons.close_rounded,
+                                          ),
+                                    label: Text(
+                                      subiendoArchivo
+                                          ? 'Procesando...'
+                                          : aceptada
+                                          ? 'Aceptar'
+                                          : 'Rechazar',
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: actionColor,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -2119,6 +2398,8 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
         );
       },
     );
+
+    observacionesController.dispose();
   }
 
   String _formatOnlyDateColombia(DateTime? value) {
