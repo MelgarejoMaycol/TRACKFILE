@@ -23,15 +23,21 @@ Widget? screenForRole(Map<String, dynamic> userData) {
     case 'ADMIN':
       return const AdminScreen();
     case 'EMPRESA':
-      return EmpresaScreen(usuario: userData, empresa: company);
+      return EmpresaScreen(
+        key: ValueKey('empresa_${userData['id']}_${userData['token']}'),
+        usuario: userData,
+        empresa: company,
+      );
     case 'PROPIETARIO':
       return PropietarioScreen(
+        key: ValueKey('propietario_${userData['id']}_${userData['token']}'),
         userId: userData['id']?.toString(),
         personName: _fullName(userData),
         companyName: company?['nombreEmpresa']?.toString() ?? '',
       );
     case 'CONDUCTOR':
       return ConductorScreen(
+        key: ValueKey('conductor_${userData['id']}_${userData['token']}'),
         userId: userData['id']?.toString(),
         personName: _fullName(userData),
         companyName: company?['nombreEmpresa']?.toString() ?? '',

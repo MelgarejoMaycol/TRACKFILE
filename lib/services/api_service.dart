@@ -7,11 +7,18 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import './api_link.dart';
-import './document_service.dart';
 
 class ApiService {
   static final http.Client _client = http.Client();
   static String? _tokenCache;
+  static void clearTokenCache() {
+    _tokenCache = null;
+  }
+
+  static void setTokenCache(String token) {
+    _tokenCache = token;
+  }
+
   // URL base del servidor - siempre usa Onrender
   static String get _baseUrl => getApiLink();
 
@@ -1468,40 +1475,75 @@ class ApiService {
     String? token,
   }) async {
     try {
-      if (role.toLowerCase() == 'empresa') {
-        // Para empresa, obtener todos los vehículos
-        final headers = await _buildHeaders(token: token);
-        final response = await _client
-            .get(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
-            .timeout(const Duration(seconds: 20));
+      final headers = await _buildHeaders(token: token);
 
-        if (response.statusCode == 200) {
-          final dynamic decoded = jsonDecode(response.body);
-          if (decoded is List) {
-            return List<Map<String, dynamic>>.from(
-              decoded.map(
-                (item) =>
-                    item is Map<String, dynamic> ? item : <String, dynamic>{},
-              ),
-            );
+      final response = await _client
+          .get(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode != 200) {
+        debugPrint(
+          '❌ [getVehiculosPorRol] Error ${response.statusCode}: ${response.body}',
+        );
+        return [];
+      }
+
+      final dynamic decoded = jsonDecode(response.body);
+      final List<Map<String, dynamic>> vehiculos = _asMapList(decoded);
+
+      final normalizedRole = role.toLowerCase().trim();
+
+      if (normalizedRole == 'empresa' ||
+          normalizedRole == 'admin' ||
+          normalizedRole == 'secretaria') {
+        return vehiculos;
+      }
+
+      if (userId == null || userId.isEmpty) {
+        return [];
+      }
+
+      return vehiculos.where((vehiculo) {
+        if (normalizedRole == 'conductor') {
+          final conductor = vehiculo['conductor'];
+
+          if (conductor is Map) {
+            final usuario = conductor['usuario'];
+
+            final idUsuario =
+                conductor['idUsuario']?.toString() ??
+                conductor['id_usuario']?.toString() ??
+                (usuario is Map ? usuario['id']?.toString() : null) ??
+                (usuario is Map ? usuario['idUsuario']?.toString() : null) ??
+                (usuario is Map ? usuario['id_usuario']?.toString() : null);
+
+            return idUsuario == userId;
           }
         }
-      } else if (role.toLowerCase() == 'conductor' && userId != null) {
-        // Usar el método existente de document_service
-        return await DocumentService.getVehiculosPorConductor(
-          conductorId: int.tryParse(userId) ?? 0,
-          token: token,
-        );
-      } else if (role.toLowerCase() == 'propietario' && userId != null) {
-        // Usar el método existente de document_service
-        return await DocumentService.getVehiculosPorPropietario(
-          propietarioId: int.tryParse(userId) ?? 0,
-          token: token,
-        );
-      }
+
+        if (normalizedRole == 'propietario') {
+          final propietario = vehiculo['propietario'];
+
+          if (propietario is Map) {
+            final usuario = propietario['usuario'];
+
+            final idUsuario =
+                propietario['idUsuario']?.toString() ??
+                propietario['id_usuario']?.toString() ??
+                (usuario is Map ? usuario['id']?.toString() : null) ??
+                (usuario is Map ? usuario['idUsuario']?.toString() : null) ??
+                (usuario is Map ? usuario['id_usuario']?.toString() : null);
+
+            return idUsuario == userId;
+          }
+        }
+
+        return false;
+      }).toList();
     } catch (e) {
       debugPrint('❌ [getVehiculosPorRol] Excepción: $e');
     }
+
     return [];
   }
 }

@@ -4,15 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notificaciones_service.dart';
 import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
-import 'package:trackfile/widgets/certificates/certificaciones.dart';
+import 'package:trackfile/utils/browser_url.dart';
 import 'package:trackfile/widgets/documents/documentos_screen.dart';
 import 'package:trackfile/widgets/inicio.dart';
 import 'package:trackfile/widgets/maintenance/mantenimientos.dart';
 import 'package:trackfile/widgets/notifications/notifications.dart';
+import 'package:trackfile/widgets/requests/requests.dart';
 import 'package:trackfile/widgets/users/empresa.dart';
 import 'package:trackfile/widgets/users/perfil.dart';
 import 'package:trackfile/widgets/vehicles/vehiculos.dart';
-import 'package:trackfile/utils/browser_url.dart';
 
 class _MenuOption {
   final String label;
@@ -200,7 +200,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
   final List<_MenuOption> _lowerMenuOptions = const [
     _MenuOption('Inicio', Icons.dashboard_rounded, 'Inicio'),
     _MenuOption('Documentos', Icons.folder_special_rounded, 'Documentos'),
-    _MenuOption('Certificaciones', Icons.verified_rounded, 'Certificaciones'),
+    _MenuOption('Solicitudes', Icons.verified_rounded, 'Solicitudes'),
     _MenuOption('Perfil', Icons.person_rounded, 'Perfil'),
   ];
 
@@ -244,7 +244,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
     final slug = switch (section) {
       'Inicio' => 'inicio',
       'Documentos' => 'documentos',
-      'Certificaciones' => 'certificaciones',
+      'Solicitudes' => 'solicitudes',
       'Perfil' => 'perfil',
       'Mensajes' => 'mensajes',
       'Vehículo' || 'Vehículos' => 'vehiculos',
@@ -829,8 +829,8 @@ class _ConductorScreenState extends State<ConductorScreen> {
           initialVehicleId: _selectedDocumentsVehicleId,
           initialVehiclePlate: _selectedDocumentsVehiclePlate,
         );
-      case 'Certificaciones':
-        return CertificacionesWidget(
+      case 'Solicitudes':
+        return SolicitudesWidget(
           role: 'Conductor',
           userId: widget.userId ?? '1',
         );

@@ -406,8 +406,8 @@ class ShimmerPerfilPage extends StatelessWidget {
 /// SHIMMER CERTIFICACIONES
 /// ===============================
 
-class ShimmerCertificacionesPage extends StatelessWidget {
-  const ShimmerCertificacionesPage({super.key});
+class ShimmerSolicitudesPage extends StatelessWidget {
+  const ShimmerSolicitudesPage({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import 'login_screen.dart';
+import 'package:go_router/go_router.dart';
 
 class OnboardingScreen extends StatefulWidget {
   static const route = '/onboarding';
@@ -216,7 +216,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 width: imageWidth,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.of(context).pushNamed(LoginScreen.route);
+                    context.go('/login');
                   },
                   style:
                       ElevatedButton.styleFrom(

@@ -13,6 +13,7 @@ import 'package:trackfile/services/api_link.dart';
 import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
 import 'package:trackfile/utils/api_config.dart';
 import 'package:trackfile/utils/role_router.dart';
+import 'package:trackfile/services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   static const route = '/login';
@@ -542,11 +543,26 @@ class _LoginScreenState extends State<LoginScreen>
             emailConfirmado: emailConfirmado,
           );
 
+          NotificacionesRealtimeService.stop();
+          ApiService.clearTokenCache();
+
+          final prefs = await SharedPreferences.getInstance();
+
+          await prefs.remove('auth_user');
+          await prefs.remove('auth_token');
+          await prefs.remove('token');
+          await prefs.remove('rol');
+          await prefs.remove('role');
+          await prefs.remove('user_id');
+          await prefs.remove('usuario_id');
+          await prefs.remove('empresa_id');
+          await prefs.remove('conductor_id');
+          await prefs.remove('propietario_id');
+
           // Validación de estado de empresa removida - no es requerida por el backend
           await persistSession(sessionData);
 
           // Guardar también los datos que usa app_router.dart
-          final prefs = await SharedPreferences.getInstance();
 
           final String? tokenSesion = _stringValue(sessionData['token']);
           final String rolRuta = _roleToRoute(sessionData['rol']);
@@ -581,6 +597,7 @@ class _LoginScreenState extends State<LoginScreen>
 
           await prefs.setString('token', tokenSesion);
           await prefs.setString('auth_token', tokenSesion);
+          ApiService.setTokenCache(tokenSesion);
 
           await prefs.setString('rol', rolRuta);
           await prefs.setString('role', rolRuta);
@@ -597,7 +614,9 @@ class _LoginScreenState extends State<LoginScreen>
 
           if (!mounted) return;
 
-          context.go('/dashboard/$rolRuta');
+          context.go(
+            '/dashboard/$rolRuta?session=${DateTime.now().millisecondsSinceEpoch}',
+          );
         } on FormatException {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Respuesta del servidor inválida.')),

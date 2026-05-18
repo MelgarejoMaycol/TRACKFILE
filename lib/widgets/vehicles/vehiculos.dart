@@ -261,7 +261,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
         throw Exception('No hay sesión activa');
       }
 
-
       final uri = ApiConfig.resolve(_baseUrl, '/api/vehiculos');
 
       final response = await http
@@ -290,7 +289,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
           _vehicles = vehiclesWithDocuments;
           _isLoading = false;
         });
-
       } else if (response.statusCode == 401) {
         throw Exception('Sesión expirada. Por favor inicia sesión nuevamente.');
       } else if (response.statusCode == 403) {
@@ -693,10 +691,17 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
 
     if (_searchTerm.isNotEmpty) {
       final String lower = _searchTerm.toLowerCase();
+
       filtered = filtered.where((vehicle) {
+        final propietario = vehicle.nombrePropietario?.toLowerCase() ?? '';
+
+        final conductor = vehicle.nombreConductor?.toLowerCase() ?? '';
+
         return vehicle.placa.toLowerCase().contains(lower) ||
             vehicle.marca.toLowerCase().contains(lower) ||
-            vehicle.modelo.toLowerCase().contains(lower);
+            vehicle.modelo.toLowerCase().contains(lower) ||
+            propietario.contains(lower) ||
+            conductor.contains(lower);
       });
     }
 
@@ -798,7 +803,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       _statusFilter = null;
       _searchTerm = '';
     });
-
   }
 
   Widget _buildVehicleTopActions(bool isCompact) {
@@ -1575,7 +1579,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       }),
       style: TextStyle(color: Colors.white, fontSize: isCompact ? 12 : 13),
       decoration: InputDecoration(
-        hintText: 'Buscar por placa, marca o modelo',
+        hintText: 'Buscar por placa, marca, modelo, conductor o propietario',
         hintStyle: const TextStyle(color: Colors.white54, fontSize: 11),
         prefixIcon: Icon(
           Icons.search,

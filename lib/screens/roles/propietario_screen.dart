@@ -1,24 +1,16 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notificaciones_service.dart';
 import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
-import 'package:trackfile/utils/api_config.dart';
-import 'package:trackfile/widgets/certificates/certificaciones.dart';
+import 'package:trackfile/utils/browser_url.dart';
 import 'package:trackfile/widgets/documents/documentos_screen.dart';
 import 'package:trackfile/widgets/inicio.dart';
 import 'package:trackfile/widgets/maintenance/mantenimientos.dart';
 import 'package:trackfile/widgets/notifications/notifications.dart';
+import 'package:trackfile/widgets/requests/requests.dart';
 import 'package:trackfile/widgets/users/empresa.dart';
 import 'package:trackfile/widgets/users/perfil.dart';
-import 'package:trackfile/widgets/utils/logout_button.dart';
 import 'package:trackfile/widgets/vehicles/vehiculos.dart';
-import 'package:trackfile/utils/browser_url.dart';
 
 class _MenuOption {
   final String label;
@@ -58,19 +50,11 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   static const Color _accentColor = Color(0xFF4F4CE8);
   static const Color _chipBorderColor = Color(0xFF6B68F1);
 
-  static const String _ownerProfileAsset = 'assets/propietario_profile.json';
-  static const String _ownerDashboardAsset =
-      'assets/propietario_dashboard.json';
-  String _baseUrl = ApiConfig.fallbackBaseUrl();
-  // ignore: unused_field
-  final int _selectedIndex = 0;
   String _userName = '';
   String _userCompany = '';
   bool _isLoading = true;
   int _inicioRefreshKey = 0;
   int _notificationsCount = 0;
-  List<Map<String, dynamic>> _ownerVehicles = [];
-  List<Map<String, dynamic>> _ownerDocuments = [];
   String? _userProfileImage;
   String? _userEmail;
   String? _userPhone;
@@ -82,22 +66,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
 
   String? _selectedMaintenanceVehicleId;
   String? _selectedMaintenanceVehiclePlate;
-  static const List<String> _monthLabels = [
-    'ENE',
-    'FEB',
-    'MAR',
-    'ABR',
-    'MAY',
-    'JUN',
-    'JUL',
-    'AGO',
-    'SEP',
-    'OCT',
-    'NOV',
-    'DIC',
-  ];
 
-  // --- Menus compatible con ConductorScreen ---
   int? _selectedUpperIndex;
   int? _selectedLowerIndex = 0;
   String _activeSection = 'Inicio';
@@ -113,15 +82,8 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   static const List<_MenuOption> _lowerMenuOptions = [
     _MenuOption('Inicio', Icons.dashboard_rounded, 'Inicio'),
     _MenuOption('Documentos', Icons.folder_special_rounded, 'Documentos'),
-    _MenuOption('Certificaciones', Icons.verified_rounded, 'Certificaciones'),
+    _MenuOption('Solicitudes', Icons.verified_rounded, 'Solicitudes'),
     _MenuOption('Perfil', Icons.person_rounded, 'Perfil'),
-  ];
-
-  static const List<_MenuOption> _topMenuOptions = [
-    _MenuOption('Mensajes', Icons.chat_rounded, 'Mensajes'),
-    _MenuOption('Vehículos', Icons.directions_car_filled_rounded, 'Vehículos'),
-    _MenuOption('Empresa', Icons.apartment_rounded, 'Empresa'),
-    _MenuOption('Mantenimientos', Icons.build_rounded, 'Mantenimientos'),
   ];
 
   int? _selectedTopIndex;
@@ -132,20 +94,12 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     _activeSection = widget.initialSection ?? 'Inicio';
     _syncSelectedMenuWithSection(_activeSection);
     NotificacionesRealtimeService.start();
-    _initBaseUrl();
     _loadInitialData();
-  }
-
-  Future<void> _initBaseUrl() async {
-    final resolved = await ApiConfig.loadBaseUrl();
-    if (!mounted) return;
-    setState(() => _baseUrl = resolved);
   }
 
   Future<void> _loadInitialData() async {
     await Future.wait([
       _loadOwnerProfile(),
-      _loadDashboardData(),
       _loadNotificationsCount(),
     ]);
 
@@ -270,303 +224,12 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     }
   }
 
-  Future<void> _loadDashboardData() async {
-    try {
-      // Si tenemos userId, cargar del backend
-      if (widget.userId != null && widget.userId!.isNotEmpty) {
-        await _loadDashboardDataFromBackend(widget.userId!);
-      } else {
-        // Fallback al JSON estático
-        await _loadDashboardDataFromJson();
-      }
-    } catch (e) {
-      debugPrint('Error cargando dashboard: $e');
-      // Fallback al JSON como último recurso
-      await _loadDashboardDataFromJson();
-    }
-  }
-
-  Future<void> _loadDashboardDataFromBackend(String propietarioId) async {
-    try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? token = prefs.getString('auth_token');
-
-      if (token == null) {
-        throw Exception('No hay sesión activa');
-      }
-
-      // Cargar vehículos del propietario
-      final vehiculosUri = ApiConfig.resolve(
-        _baseUrl,
-        '/api/propietarios/$propietarioId/vehiculos',
-      );
-      final vehiculosResponse = await http
-          .get(
-            vehiculosUri,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-          )
-          .timeout(const Duration(seconds: 10));
-
-      final List<Map<String, dynamic>> vehicles = [];
-      if (vehiculosResponse.statusCode == 200) {
-        final List<dynamic> data =
-            json.decode(vehiculosResponse.body) as List<dynamic>;
-        for (final veh in data.whereType<Map<String, dynamic>>()) {
-          final String placa = veh['placa']?.toString() ?? '';
-          final String marca = veh['marca']?.toString() ?? '';
-          final String modelo = veh['modelo']?.toString() ?? '';
-          final String estado =
-              veh['estadoVehiculo']?.toString() ?? 'DESCONOCIDO';
-
-          vehicles.add({
-            'plate': placa,
-            'model': '$marca $modelo',
-            'driver': veh['nombreConductor']?.toString() ?? 'Sin asignar',
-            'status': estado,
-            'nextExpiry': null, // Se obtendría de documentos si es necesario
-          });
-        }
-        debugPrint(
-          '✅ ${vehicles.length} vehículos cargados del backend para propietario $propietarioId',
-        );
-      } else if (vehiculosResponse.statusCode == 404) {
-        debugPrint(
-          '⚠️ No encontrado endpoint de vehículos por propietario, intentando cargar general',
-        );
-        // Intentar desde endpoint general
-        final generalUri = ApiConfig.resolve(_baseUrl, '/api/vehiculos');
-        final generalResponse = await http
-            .get(
-              generalUri,
-              headers: {
-                'Authorization': 'Bearer $token',
-                'Content-Type': 'application/json',
-              },
-            )
-            .timeout(const Duration(seconds: 10));
-
-        if (generalResponse.statusCode == 200) {
-          final List<dynamic> data =
-              json.decode(generalResponse.body) as List<dynamic>;
-          for (final veh in data.whereType<Map<String, dynamic>>()) {
-            final int idProp = veh['idPropietario'] ?? 0;
-            if (idProp.toString() == propietarioId) {
-              final String placa = veh['placa']?.toString() ?? '';
-              final String marca = veh['marca']?.toString() ?? '';
-              final String modelo = veh['modelo']?.toString() ?? '';
-              final String estado =
-                  veh['estadoVehiculo']?.toString() ?? 'DESCONOCIDO';
-
-              vehicles.add({
-                'plate': placa,
-                'model': '$marca $modelo',
-                'driver': veh['nombreConductor']?.toString() ?? 'Sin asignar',
-                'status': estado,
-                'nextExpiry': null,
-              });
-            }
-          }
-          debugPrint(
-            '✅ ${vehicles.length} vehículos filtrados del endpoint general',
-          );
-        }
-      }
-
-      // Cargar documentos
-      final documentosUri = ApiConfig.resolve(
-        _baseUrl,
-        '/api/documentos/tabla',
-      );
-      final documentosResponse = await http
-          .get(
-            documentosUri,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-          )
-          .timeout(const Duration(seconds: 10));
-
-      final List<Map<String, dynamic>> documents = [];
-      if (documentosResponse.statusCode == 200) {
-        final List<dynamic> data =
-            json.decode(documentosResponse.body) as List<dynamic>;
-        for (final doc in data.whereType<Map<String, dynamic>>()) {
-          final idUsuario = doc['idUsuario'];
-          if (idUsuario == null) {
-            // Solo documentos de vehículos
-            final DateTime? expiry = DateTime.tryParse(
-              doc['fechaVencimiento']?.toString() ?? '',
-            );
-            final DateTime? payment = DateTime.tryParse(
-              doc['fechaPago']?.toString() ?? '',
-            );
-
-            documents.add({
-              'name': doc['nombre']?.toString() ?? 'Documento',
-              'vehicle': doc['vehiculoPlaca']?.toString() ?? '',
-              'expiryDate': expiry,
-              'paymentDate': payment,
-            });
-          }
-        }
-        debugPrint('✅ ${documents.length} documentos de vehículos cargados');
-      }
-
-      // Crear alertas basadas en documentos próximos a vencer
-      final List<Map<String, dynamic>> alerts = [];
-      for (final doc in documents) {
-        if (doc['expiryDate'] != null) {
-          final DateTime expiry = doc['expiryDate'] as DateTime;
-          final Duration difference = expiry.difference(DateTime.now());
-          if (difference.inDays <= 30) {
-            alerts.add({
-              'title': '${doc['name']} próximo a vencer',
-              'message':
-                  'El documento ${doc['name']} vence el ${expiry.day}/${expiry.month}/${expiry.year}',
-              'severity': difference.inDays <= 7 ? 'high' : 'medium',
-              'tag': 'Documentos',
-            });
-          }
-        }
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _ownerDocuments = documents;
-        _ownerVehicles = vehicles;
-        //_notificationsCount = notificationsCount;
-      });
-      debugPrint(
-        '✅ Dashboard cargado del backend para propietario $propietarioId',
-      );
-    } catch (e) {
-      debugPrint('❌ Error cargando dashboard del backend: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> _loadDashboardDataFromJson() async {
-    try {
-      final String jsonString = await rootBundle.loadString(
-        _ownerDashboardAsset,
-      );
-      final Map<String, dynamic> jsonData = json.decode(jsonString);
-
-      jsonData['summary'] is Map<String, dynamic>
-          ? Map<String, dynamic>.from(jsonData['summary'] as Map)
-          : <String, dynamic>{
-              'totalVehicles': jsonData['vehicles'] != null
-                  ? (jsonData['vehicles'] as List).length
-                  : 0,
-              'totalDocuments': jsonData['documents'] != null
-                  ? (jsonData['documents'] as List).length
-                  : 0,
-              'documentsExpiring': 0,
-              'alertsHigh': 0,
-            };
-
-      final List<Map<String, dynamic>> documents =
-          (jsonData['documents'] as List<dynamic>? ?? [])
-              .whereType<Map<String, dynamic>>()
-              .map((doc) {
-                final DateTime? expiry = DateTime.tryParse(
-                  doc['expiryDate']?.toString() ?? '',
-                );
-                final DateTime? payment = DateTime.tryParse(
-                  doc['paymentDate']?.toString() ?? '',
-                );
-                return {
-                  'name': doc['name']?.toString() ?? 'Documento',
-                  'vehicle': doc['vehicle']?.toString() ?? '',
-                  'expiryDate': expiry,
-                  'paymentDate': payment,
-                };
-              })
-              .toList();
-
-      final List<Map<String, dynamic>> vehicles =
-          (jsonData['vehicles'] as List<dynamic>? ?? [])
-              .whereType<Map<String, dynamic>>()
-              .map((vehicle) {
-                final DateTime? nextExpiry = DateTime.tryParse(
-                  vehicle['nextExpiry']?.toString() ?? '',
-                );
-                return {
-                  'plate': vehicle['plate']?.toString() ?? '',
-                  'model': vehicle['model']?.toString() ?? '',
-                  'driver': vehicle['driver']?.toString() ?? '',
-                  'status': vehicle['status']?.toString() ?? '',
-                  'nextExpiry': nextExpiry,
-                };
-              })
-              .toList();
-
-      // Extraer información de conductores de los vehículos
-      final List<Map<String, dynamic>> drivers = <Map<String, dynamic>>[];
-      final Set<String> uniqueDrivers = {};
-      for (final vehicle in vehicles) {
-        final String driverName = vehicle['driver']?.toString() ?? '';
-        if (driverName.isNotEmpty &&
-            driverName != 'Disponible' &&
-            !uniqueDrivers.contains(driverName)) {
-          uniqueDrivers.add(driverName);
-          drivers.add({
-            'name': driverName,
-            'assignedVehicle': vehicle['plate']?.toString() ?? 'Sin vehículo',
-            'status': 'Activo',
-          });
-        }
-      }
-
-      // Crear alertas basadas en estados de documentos
-      final List<Map<String, dynamic>> alerts = <Map<String, dynamic>>[];
-      for (final doc in documents) {
-        if (doc['expiryDate'] != null) {
-          final DateTime expiry = doc['expiryDate'] as DateTime;
-          final Duration difference = expiry.difference(DateTime.now());
-          if (difference.inDays <= 30) {
-            alerts.add({
-              'title': '${doc['name']} próximo a vencer',
-              'message':
-                  'El documento ${doc['name']} vence el ${expiry.day}/${expiry.month}/${expiry.year}',
-              'severity': difference.inDays <= 7 ? 'high' : 'medium',
-              'tag': 'Documentos',
-            });
-          }
-        }
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _ownerDocuments = documents;
-        _ownerVehicles = vehicles;
-        //_notificationsCount = notificationsCount;
-      });
-    } catch (e) {
-      debugPrint('Error cargando dashboard de propietario: $e');
-      if (!mounted) return;
-      setState(() {
-        _ownerDocuments = [];
-        _ownerVehicles = [];
-        _notificationsCount = 0;
-      });
-    }
-  }
-
   void _syncSelectedMenuWithSection(String section) {
     final upperIndex = _upperMenuOptions.indexWhere(
       (option) => option.section == section || option.label == section,
     );
 
     final lowerIndex = _lowerMenuOptions.indexWhere(
-      (option) => option.section == section || option.label == section,
-    );
-
-    final topIndex = _topMenuOptions.indexWhere(
       (option) => option.section == section || option.label == section,
     );
 
@@ -579,7 +242,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
 
     if (upperIndex != -1) {
       _selectedUpperIndex = upperIndex;
-      _selectedTopIndex = topIndex != -1 ? topIndex : upperIndex;
+      _selectedTopIndex = upperIndex;
       _selectedLowerIndex = null;
       return;
     }
@@ -601,7 +264,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     final slug = switch (section) {
       'Inicio' => 'inicio',
       'Documentos' => 'documentos',
-      'Certificaciones' => 'certificaciones',
+      'Solicitudes' => 'solicitudes',
       'Perfil' => 'perfil',
       'Mensajes' => 'mensajes',
       'Vehículo' || 'Vehículos' => 'vehiculos',
@@ -638,7 +301,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   }
 
   void _onTopMenuTap(int index) {
-    _goToSection(_topMenuOptions[index].section);
+    _goToSection(_upperMenuOptions[index].section);
   }
 
   void _activateSection(String section) {
@@ -685,7 +348,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       );
     }
 
-    final List<Widget> chips = _topMenuOptions.asMap().entries.map((entry) {
+    final List<Widget> chips = _upperMenuOptions.asMap().entries.map((entry) {
       final int index = entry.key;
       final _MenuOption option = entry.value;
       final bool selected = _selectedTopIndex == index;
@@ -844,27 +507,33 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       width: 200,
       color: _primaryColor,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(24, 32, 24, 20),
             child: Text(
               'Menú',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
               ),
             ),
           ),
-          const Divider(color: Colors.white24),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: _lowerMenuOptions.asMap().entries.map((entry) {
                 final int index = entry.key;
                 final _MenuOption option = entry.value;
-                final bool selected = _selectedLowerIndex == index;
-                return _buildLeftNavItem(option, index, selected);
+                return _buildSidebarButton(
+                  option: option,
+                  selected: _selectedLowerIndex == index,
+                  isLast: index == _lowerMenuOptions.length - 1,
+                  onTap: () => _onLowerMenuTap(index),
+                );
               }).toList(),
             ),
           ),
@@ -873,37 +542,59 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     );
   }
 
-  Widget _buildLeftNavItem(_MenuOption option, int index, bool selected) {
-    return InkWell(
-      onTap: () => _onLowerMenuTap(index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: selected
-              ? _accentColor.withValues(alpha: 0.22)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: selected
-              ? Border.all(color: _accentColor.withValues(alpha: 0.5))
-              : null,
-        ),
-        child: Row(
-          children: [
-            Icon(option.icon, size: 20, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                option.label,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                ),
+  Widget _buildSidebarButton({
+    required _MenuOption option,
+    required bool selected,
+    required bool isLast,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          splashColor: _accentColor.withValues(alpha: 0.15),
+          highlightColor: Colors.transparent,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: selected
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.transparent,
+              border: Border.all(
+                color: selected
+                    ? _accentColor.withValues(alpha: 0.4)
+                    : Colors.transparent,
               ),
             ),
-          ],
+            child: Row(
+              children: [
+                Icon(
+                  option.icon,
+                  color: Colors.white.withValues(alpha: 0.87),
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    option.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1153,8 +844,6 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         return InicioWidget(
           key: ValueKey(_inicioRefreshKey),
           role: 'Propietario',
-          jsonPath: _ownerDashboardAsset,
-          userProfilePath: _ownerProfileAsset,
           userId: widget.userId ?? '1',
           onNavigateToDocuments: _navigateToDocuments,
           onNavigateToProfile: _navigateToProfile,
@@ -1168,8 +857,8 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           initialVehicleId: _selectedDocumentsVehicleId,
           initialVehiclePlate: _selectedDocumentsVehiclePlate,
         );
-      case 'Certificaciones':
-        return CertificacionesWidget(
+      case 'Solicitudes':
+        return SolicitudesWidget(
           role: 'Propietario',
           userId: widget.userId ?? '1',
         );
@@ -1185,7 +874,6 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           userDocument: _userDocument,
           onPerfilActualizado: () async {
             await _loadOwnerProfile();
-            await _loadDashboardData();
             if (!mounted) return;
             setState(() {
               _inicioRefreshKey++;
@@ -1193,7 +881,6 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           },
           onEmpresaActualizada: () async {
             await _loadOwnerProfile();
-            await _loadDashboardData();
             if (!mounted) return;
             setState(() {
               _inicioRefreshKey++;
@@ -1262,533 +949,12 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           vehiculoId: _selectedMaintenanceVehicleId,
           vehiculoPlaca: _selectedMaintenanceVehiclePlate,
         );
-      case 'Calendario':
-        return _buildCalendarContent();
-      case 'Solicitudes':
-        return _buildPlaceholderContent(
-          title: 'Solicitudes',
-          message: 'No hay solicitudes registradas en el JSON de propietario.',
-        );
-      case 'Vehículos':
-        return VehiculosWidget(
-          role: 'Propietario',
-          ownerId: widget.userId,
-          jsonPath: 'assets/vehicles_data.json',
-          onVerDocumentosVehiculo:
-              ({required int vehiculoId, required String placa}) {
-                setState(() {
-                  _selectedDocumentsVehicleId = vehiculoId.toString();
-                  _selectedDocumentsVehiclePlate = placa;
-                  _activeSection = 'Documentos';
-                  _selectedLowerIndex = 1;
-                  _selectedUpperIndex = null;
-                  _selectedTopIndex = null;
-                });
-              },
-          onVerMantenimientosVehiculo:
-              ({required int vehiculoId, required String placa}) {
-                setState(() {
-                  _selectedMaintenanceVehicleId = vehiculoId.toString();
-                  _selectedMaintenanceVehiclePlate = placa;
-                  _activeSection = 'Mantenimientos';
-                  _selectedUpperIndex = 3;
-                  _selectedLowerIndex = null;
-                  _selectedTopIndex = 3;
-                });
-              },
-        );
       default:
         return InicioWidget(
           role: 'Propietario',
-          jsonPath: _ownerDashboardAsset,
-          userProfilePath: _ownerProfileAsset,
           userId: widget.userId ?? '1',
         );
     }
-  }
-
-  /// Construye el contenido de documentos
-  // ignore: unused_element
-  Widget _buildDocumentsContent() {
-    if (_ownerDocuments.isEmpty) {
-      return _buildPlaceholderContent(
-        title: 'Documentos',
-        message: 'No se encontraron documentos en el JSON de propietario.',
-      );
-    }
-
-    final List<Map<String, dynamic>> sortedDocuments =
-        List<Map<String, dynamic>>.from(_ownerDocuments)..sort((a, b) {
-          final DateTime aDate =
-              DateTime.tryParse(a['expiryDate']?.toString() ?? '') ??
-              DateTime(2100);
-          final DateTime bDate =
-              DateTime.tryParse(b['expiryDate']?.toString() ?? '') ??
-              DateTime(2100);
-          return aDate.compareTo(bDate);
-        });
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Documentos',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          ...sortedDocuments.map(_buildDocumentCard),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCalendarContent() {
-    if (_ownerDocuments.isEmpty) {
-      return _buildPlaceholderContent(
-        title: 'Calendario de vencimientos',
-        message: 'No hay documentos cargados para el calendario.',
-      );
-    }
-
-    final List<Map<String, dynamic>> upcomingDocs =
-        List<Map<String, dynamic>>.from(_ownerDocuments)..sort((a, b) {
-          final DateTime aDate =
-              DateTime.tryParse(a['expiryDate']?.toString() ?? '') ??
-              DateTime(2100);
-          final DateTime bDate =
-              DateTime.tryParse(b['expiryDate']?.toString() ?? '') ??
-              DateTime(2100);
-          return aDate.compareTo(bDate);
-        });
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Calendario de vencimientos',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          ...upcomingDocs.map(_buildCalendarItem),
-        ],
-      ),
-    );
-  }
-
-  /// Construye la sección del perfil
-  // ignore: unused_element
-  Widget _buildProfileSection() {
-    final String displayName = _userName.isNotEmpty
-        ? _userName
-        : (widget.personName.isNotEmpty ? widget.personName : 'Propietario');
-    final String displayCompany = _userCompany.isNotEmpty
-        ? _userCompany
-        : (widget.companyName.isNotEmpty ? widget.companyName : 'Sin compañía');
-    final String email = (_userEmail != null && _userEmail!.trim().isNotEmpty)
-        ? _userEmail!
-        : 'No registrado';
-    final String phone = (_userPhone != null && _userPhone!.trim().isNotEmpty)
-        ? _userPhone!
-        : 'No registrado';
-
-    int documentsUpToDate = 0;
-    int documentsExpiringSoon = 0;
-    final DateTime now = DateTime.now();
-    for (final Map<String, dynamic> doc in _ownerDocuments) {
-      final String? expiryRaw = doc['expiryDate']?.toString();
-      if (expiryRaw == null || expiryRaw.isEmpty) {
-        continue;
-      }
-      final DateTime? expiry = DateTime.tryParse(expiryRaw);
-      if (expiry == null) {
-        continue;
-      }
-      if (!expiry.isBefore(now)) {
-        documentsUpToDate++;
-        final int days = expiry.difference(now).inDays;
-        if (days <= 30) {
-          documentsExpiringSoon++;
-        }
-      }
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Perfil del propietario',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  displayName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  displayCompany,
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-                const SizedBox(height: 18),
-                _buildProfileDetailRow(
-                  Icons.mail_outline_rounded,
-                  'Correo',
-                  email,
-                ),
-                _buildProfileDetailRow(Icons.phone_outlined, 'Teléfono', phone),
-                _buildProfileDetailRow(
-                  Icons.directions_bus_rounded,
-                  'Vehículos registrados',
-                  _ownerVehicles.isEmpty
-                      ? 'Sin vehículos'
-                      : '${_ownerVehicles.length}',
-                ),
-                _buildProfileDetailRow(
-                  Icons.folder_special_outlined,
-                  'Documentos cargados',
-                  _ownerDocuments.isEmpty
-                      ? 'Sin documentos'
-                      : '${_ownerDocuments.length}',
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _buildProfileChip(
-                Icons.verified_user_outlined,
-                'Vigentes: $documentsUpToDate',
-              ),
-              _buildProfileChip(
-                Icons.timer_outlined,
-                'Próximos a vencer: $documentsExpiringSoon',
-              ),
-            ],
-          ),
-          const SizedBox(height: 26),
-          Align(
-            alignment: Alignment.center,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 320),
-              child: const LogoutButton(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileDetailRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: Colors.white70, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileChip(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white70, size: 18),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlaceholderContent({
-    required String title,
-    required String message,
-  }) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDocumentCard(Map<String, dynamic> document) {
-    final String name = document['name']?.toString() ?? 'Documento';
-    final String vehicle = document['vehicle']?.toString() ?? 'Sin asignar';
-    final String paymentDate = _formatDate(document['paymentDate']?.toString());
-    final String? expiryDateRaw = document['expiryDate']?.toString();
-    final String expiryDate = _formatDate(expiryDateRaw);
-    final DateTime? expiry = expiryDateRaw != null
-        ? DateTime.tryParse(expiryDateRaw)
-        : null;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(Icons.directions_car, color: Colors.white54, size: 18),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Vehículo: $vehicle',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Icon(Icons.payments, color: Colors.white54, size: 18),
-              const SizedBox(width: 6),
-              Text(
-                'Fecha de pago: $paymentDate',
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Icon(Icons.event_busy, color: Colors.white54, size: 18),
-              const SizedBox(width: 6),
-              Text(
-                'Fecha de vencimiento: $expiryDate',
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _buildRemainingText(expiry),
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCalendarItem(Map<String, dynamic> document) {
-    final String name = document['name']?.toString() ?? 'Documento';
-    final String vehicle = document['vehicle']?.toString() ?? 'Sin asignar';
-    final String? expiryDateRaw = document['expiryDate']?.toString();
-    final DateTime? expiry = expiryDateRaw != null
-        ? DateTime.tryParse(expiryDateRaw)
-        : null;
-    final String formattedExpiry = _formatDate(expiryDateRaw);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Row(
-        children: [
-          _buildDateBadge(expiry),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Vehículo: $vehicle',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Vencimiento: $formattedExpiry',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _buildRemainingText(expiry),
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDateBadge(DateTime? date) {
-    final String day = date != null
-        ? date.day.toString().padLeft(2, '0')
-        : '--';
-    final String month = date != null ? _monthLabels[date.month - 1] : '---';
-
-    return Container(
-      width: 64,
-      height: 64,
-      decoration: BoxDecoration(
-        color: const Color(0xFF4442D0),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            day,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            month,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatDate(String? isoString) {
-    if (isoString == null || isoString.isEmpty) {
-      return 'Sin fecha';
-    }
-    final DateTime? parsed = DateTime.tryParse(isoString);
-    if (parsed == null) {
-      return isoString;
-    }
-    final String day = parsed.day.toString().padLeft(2, '0');
-    final String month = parsed.month.toString().padLeft(2, '0');
-    final String year = parsed.year.toString();
-    return '$day/$month/$year';
-  }
-
-  String _buildRemainingText(DateTime? expiry) {
-    if (expiry == null) {
-      return 'Fecha de vencimiento no disponible';
-    }
-    final int days = expiry.difference(DateTime.now()).inDays;
-    if (days < 0) {
-      return 'Vencido hace ${days.abs()} días';
-    }
-    if (days == 0) {
-      return 'Vence hoy';
-    }
-    return 'Faltan $days días';
   }
 
   @override

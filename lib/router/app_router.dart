@@ -5,25 +5,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 // Screens principales
 import '../screens/login_screen.dart';
 import '../screens/onboarding_screen.dart';
-
 // Dashboards por rol
 import '../screens/roles/admin_screen.dart';
 import '../screens/roles/conductor_screen.dart';
 import '../screens/roles/empresa_screen.dart';
 import '../screens/roles/propietario_screen.dart';
 import '../screens/roles/secretaria_screen.dart';
-
 import '../utils/role_router.dart';
 
 class DashboardSessionLoader extends StatelessWidget {
   final String role;
   final String? section;
 
-  const DashboardSessionLoader({
-    super.key,
-    required this.role,
-    this.section,
-  });
+  const DashboardSessionLoader({super.key, required this.role, this.section});
 
   String _text(dynamic value) {
     if (value == null) return '';
@@ -140,7 +134,7 @@ String _sectionFromUrl(String sectionUrl) {
 }
 
 final GoRouter appRouter = GoRouter(
-  initialLocation: '/login',
+  initialLocation: '/onboarding',
 
   redirect: (context, state) async {
     final prefs = await SharedPreferences.getInstance();
@@ -155,7 +149,7 @@ final GoRouter appRouter = GoRouter(
 
     if (token == null || token.isEmpty) {
       if (enLogin || enOnboarding) return null;
-      return '/login';
+      return '/onboarding';
     }
 
     if (enLogin || enOnboarding) {
@@ -167,6 +161,7 @@ final GoRouter appRouter = GoRouter(
   },
 
   routes: [
+    GoRoute(path: '/', redirect: (context, state) => '/onboarding'),
     GoRoute(
       path: '/login',
       name: 'login',
@@ -210,10 +205,7 @@ final GoRouter appRouter = GoRouter(
               return const SecretariaScreen();
             }
 
-            return DashboardSessionLoader(
-              role: role,
-              section: 'Inicio',
-            );
+            return DashboardSessionLoader(role: role, section: 'Inicio');
           },
         ),
 
@@ -233,10 +225,7 @@ final GoRouter appRouter = GoRouter(
               return const SecretariaScreen();
             }
 
-            return DashboardSessionLoader(
-              role: role,
-              section: section,
-            );
+            return DashboardSessionLoader(role: role, section: section);
           },
         ),
       ],

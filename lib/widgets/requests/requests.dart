@@ -6,7 +6,7 @@ import '../../services/api_service.dart';
 import '../documents/document_preview_modal.dart';
 import '../utils/shimmer_skeleton.dart';
 
-class CertificacionesWidget extends StatefulWidget {
+class SolicitudesWidget extends StatefulWidget {
   final String role;
   final String? userId;
 
@@ -14,7 +14,7 @@ class CertificacionesWidget extends StatefulWidget {
   final String? personaRole;
   final String? personaNombre;
 
-  const CertificacionesWidget({
+  const SolicitudesWidget({
     super.key,
     required this.role,
     this.userId,
@@ -24,7 +24,7 @@ class CertificacionesWidget extends StatefulWidget {
   });
 
   @override
-  State<CertificacionesWidget> createState() => _CertificacionesWidgetState();
+  State<SolicitudesWidget> createState() => _SolicitudesWidgetState();
 }
 
 class _TipoSolicitud {
@@ -227,7 +227,7 @@ class _SolicitudDetalle {
   }
 }
 
-class _CertificacionesWidgetState extends State<CertificacionesWidget> {
+class _SolicitudesWidgetState extends State<SolicitudesWidget> {
   static const Color _accentColor = Color(0xFF4F4CE8);
   static const Color _cardColor = Color(0xFF1B1F6B);
   static const Color _surfaceColor = Color(0xFF131741);
@@ -370,7 +370,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const ShimmerCertificacionesPage();
+      return const ShimmerSolicitudesPage();
     }
 
     if (_hasError) {
@@ -392,7 +392,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
       '=== BUILD ROLE CONTENT === Role: $_roleNormalized | isCompact: $isCompact',
     );
     if (_viendoPersona) {
-      return _buildPersonaCertificacionesLayout(isCompact, isTableCompact);
+      return _buildPersonaSolicitudesLayout(isCompact, isTableCompact);
     }
     switch (_roleNormalized) {
       case 'propietario':
@@ -622,7 +622,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
       children: [
         _buildCommonLayout(
           isCompact: isCompact,
-          title: 'Certificaciones',
+          title: 'Solicitudes',
           subtitle: 'Solicita y consulta el estado de tus certificados.',
           tableDetalles: detallesOrdenados,
           tableCompact: isTableCompact,
@@ -647,7 +647,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
     );
   }
 
-  Widget _buildPersonaCertificacionesLayout(
+  Widget _buildPersonaSolicitudesLayout(
     bool isCompact,
     bool isTableCompact,
   ) {
@@ -683,7 +683,7 @@ class _CertificacionesWidgetState extends State<CertificacionesWidget> {
 
     return _buildCommonLayout(
       isCompact: isCompact,
-      title: 'Certificaciones de $nombre',
+      title: 'Solicitudes de $nombre',
       subtitle:
           'Consulta solicitudes, certificados e historial de esta persona. Rol: $rol.',
       tableDetalles: detallesOrdenados,

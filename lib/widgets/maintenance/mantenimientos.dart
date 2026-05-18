@@ -449,6 +449,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
   }
 
   String maintenanceSearch = '';
+  String _vistaEmpresa = 'mantenimiento';
 
   List<_MantenimientoDetalle> filtrarPorRolConVehiculos(
     List<_MantenimientoDetalle> todos,
@@ -575,21 +576,19 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       return buildErrorState();
     }
 
-    final Widget content = _detalles.isEmpty
-        ? buildEmptyState()
-        : LayoutBuilder(
-            builder: (context, constraints) {
-              final double width = constraints.maxWidth;
-              final bool isCompact = width < 720;
-              final bool isTableCompact = width < 1000;
-              return buildContent(isCompact, isTableCompact);
-            },
-          );
+    final Widget content = LayoutBuilder(
+      builder: (context, constraints) {
+        final double width = constraints.maxWidth;
+        final bool isCompact = width < 720;
+        final bool isTableCompact = width < 1000;
+        return buildContent(isCompact, isTableCompact);
+      },
+    );
 
     if (_isEmpresa) {
       return Stack(
         children: [
-          content,
+          Positioned.fill(child: content),
           Positioned(
             bottom: 24,
             right: 24,
@@ -886,25 +885,145 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     );
   }
 
+  Widget buildVistaEmpresaToggle({bool isCompact = false}) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: isCompact
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                buildVistaButton(
+                  label: 'Por mantenimiento',
+                  icon: Icons.build_circle,
+                  value: 'mantenimiento',
+                  isCompact: true,
+                ),
+                buildVistaButton(
+                  label: 'Por vehículo',
+                  icon: Icons.directions_car,
+                  value: 'vehiculo',
+                  isCompact: true,
+                ),
+              ],
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                buildVistaButton(
+                  label: 'Por mantenimiento',
+                  icon: Icons.build_circle,
+                  value: 'mantenimiento',
+                ),
+                buildVistaButton(
+                  label: 'Por vehículo',
+                  icon: Icons.directions_car,
+                  value: 'vehiculo',
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget buildVistaButton({
+    required String label,
+    required IconData icon,
+    required String value,
+    bool isCompact = false,
+  }) {
+    final bool selected = _vistaEmpresa == value;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () {
+        setState(() {
+          _vistaEmpresa = value;
+        });
+      },
+      child: Container(
+        width: isCompact ? 190 : null,
+        padding: EdgeInsets.symmetric(
+          horizontal: isCompact ? 10 : 14,
+          vertical: isCompact ? 9 : 10,
+        ),
+        decoration: BoxDecoration(
+          color: selected ? _accentColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: isCompact ? 16 : 18),
+            const SizedBox(width: 8),
+            Flexible(
+              fit: FlexFit.loose,
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: isCompact ? 12 : 13,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget buildVerticalLayout(bool isCompact, bool isTableCompact) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          _viendoPersona
-              ? 'Mantenimientos de ${widget.personaNombre ?? 'la persona'}'
-              : widget.vehiculoId != null
-              ? 'Mantenimientos de ${widget.vehiculoPlaca ?? 'vehículo'}'
-              : _isConductor
-              ? 'Mantenimientos asignados'
-              : _isPropietario
-              ? 'Mantenimientos de tus vehículos'
-              : 'Gestión de mantenimientos',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: isCompact ? 18 : 22,
-            fontWeight: FontWeight.w700,
-          ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final bool smallHeader = constraints.maxWidth < 760;
+
+            final title = Text(
+              _viendoPersona
+                  ? 'Mantenimientos de ${widget.personaNombre ?? 'la persona'}'
+                  : widget.vehiculoId != null
+                  ? 'Mantenimientos de ${widget.vehiculoPlaca ?? 'vehículo'}'
+                  : _isConductor
+                  ? 'Mantenimientos asignados'
+                  : _isPropietario
+                  ? 'Mantenimientos de tus vehículos'
+                  : 'Gestión de mantenimientos',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: isCompact ? 18 : 22,
+                fontWeight: FontWeight.w700,
+              ),
+            );
+
+            final toggle =
+                (_isEmpresa && !_viendoPersona && widget.vehiculoId == null)
+                ? buildVistaEmpresaToggle(isCompact: smallHeader)
+                : const SizedBox.shrink();
+
+            if (smallHeader) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [toggle, const SizedBox(height: 12), title],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                toggle,
+                const SizedBox(width: 16),
+                Expanded(child: title),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 6),
         Text(
@@ -925,9 +1044,15 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
         const SizedBox(height: 20),
         buildMaintenanceSearch(),
         const SizedBox(height: 20),
-        buildActivosDashboard(isCompact),
-        const SizedBox(height: 24),
-        buildHistorialPorTipo(isCompact),
+        if (_isEmpresa && _vistaEmpresa == 'vehiculo') ...[
+          buildActivosDashboard(isCompact),
+          const SizedBox(height: 24),
+          buildMantenimientosPorVehiculo(isCompact),
+        ] else ...[
+          buildActivosDashboard(isCompact),
+          const SizedBox(height: 24),
+          buildHistorialPorTipo(isCompact),
+        ],
       ],
     );
   }
@@ -943,8 +1068,13 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
         fallback: detalle.mantenimiento.vehiculoLabel,
       ).toLowerCase();
       final tipo = detalle.tipo?.nombre.toLowerCase() ?? '';
+      final conductor = detalle.mantenimiento.conductorNombre.toLowerCase();
+      final propietario = detalle.mantenimiento.propietarioNombre.toLowerCase();
+
       return vehiculo.contains(maintenanceSearch) ||
-          tipo.contains(maintenanceSearch);
+          tipo.contains(maintenanceSearch) ||
+          conductor.contains(maintenanceSearch) ||
+          propietario.contains(maintenanceSearch);
     }).toList();
   }
 
@@ -1025,7 +1155,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
-            final small = constraints.maxWidth < 420;
+            final small = constraints.maxWidth < 330;
 
             if (small) {
               return Column(
@@ -1094,8 +1224,8 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           onTap: onTap,
           child: Container(
             width: double.infinity,
-            height: small ? 112 : 130,
-            padding: EdgeInsets.all(small ? 13 : 16),
+            height: small ? 96 : 108,
+            padding: EdgeInsets.all(small ? 10 : 12),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(18),
@@ -1208,6 +1338,145 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     );
   }
 
+  Widget buildMantenimientosPorVehiculo(bool isCompact) {
+    final lista = filtrarBusqueda(_detalles);
+
+    final Map<int, List<_MantenimientoDetalle>> grupos = {};
+
+    for (final detalle in lista) {
+      final vehiculoId = detalle.mantenimiento.vehiculoId;
+
+      if (vehiculoId <= 0) continue;
+
+      grupos.putIfAbsent(vehiculoId, () => []);
+      grupos[vehiculoId]!.add(detalle);
+    }
+
+    if (grupos.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+        child: const Text(
+          'No hay mantenimientos asociados a vehículos.',
+          style: TextStyle(color: Colors.white70),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Mantenimientos por vehículo',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: isCompact ? 16 : 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...grupos.entries.map((entry) {
+          final vehiculoId = entry.key;
+          final mantenimientos = entry.value;
+
+          final sugeridos = mantenimientos
+              .where((d) => d.estadoActual == 'SUGERIDO')
+              .length;
+
+          final programados = mantenimientos
+              .where((d) => d.estadoActual == 'PROGRAMADO')
+              .length;
+
+          final realizados = mantenimientos
+              .where((d) => d.estadoActual == 'REALIZADO')
+              .length;
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent,
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+              ),
+              child: ExpansionTile(
+                collapsedIconColor: Colors.white70,
+                iconColor: Colors.white,
+                title: Text(
+                  getVehiculoDisplayName(
+                    vehiculoId,
+                    fallback: mantenimientos.first.mantenimiento.vehiculoLabel,
+                  ),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      buildMiniCountBadge(
+                        'Sugeridos',
+                        sugeridos,
+                        _warningColor,
+                      ),
+                      buildMiniCountBadge(
+                        'Programados',
+                        programados,
+                        _accentColor,
+                      ),
+                      buildMiniCountBadge('Realizados', realizados, _infoColor),
+                    ],
+                  ),
+                ),
+                childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                children: mantenimientos.map((detalle) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: buildMantenimientoCard(detalle),
+                  );
+                }).toList(),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget buildMiniCountBadge(String label, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        '$label: $count',
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   Widget buildHistorialTipoCard({
     required String tipo,
     required int cantidad,
@@ -1270,7 +1539,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: _surfaceColor,
+      backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -1585,7 +1854,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: _surfaceColor,
+      useSafeArea: true,
+      constraints: const BoxConstraints(maxWidth: 520),
+      backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -1862,6 +2133,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     String selectedPrioridad = 'Media';
     String selectedModo = 'Sugerido';
     String? errorText;
+    bool isClosing = false;
 
     final List<String> vehiculos = availableVehiculos();
     final List<String> tipos = availableTipos();
@@ -1893,6 +2165,8 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
+      constraints: const BoxConstraints(maxWidth: 520),
       backgroundColor: _surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -1902,406 +2176,482 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           builder: (context, setModalState) {
             return Padding(
               padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 24,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+                left: 12,
+                right: 12,
+                top: 12,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 12,
               ),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 44,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white24,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    const Text(
-                      'Crear mantenimiento',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Sugiere o registra un mantenimiento con todos los datos requeridos.',
-                      style: TextStyle(color: Colors.white70, fontSize: 13),
-                    ),
-                    const SizedBox(height: 20),
-                    modalSectionTitle(
-                      'Información principal',
-                      Icons.build_circle,
-                    ),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedModo,
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'Sugerido',
-                          child: Text('Sugerido'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Programado',
-                          child: Text('Programado'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Realizado',
-                          child: Text('Realizado'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setModalState(() {
-                          selectedModo = value;
-                          if (selectedModo == 'Sugerido') {
-                            kilometrajeController.clear();
-                          }
-                        });
-                      },
-                      dropdownColor: _surfaceColor,
-                      iconEnabledColor: Colors.white,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: modalInputDecoration(
-                        label: 'Tipo de registro',
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedVehiculo,
-                      items: vehiculos
-                          .map(
-                            (v) => DropdownMenuItem(value: v, child: Text(v)),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        setModalState(() => selectedVehiculo = value);
-                      },
-                      dropdownColor: _surfaceColor,
-                      iconEnabledColor: Colors.white,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: modalInputDecoration(label: 'Vehículo'),
-                    ),
-                    const SizedBox(height: 14),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedTipo,
-                      items: tipos
-                          .map(
-                            (t) => DropdownMenuItem(value: t, child: Text(t)),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        setModalState(() => selectedTipo = value);
-                      },
-                      dropdownColor: _surfaceColor,
-                      iconEnabledColor: Colors.white,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: modalInputDecoration(
-                        label: 'Tipo de mantenimiento',
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    modalSectionTitle('Observaciones finales', Icons.notes),
-                    TextField(
-                      controller: observacionesController,
-                      maxLines: 3,
-                      decoration: modalInputDecoration(
-                        label: 'Observaciones',
-                        errorText: errorText,
-                      ),
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    const SizedBox(height: 14),
-                    modalSectionTitle(
-                      'Fechas del mantenimiento',
-                      Icons.calendar_month,
-                    ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () async {
-                              final DateTime? picked = await selectDate(
-                                ctx,
-                                selectedModo == 'Sugerido'
-                                    ? fechaSugerida
-                                    : selectedModo == 'Programado'
-                                    ? fechaProgramada
-                                    : fechaRealizada,
-                              );
-                              if (picked != null) {
-                                setModalState(() {
-                                  if (selectedModo == 'Sugerido') {
-                                    fechaSugerida = picked;
-                                  } else if (selectedModo == 'Programado') {
-                                    fechaProgramada = picked;
-                                  } else {
-                                    fechaRealizada = picked;
-                                  }
-                                });
-                              }
-                            },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white70,
-                              side: const BorderSide(color: Colors.white24),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+              child: Center(
+                child: Container(
+                  width: MediaQuery.of(ctx).size.width > 600
+                      ? 520
+                      : MediaQuery.of(ctx).size.width * 0.92,
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(ctx).size.height * 0.88,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _surfaceColor,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  padding: const EdgeInsets.all(22),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 44,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: Colors.white24,
+                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: Text(
-                              selectedModo == 'Sugerido'
-                                  ? (fechaSugerida == null
-                                        ? 'Seleccionar fecha sugerida'
-                                        : 'Sugerida ${DateFormat('dd/MM/yyyy').format(fechaSugerida!)}')
-                                  : selectedModo == 'Programado'
-                                  ? (fechaProgramada == null
-                                        ? 'Seleccionar fecha programada'
-                                        : 'Programada ${DateFormat('dd/MM/yyyy').format(fechaProgramada!)}')
-                                  : (fechaRealizada == null
-                                        ? 'Seleccionar fecha realizada'
-                                        : 'Realizada ${DateFormat('dd/MM/yyyy').format(fechaRealizada!)}'),
+                          ),
+                          const SizedBox(height: 18),
+                          const Text(
+                            'Crear mantenimiento',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    modalSectionTitle('Prioridad y detalles', Icons.flag),
-                    const SizedBox(height: 14),
-                    if (selectedModo == 'Realizado') ...[
-                      modalSectionTitle('Datos de realización', Icons.handyman),
-                      TextField(
-                        controller: kilometrajeController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: modalInputDecoration(
-                          label: 'Kilometraje *',
-                        ),
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    const SizedBox(height: 14),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedPrioridad,
-                      items: const [
-                        DropdownMenuItem(value: 'Alta', child: Text('Alta')),
-                        DropdownMenuItem(value: 'Media', child: Text('Media')),
-                        DropdownMenuItem(value: 'Baja', child: Text('Baja')),
-                      ],
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setModalState(() {
-                          selectedPrioridad = value;
-                        });
-                      },
-                      dropdownColor: _surfaceColor,
-                      iconEnabledColor: Colors.white,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: modalInputDecoration(label: 'Prioridad'),
-                    ),
-                    const SizedBox(height: 14),
-                    if (selectedModo == 'Realizado') ...[
-                      TextField(
-                        controller: tallerController,
-                        decoration: modalInputDecoration(label: 'Taller'),
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      const SizedBox(height: 14),
-                      TextField(
-                        controller: costoController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: modalInputDecoration(
-                          label: 'Costo',
-                          prefixText: r'$ ',
-                        ),
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ],
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.of(ctx).pop(),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white70,
-                              side: const BorderSide(color: Colors.white24),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Sugiere o registra un mantenimiento con todos los datos requeridos.',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          modalSectionTitle(
+                            'Información principal',
+                            Icons.build_circle,
+                          ),
+                          DropdownButtonFormField<String>(
+                            initialValue: selectedModo,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'Sugerido',
+                                child: Text('Sugerido'),
                               ),
-                            ),
-                            child: const Text('Cancelar'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
+                              DropdownMenuItem(
+                                value: 'Programado',
+                                child: Text('Programado'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Realizado',
+                                child: Text('Realizado'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              if (value == null) return;
                               setModalState(() {
-                                errorText = null;
-                                if (selectedVehiculo == null ||
-                                    selectedVehiculo!.isEmpty) {
-                                  errorText = 'Selecciona un vehículo';
-                                } else if (selectedTipo == null ||
-                                    selectedTipo!.isEmpty) {
-                                  errorText =
-                                      'Selecciona tipo de mantenimiento';
-                                } else if (selectedModo == 'Sugerido' &&
-                                    fechaSugerida == null) {
-                                  errorText = 'Selecciona la fecha sugerida';
-                                } else if (selectedModo == 'Programado' &&
-                                    fechaProgramada == null) {
-                                  errorText = 'Selecciona la fecha programada';
-                                } else if (selectedModo == 'Realizado' &&
-                                    fechaRealizada == null) {
-                                  errorText =
-                                      'Selecciona la fecha de realización';
-                                } else if (selectedModo == 'Realizado' &&
-                                    (kilometrajeController.text
-                                            .trim()
-                                            .isEmpty ||
-                                        int.tryParse(
-                                              kilometrajeController.text.trim(),
-                                            ) ==
-                                            null)) {
-                                  errorText = 'Ingresa el kilometraje válido';
+                                selectedModo = value;
+                                if (selectedModo == 'Sugerido') {
+                                  kilometrajeController.clear();
                                 }
                               });
+                            },
+                            dropdownColor: _surfaceColor,
+                            iconEnabledColor: Colors.white,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: modalInputDecoration(
+                              label: 'Tipo de registro',
+                            ),
+                          ),
+                          const SizedBox(height: 14),
 
-                              if (errorText != null) {
-                                return;
-                              }
-
-                              final int vehiculoId = getVehiculoIdFromSelection(
-                                selectedVehiculo,
-                              );
-                              final int tipoId = getTipoIdFromSelection(
-                                selectedTipo,
-                              );
-                              final int costo =
-                                  int.tryParse(costoController.text.trim()) ??
-                                  0;
-                              final int kilometraje =
-                                  int.tryParse(
-                                    kilometrajeController.text.trim(),
-                                  ) ??
-                                  0;
-                              final String estado = selectedModo == 'Sugerido'
-                                  ? 'SUGERIDO'
-                                  : selectedModo == 'Programado'
-                                  ? 'PROGRAMADO'
-                                  : 'REALIZADO';
-
-                              final prefs =
-                                  await SharedPreferences.getInstance();
-                              final token = prefs.getString('auth_token');
-
-                              final result =
-                                  await ApiService.createMantenimiento(
-                                    vehiculoId: vehiculoId,
-                                    tipoId: tipoId,
-                                    estado: estado.trim().toUpperCase(),
-                                    fechaSugerida: selectedModo == 'Sugerido'
-                                        ? fechaSugerida
-                                        : null,
-                                    fechaProgramada:
-                                        selectedModo == 'Programado'
-                                        ? fechaProgramada
-                                        : null,
-                                    fechaRealizada: selectedModo == 'Realizado'
-                                        ? fechaRealizada
-                                        : null,
-                                    kilometraje: selectedModo == 'Realizado'
-                                        ? kilometraje
-                                        : null,
-                                    costo: selectedModo == 'Realizado'
-                                        ? costo
-                                        : null,
-                                    taller: selectedModo == 'Realizado'
-                                        ? tallerController.text.trim()
-                                        : null,
-                                    observaciones: observacionesController.text
-                                        .trim(),
-                                    prioridad: selectedPrioridad,
-                                    token: token,
-                                  );
-
-                              if (result != null) {
-                                // Si el backend lo crea como sugerido, lo marcamos inmediatamente como realizado
-                                if (selectedModo == 'Realizado') {
-                                  final int mantenimientoCreadoId =
-                                      int.tryParse(
-                                        (result['id'] ??
-                                                result['id_mantenimiento'] ??
-                                                '')
-                                            .toString(),
-                                      ) ??
-                                      0;
-
-                                  if (mantenimientoCreadoId > 0) {
-                                    await ApiService.updateMantenimiento(
-                                      mantenimientoId: mantenimientoCreadoId,
-                                      fechaRealizada: fechaRealizada,
-                                      kilometraje: kilometraje,
-                                      costo: costo,
-                                      taller: tallerController.text.trim(),
-                                      observaciones: observacionesController
-                                          .text
-                                          .trim(),
-                                      estado: 'REALIZADO',
-                                      token: token,
+                          DropdownButtonFormField<String>(
+                            initialValue: selectedVehiculo,
+                            items: vehiculos
+                                .map(
+                                  (v) => DropdownMenuItem(
+                                    value: v,
+                                    child: Text(v),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              setModalState(() => selectedVehiculo = value);
+                            },
+                            dropdownColor: _surfaceColor,
+                            iconEnabledColor: Colors.white,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: modalInputDecoration(label: 'Vehículo'),
+                          ),
+                          const SizedBox(height: 14),
+                          DropdownButtonFormField<String>(
+                            initialValue: selectedTipo,
+                            items: tipos
+                                .map(
+                                  (t) => DropdownMenuItem(
+                                    value: t,
+                                    child: Text(t),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              setModalState(() => selectedTipo = value);
+                            },
+                            dropdownColor: _surfaceColor,
+                            iconEnabledColor: Colors.white,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: modalInputDecoration(
+                              label: 'Tipo de mantenimiento',
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          modalSectionTitle(
+                            'Observaciones finales',
+                            Icons.notes,
+                          ),
+                          TextField(
+                            controller: observacionesController,
+                            maxLines: 3,
+                            decoration: modalInputDecoration(
+                              label: 'Observaciones',
+                              errorText: errorText,
+                            ),
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                          const SizedBox(height: 14),
+                          modalSectionTitle(
+                            'Fechas del mantenimiento',
+                            Icons.calendar_month,
+                          ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () async {
+                                    final DateTime? picked = await selectDate(
+                                      ctx,
+                                      selectedModo == 'Sugerido'
+                                          ? fechaSugerida
+                                          : selectedModo == 'Programado'
+                                          ? fechaProgramada
+                                          : fechaRealizada,
                                     );
-                                  }
-                                }
-                                await _loadData(showLoader: false);
-
-                                if (!ctx.mounted) return;
-                                Navigator.of(ctx).pop();
-
-                                if (!context.mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      '✅ Mantenimiento ${selectedModo.toLowerCase()} creado correctamente',
+                                    if (picked != null) {
+                                      setModalState(() {
+                                        if (selectedModo == 'Sugerido') {
+                                          fechaSugerida = picked;
+                                        } else if (selectedModo ==
+                                            'Programado') {
+                                          fechaProgramada = picked;
+                                        } else {
+                                          fechaRealizada = picked;
+                                        }
+                                      });
+                                    }
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white70,
+                                    side: const BorderSide(
+                                      color: Colors.white24,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
                                     ),
                                   ),
-                                );
-                              } else {
-                                setModalState(
-                                  () => errorText =
-                                      'Error al crear el mantenimiento',
-                                );
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _accentColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                                  child: Text(
+                                    selectedModo == 'Sugerido'
+                                        ? (fechaSugerida == null
+                                              ? 'Seleccionar fecha sugerida'
+                                              : 'Sugerida ${DateFormat('dd/MM/yyyy').format(fechaSugerida!)}')
+                                        : selectedModo == 'Programado'
+                                        ? (fechaProgramada == null
+                                              ? 'Seleccionar fecha programada'
+                                              : 'Programada ${DateFormat('dd/MM/yyyy').format(fechaProgramada!)}')
+                                        : (fechaRealizada == null
+                                              ? 'Seleccionar fecha realizada'
+                                              : 'Realizada ${DateFormat('dd/MM/yyyy').format(fechaRealizada!)}'),
+                                  ),
+                                ),
                               ),
-                            ),
-                            child: const Text('Crear mantenimiento'),
+                            ],
                           ),
-                        ),
-                      ],
+                          modalSectionTitle('Prioridad y detalles', Icons.flag),
+                          const SizedBox(height: 14),
+                          if (selectedModo == 'Realizado') ...[
+                            modalSectionTitle(
+                              'Datos de realización',
+                              Icons.handyman,
+                            ),
+                            TextField(
+                              controller: kilometrajeController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: modalInputDecoration(
+                                label: 'Kilometraje *',
+                              ),
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            const SizedBox(height: 14),
+                          ],
+                          const SizedBox(height: 14),
+                          DropdownButtonFormField<String>(
+                            initialValue: selectedPrioridad,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'Alta',
+                                child: Text('Alta'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Media',
+                                child: Text('Media'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Baja',
+                                child: Text('Baja'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setModalState(() {
+                                selectedPrioridad = value;
+                              });
+                            },
+                            dropdownColor: _surfaceColor,
+                            iconEnabledColor: Colors.white,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: modalInputDecoration(
+                              label: 'Prioridad',
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          if (selectedModo == 'Realizado') ...[
+                            TextField(
+                              controller: tallerController,
+                              decoration: modalInputDecoration(label: 'Taller'),
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            const SizedBox(height: 14),
+                            TextField(
+                              controller: costoController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: modalInputDecoration(
+                                label: 'Costo',
+                                prefixText: r'$ ',
+                              ),
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: isClosing
+                                      ? null
+                                      : () {
+                                          setModalState(() => isClosing = true);
+                                          Navigator.of(ctx).pop();
+                                        },
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white70,
+                                    side: const BorderSide(
+                                      color: Colors.white24,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  child: const Text('Cancelar'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () async {
+                                    setModalState(() {
+                                      errorText = null;
+                                      if (selectedVehiculo == null ||
+                                          selectedVehiculo!.isEmpty) {
+                                        errorText = 'Selecciona un vehículo';
+                                      } else if (selectedTipo == null ||
+                                          selectedTipo!.isEmpty) {
+                                        errorText =
+                                            'Selecciona tipo de mantenimiento';
+                                      } else if (selectedModo == 'Sugerido' &&
+                                          fechaSugerida == null) {
+                                        errorText =
+                                            'Selecciona la fecha sugerida';
+                                      } else if (selectedModo == 'Programado' &&
+                                          fechaProgramada == null) {
+                                        errorText =
+                                            'Selecciona la fecha programada';
+                                      } else if (selectedModo == 'Realizado' &&
+                                          fechaRealizada == null) {
+                                        errorText =
+                                            'Selecciona la fecha de realización';
+                                      } else if (selectedModo == 'Realizado' &&
+                                          (kilometrajeController.text
+                                                  .trim()
+                                                  .isEmpty ||
+                                              int.tryParse(
+                                                    kilometrajeController.text
+                                                        .trim(),
+                                                  ) ==
+                                                  null)) {
+                                        errorText =
+                                            'Ingresa el kilometraje válido';
+                                      }
+                                    });
+
+                                    if (errorText != null) {
+                                      return;
+                                    }
+
+                                    final int vehiculoId =
+                                        getVehiculoIdFromSelection(
+                                          selectedVehiculo,
+                                        );
+                                    final int tipoId = getTipoIdFromSelection(
+                                      selectedTipo,
+                                    );
+                                    final int costo =
+                                        int.tryParse(
+                                          costoController.text.trim(),
+                                        ) ??
+                                        0;
+                                    final int kilometraje =
+                                        int.tryParse(
+                                          kilometrajeController.text.trim(),
+                                        ) ??
+                                        0;
+                                    final String estado =
+                                        selectedModo == 'Sugerido'
+                                        ? 'SUGERIDO'
+                                        : selectedModo == 'Programado'
+                                        ? 'PROGRAMADO'
+                                        : 'REALIZADO';
+
+                                    final prefs =
+                                        await SharedPreferences.getInstance();
+                                    final token = prefs.getString('auth_token');
+
+                                    final result =
+                                        await ApiService.createMantenimiento(
+                                          vehiculoId: vehiculoId,
+                                          tipoId: tipoId,
+                                          estado: estado.trim().toUpperCase(),
+                                          fechaSugerida:
+                                              selectedModo == 'Sugerido'
+                                              ? fechaSugerida
+                                              : null,
+                                          fechaProgramada:
+                                              selectedModo == 'Programado'
+                                              ? fechaProgramada
+                                              : null,
+                                          fechaRealizada:
+                                              selectedModo == 'Realizado'
+                                              ? fechaRealizada
+                                              : null,
+                                          kilometraje:
+                                              selectedModo == 'Realizado'
+                                              ? kilometraje
+                                              : null,
+                                          costo: selectedModo == 'Realizado'
+                                              ? costo
+                                              : null,
+                                          taller: selectedModo == 'Realizado'
+                                              ? tallerController.text.trim()
+                                              : null,
+                                          observaciones: observacionesController
+                                              .text
+                                              .trim(),
+                                          prioridad: selectedPrioridad,
+                                          token: token,
+                                        );
+
+                                    if (result != null) {
+                                      // Si el backend lo crea como sugerido, lo marcamos inmediatamente como realizado
+                                      if (selectedModo == 'Realizado') {
+                                        final int mantenimientoCreadoId =
+                                            int.tryParse(
+                                              (result['id'] ??
+                                                      result['id_mantenimiento'] ??
+                                                      '')
+                                                  .toString(),
+                                            ) ??
+                                            0;
+
+                                        if (mantenimientoCreadoId > 0) {
+                                          await ApiService.updateMantenimiento(
+                                            mantenimientoId:
+                                                mantenimientoCreadoId,
+                                            fechaRealizada: fechaRealizada,
+                                            kilometraje: kilometraje,
+                                            costo: costo,
+                                            taller: tallerController.text
+                                                .trim(),
+                                            observaciones:
+                                                observacionesController.text
+                                                    .trim(),
+                                            estado: 'REALIZADO',
+                                            token: token,
+                                          );
+                                        }
+                                      }
+                                      await _loadData();
+
+                                      if (!ctx.mounted) return;
+                                      Navigator.of(ctx).pop();
+
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            '✅ Mantenimiento ${selectedModo.toLowerCase()} creado correctamente',
+                                          ),
+                                        ),
+                                      );
+                                    } else {
+                                      setModalState(
+                                        () => errorText =
+                                            'Error al crear el mantenimiento',
+                                      );
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _accentColor,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  child: const Text('Crear mantenimiento'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             );
@@ -2349,6 +2699,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
 
     DateTime? fechaRealizada = mantenimiento.fechaRealizada ?? DateTime.now();
     String? errorText;
+    bool isClosing = false;
 
     Future<DateTime?> selectDate(BuildContext ctx, DateTime? current) async {
       final DateTime now = DateTime.now();
@@ -2377,231 +2728,261 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: _surfaceColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      constraints: const BoxConstraints(maxWidth: 520),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Padding(
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 24,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              padding: EdgeInsets.fromLTRB(
+                14,
+                0,
+                14,
+                MediaQuery.of(ctx).viewInsets.bottom + 14,
               ),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 44,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white24,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    const Text(
-                      'Completar mantenimiento',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${detalle.tipo?.nombre ?? 'Mantenimiento'} - ${getVehiculoDisplayName(mantenimiento.vehiculoId, fallback: mantenimiento.vehiculoLabel)}',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    modalSectionTitle(
-                      'Datos de realización',
-                      Icons.check_circle,
-                    ),
-                    InputDecorator(
-                      decoration: modalInputDecoration(
-                        label: 'Fecha de realización',
-                      ),
-                      child: InkWell(
-                        onTap: () async {
-                          final DateTime? picked = await selectDate(
-                            ctx,
-                            fechaRealizada,
-                          );
-                          if (picked != null) {
-                            setModalState(() => fechaRealizada = picked);
-                          }
-                        },
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.calendar_today,
-                              color: Colors.white70,
-                              size: 18,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(ctx).size.height * 0.86,
+                ),
+                decoration: BoxDecoration(
+                  color: _surfaceColor,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 44,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Colors.white24,
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            const SizedBox(width: 10),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        const Text(
+                          'Completar mantenimiento',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${detalle.tipo?.nombre ?? 'Mantenimiento'} - ${getVehiculoDisplayName(mantenimiento.vehiculoId, fallback: mantenimiento.vehiculoLabel)}',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        modalSectionTitle(
+                          'Datos de realización',
+                          Icons.check_circle,
+                        ),
+                        InputDecorator(
+                          decoration: modalInputDecoration(
+                            label: 'Fecha de realización',
+                          ),
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await selectDate(
+                                ctx,
+                                fechaRealizada,
+                              );
+                              if (picked != null) {
+                                setModalState(() => fechaRealizada = picked);
+                              }
+                            },
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.calendar_today,
+                                  color: Colors.white70,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    DateFormat(
+                                      'dd/MM/yyyy',
+                                    ).format(fechaRealizada ?? DateTime.now()),
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: tallerController,
+                          decoration: modalInputDecoration(label: 'Taller'),
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: kilometrajeController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration: modalInputDecoration(
+                            label: 'Kilometraje',
+                          ),
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: costoController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration: modalInputDecoration(
+                            label: 'Costo',
+                            prefixText: r'$ ',
+                          ),
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        const SizedBox(height: 14),
+                        modalSectionTitle('Observaciones finales', Icons.notes),
+                        TextField(
+                          controller: observacionesController,
+                          maxLines: 3,
+                          decoration: modalInputDecoration(
+                            label: 'Observaciones',
+                            errorText: errorText,
+                          ),
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
                             Expanded(
-                              child: Text(
-                                DateFormat(
-                                  'dd/MM/yyyy',
-                                ).format(fechaRealizada ?? DateTime.now()),
-                                style: const TextStyle(color: Colors.white),
+                              child: OutlinedButton(
+                                onPressed: isClosing
+                                    ? null
+                                    : () {
+                                        setModalState(() => isClosing = true);
+                                        Navigator.of(ctx).pop();
+                                      },
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white70,
+                                  side: const BorderSide(color: Colors.white24),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child: const Text('Cancelar'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  setModalState(() {
+                                    errorText = null;
+                                    if (fechaRealizada == null) {
+                                      errorText =
+                                          'Selecciona la fecha de realización';
+                                    } else if (kilometrajeController.text
+                                            .trim()
+                                            .isEmpty ||
+                                        int.tryParse(
+                                              kilometrajeController.text.trim(),
+                                            ) ==
+                                            null) {
+                                      errorText =
+                                          'Ingresa el kilometraje válido';
+                                    }
+                                  });
+
+                                  if (errorText != null) return;
+
+                                  final costo =
+                                      int.tryParse(
+                                        costoController.text.trim(),
+                                      ) ??
+                                      0;
+                                  final kilometraje =
+                                      int.tryParse(
+                                        kilometrajeController.text.trim(),
+                                      ) ??
+                                      0;
+
+                                  final prefs =
+                                      await SharedPreferences.getInstance();
+                                  final token = prefs.getString('auth_token');
+                                  final userId =
+                                      widget.userId ??
+                                      prefs.getString('user_id');
+
+                                  final result =
+                                      await ApiService.updateMantenimiento(
+                                        mantenimientoId: mantenimiento.id,
+                                        fechaRealizada: fechaRealizada,
+                                        kilometraje: kilometraje,
+                                        costo: costo,
+                                        taller: tallerController.text.trim(),
+                                        observaciones: observacionesController
+                                            .text
+                                            .trim(),
+                                        estado: null,
+                                        userId: userId,
+                                        token: token,
+                                      );
+
+                                  if (result != null) {
+                                    await _loadData();
+
+                                    if (!ctx.mounted) return;
+                                    Navigator.of(ctx).pop();
+
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          '✅ Mantenimiento completado correctamente',
+                                        ),
+                                      ),
+                                    );
+                                  } else {
+                                    setModalState(() {
+                                      errorText =
+                                          'Error al completar el mantenimiento';
+                                    });
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _successColor,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child: const Text('Completar'),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: tallerController,
-                      decoration: modalInputDecoration(label: 'Taller'),
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: kilometrajeController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: modalInputDecoration(label: 'Kilometraje'),
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: costoController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: modalInputDecoration(
-                        label: 'Costo',
-                        prefixText: r'$ ',
-                      ),
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    const SizedBox(height: 14),
-                    modalSectionTitle('Observaciones finales', Icons.notes),
-                    TextField(
-                      controller: observacionesController,
-                      maxLines: 3,
-                      decoration: modalInputDecoration(
-                        label: 'Observaciones',
-                        errorText: errorText,
-                      ),
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.of(ctx).pop(),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white70,
-                              side: const BorderSide(color: Colors.white24),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: const Text('Cancelar'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              setModalState(() {
-                                errorText = null;
-                                if (fechaRealizada == null) {
-                                  errorText =
-                                      'Selecciona la fecha de realización';
-                                } else if (kilometrajeController.text
-                                        .trim()
-                                        .isEmpty ||
-                                    int.tryParse(
-                                          kilometrajeController.text.trim(),
-                                        ) ==
-                                        null) {
-                                  errorText = 'Ingresa el kilometraje válido';
-                                }
-                              });
-                              if (errorText != null) {
-                                return;
-                              }
-                              final int costo =
-                                  int.tryParse(costoController.text.trim()) ??
-                                  0;
-                              final int kilometraje =
-                                  int.tryParse(
-                                    kilometrajeController.text.trim(),
-                                  ) ??
-                                  0;
-
-                              final prefs =
-                                  await SharedPreferences.getInstance();
-                              final token = prefs.getString('auth_token');
-                              final userId =
-                                  widget.userId ?? prefs.getString('user_id');
-
-                              final result =
-                                  await ApiService.updateMantenimiento(
-                                    mantenimientoId: mantenimiento.id,
-                                    fechaRealizada: fechaRealizada,
-                                    kilometraje: kilometraje,
-                                    costo: costo,
-                                    taller: tallerController.text.trim(),
-                                    observaciones: observacionesController.text
-                                        .trim(),
-                                    estado: null,
-                                    userId: userId,
-                                    token: token,
-                                  );
-
-                              if (result != null) {
-                                await _loadData(showLoader: false);
-
-                                if (!ctx.mounted) return;
-                                Navigator.of(ctx).pop();
-
-                                if (!context.mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      '✅ Mantenimiento completado correctamente',
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                setModalState(
-                                  () => errorText =
-                                      'Error al completar el mantenimiento',
-                                );
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _successColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: const Text('Completar'),
-                          ),
-                        ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             );

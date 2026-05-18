@@ -33,7 +33,6 @@ dependencies:
     sdk: flutter
 
   cupertino_icons: ^1.0.8
-  shared_preferences: ^2.2.2
   smooth_page_indicator: ^1.1.0
   google_fonts: ^6.2.1
   file_picker: ^10.3.6
@@ -45,6 +44,7 @@ dependencies:
   url_launcher: ^6.3.1
   flutter_local_notifications: ^18.0.0
   syncfusion_flutter_pdfviewer: ^27.1.57
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:

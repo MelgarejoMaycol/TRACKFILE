@@ -1,17 +1,18 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notificaciones_service.dart';
-import 'package:trackfile/widgets/certificates/certificaciones.dart';
+import 'package:trackfile/utils/browser_url.dart';
 import 'package:trackfile/widgets/documents/documentos_screen.dart';
 import 'package:trackfile/widgets/inicio.dart';
 import 'package:trackfile/widgets/maintenance/mantenimientos.dart';
 import 'package:trackfile/widgets/notifications/notifications.dart';
+import 'package:trackfile/widgets/requests/requests.dart';
 import 'package:trackfile/widgets/users/gestion_personas_widget.dart';
 import 'package:trackfile/widgets/users/perfil.dart';
 import 'package:trackfile/widgets/vehicles/vehiculos.dart';
-import 'package:trackfile/utils/browser_url.dart';
 
 import '../../services/notifications/notificaciones_realtime_service.dart';
 
@@ -59,7 +60,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
 
   static const List<_MenuOption> _topMenuOptions = [
     _MenuOption('Mensajes', Icons.chat_rounded, 'Mensajes'),
-    _MenuOption('Certificaciones', Icons.verified_rounded, 'Certificaciones'),
+    _MenuOption('Solicitudes', Icons.assignment_rounded, 'Solicitudes'),
     _MenuOption('Vehículos', Icons.directions_bus_filled_rounded, 'Vehículos'),
     _MenuOption('Mantenimientos', Icons.build_rounded, 'Mantenimientos'),
   ];
@@ -318,27 +319,27 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   }
 
   void _goToSection(String section) {
-  setState(() {
-    _contentRefreshKey++;
-    _activeSection = section;
-    _syncSelectedMenuWithSection(section);
-  });
+    setState(() {
+      _contentRefreshKey++;
+      _activeSection = section;
+      _syncSelectedMenuWithSection(section);
+    });
 
-  final slug = switch (section) {
-    'Inicio' => 'inicio',
-    'Conductores' => 'conductores',
-    'Propietarios' => 'propietarios',
-    'Documentos' => 'documentos',
-    'Perfil' => 'perfil',
-    'Mensajes' => 'mensajes',
-    'Certificaciones' => 'certificaciones',
-    'Vehículos' => 'vehiculos',
-    'Mantenimientos' => 'mantenimientos',
-    _ => 'inicio',
-  };
+    final slug = switch (section) {
+      'Inicio' => 'inicio',
+      'Conductores' => 'conductores',
+      'Propietarios' => 'propietarios',
+      'Documentos' => 'documentos',
+      'Perfil' => 'perfil',
+      'Mensajes' => 'mensajes',
+      'Solicitudes' => 'solicitudes',
+      'Vehículos' => 'vehiculos',
+      'Mantenimientos' => 'mantenimientos',
+      _ => 'inicio',
+    };
 
-  updateBrowserUrl('#/dashboard/empresa/$slug');
-}
+    updateBrowserUrl('#/dashboard/empresa/$slug');
+  }
 
   void _onBottomMenuTap(int index) {
     _goToSection(_bottomMenuOptions[index].section);
@@ -525,8 +526,8 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           userId: widget.usuario?['id']?.toString(),
           onNotificationsChanged: _loadNotificationsCount,
         );
-      case 'Certificaciones':
-        return CertificacionesWidget(
+      case 'Solicitudes':
+        return SolicitudesWidget(
           role: 'Empresa',
           userId: widget.usuario?['id']?.toString(),
           personaUserId: _selectedCertificadosUserId,
