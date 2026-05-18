@@ -890,103 +890,308 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Dialog(
-              backgroundColor: const Color(0xFF151B47),
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 24,
+              ),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(28),
               ),
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 620),
-                padding: const EdgeInsets.all(22),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildModalHeader(
-                        title: 'Crear vehículo',
-                        subtitle: 'Registra un vehículo nuevo en la flota.',
-                        icon: Icons.add_road_rounded,
-                      ),
-                      const SizedBox(height: 18),
-
-                      _buildOwnerDropdown(selectedPropietarioId, (value) {
-                        setModalState(() => selectedPropietarioId = value);
-                      }),
-
-                      const SizedBox(height: 12),
-                      _buildModalInput('Placa', placaCtrl),
-                      _buildModalInput('VIN', vinCtrl),
-                      _buildModalInput('Marca', marcaCtrl),
-                      _buildModalInput('Modelo', modeloCtrl),
-                      _buildModalInput('Año', anioCtrl, isNumber: true),
-                      _buildModalInput('Color', colorCtrl),
-                      _buildModalInput(
-                        'Kilometraje actual',
-                        kmCtrl,
-                        isNumber: true,
-                      ),
-
-                      const SizedBox(height: 18),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text(
-                                'Cancelar',
-                                style: TextStyle(color: Colors.white70),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF20276D),
+                      Color(0xFF121842),
+                      Color(0xFF0D1234),
+                    ],
+                  ),
+                  border: Border.all(color: Colors.white24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 28,
+                      offset: const Offset(0, 18),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.fromLTRB(22, 20, 16, 18),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.07),
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.10),
                               ),
                             ),
                           ),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                final navigator = Navigator.of(context);
-                                final messenger = ScaffoldMessenger.of(context);
-                                if (selectedPropietarioId == null) return;
-
-                                final creado = await ApiService.createVehiculo(
-                                  idPropietario: selectedPropietarioId!,
-                                  placa: placaCtrl.text,
-                                  vin: vinCtrl.text,
-                                  marca: marcaCtrl.text,
-                                  modelo: modeloCtrl.text,
-                                  anio: int.tryParse(anioCtrl.text) ?? 0,
-                                  color: colorCtrl.text,
-                                  kilometrajeActual:
-                                      int.tryParse(kmCtrl.text) ?? 0,
-                                );
-
-                                if (!mounted) return;
-                                navigator.pop();
-
-                                await _loadAllData(showLoader: false);
-
-                                if (!mounted) return;
-
-                                messenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      creado != null
-                                          ? 'Vehículo creado correctamente'
-                                          : 'No se pudo crear el vehículo',
-                                    ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 52,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF6C63FF),
+                                      Color(0xFF4F4CE8),
+                                    ],
                                   ),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _accentColor,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(18),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: _accentColor.withValues(
+                                        alpha: 0.35,
+                                      ),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.directions_car_filled_rounded,
+                                  color: Colors.white,
+                                  size: 26,
                                 ),
                               ),
-                              child: const Text('Guardar'),
-                            ),
+                              const SizedBox(width: 14),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Crear vehículo',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      'Registra un vehículo nuevo para la flota.',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => Navigator.pop(context),
+                                icon: const Icon(
+                                  Icons.close_rounded,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+
+                        Padding(
+                          padding: const EdgeInsets.all(22),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildOwnerDropdown(selectedPropietarioId, (
+                                value,
+                              ) {
+                                setModalState(
+                                  () => selectedPropietarioId = value,
+                                );
+                              }),
+
+                              const SizedBox(height: 4),
+
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildModalInput('Placa', placaCtrl),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildModalInput('VIN', vinCtrl),
+                                  ),
+                                ],
+                              ),
+
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildModalInput('Marca', marcaCtrl),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildModalInput(
+                                      'Modelo',
+                                      modeloCtrl,
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildModalInput(
+                                      'Año',
+                                      anioCtrl,
+                                      isNumber: true,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildModalInput('Color', colorCtrl),
+                                  ),
+                                ],
+                              ),
+
+                              _buildModalInput(
+                                'Kilometraje actual',
+                                kmCtrl,
+                                isNumber: true,
+                              ),
+
+                              const SizedBox(height: 20),
+
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: _accentColor.withValues(alpha: 0.10),
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: _accentColor.withValues(alpha: 0.25),
+                                  ),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline_rounded,
+                                      color: Colors.white70,
+                                      size: 18,
+                                    ),
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        'Después podrás asignar conductor, ver documentos y mantenimientos del vehículo.',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(height: 22),
+
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.white70,
+                                        side: BorderSide(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.18,
+                                          ),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 14,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                      ),
+                                      child: const Text('Cancelar'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () async {
+                                        final navigator = Navigator.of(context);
+                                        final messenger = ScaffoldMessenger.of(
+                                          context,
+                                        );
+                                        if (selectedPropietarioId == null)
+                                          return;
+
+                                        final creado =
+                                            await ApiService.createVehiculo(
+                                              idPropietario:
+                                                  selectedPropietarioId!,
+                                              placa: placaCtrl.text,
+                                              vin: vinCtrl.text,
+                                              marca: marcaCtrl.text,
+                                              modelo: modeloCtrl.text,
+                                              anio:
+                                                  int.tryParse(anioCtrl.text) ??
+                                                  0,
+                                              color: colorCtrl.text,
+                                              kilometrajeActual:
+                                                  int.tryParse(kmCtrl.text) ??
+                                                  0,
+                                            );
+
+                                        if (!mounted) return;
+                                        navigator.pop();
+
+                                        await _loadAllData(showLoader: false);
+
+                                        if (!mounted) return;
+
+                                        messenger.showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              creado != null
+                                                  ? 'Vehículo creado correctamente'
+                                                  : 'No se pudo crear el vehículo',
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.check_rounded),
+                                      label: const Text('Guardar'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: _accentColor,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 14,
+                                        ),
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1014,93 +1219,174 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       context: context,
       builder: (context) {
         return Dialog(
-          backgroundColor: const Color(0xFF151B47),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 24,
           ),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 620),
-            padding: const EdgeInsets.all(22),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildModalHeader(
-                    title: 'Editar vehículo',
-                    subtitle: 'Actualiza los datos principales del vehículo.',
-                    icon: Icons.edit_road_rounded,
-                  ),
-                  const SizedBox(height: 18),
-                  _buildModalInput('Placa', placaCtrl),
-                  _buildModalInput('VIN', vinCtrl),
-                  _buildModalInput('Marca', marcaCtrl),
-                  _buildModalInput('Modelo', modeloCtrl),
-                  _buildModalInput('Año', anioCtrl, isNumber: true),
-                  _buildModalInput('Color', colorCtrl),
-                  _buildModalInput(
-                    'Kilometraje actual',
-                    kmCtrl,
-                    isNumber: true,
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text(
-                            'Cancelar',
-                            style: TextStyle(color: Colors.white70),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF20276D),
+                  Color(0xFF121842),
+                  Color(0xFF0D1234),
+                ],
+              ),
+              border: Border.all(color: Colors.white24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 28,
+                  offset: const Offset(0, 18),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildVehicleModalHeroHeader(
+                      title: 'Editar vehículo',
+                      subtitle:
+                          'Actualiza los datos principales de ${vehicle.placa}.',
+                      icon: Icons.edit_road_rounded,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(22),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildModalInput('Placa', placaCtrl),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(child: _buildModalInput('VIN', vinCtrl)),
+                            ],
                           ),
-                        ),
-                      ),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            final navigator = Navigator.of(context);
-                            final messenger = ScaffoldMessenger.of(context);
-                            final actualizado = await ApiService.updateVehiculo(
-                              vehiculoId: vehicle.idVehiculo,
-                              placa: placaCtrl.text,
-                              vin: vinCtrl.text,
-                              marca: marcaCtrl.text,
-                              modelo: modeloCtrl.text,
-                              anio: int.tryParse(anioCtrl.text),
-                              color: colorCtrl.text,
-                              kilometrajeActual: int.tryParse(kmCtrl.text),
-                            );
-
-                            if (!mounted) return;
-                            navigator.pop();
-
-                            await _loadAllData(showLoader: false);
-
-                            if (!mounted) return;
-
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  actualizado != null
-                                      ? 'Vehículo actualizado correctamente'
-                                      : 'No se pudo actualizar el vehículo',
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildModalInput('Marca', marcaCtrl),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildModalInput('Modelo', modeloCtrl),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildModalInput(
+                                  'Año',
+                                  anioCtrl,
+                                  isNumber: true,
                                 ),
                               ),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _accentColor,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildModalInput('Color', colorCtrl),
+                              ),
+                            ],
                           ),
-                          child: const Text('Guardar cambios'),
-                        ),
+                          _buildModalInput(
+                            'Kilometraje actual',
+                            kmCtrl,
+                            isNumber: true,
+                          ),
+                          const SizedBox(height: 22),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white70,
+                                    side: BorderSide(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.18,
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  child: const Text('Cancelar'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () async {
+                                    final navigator = Navigator.of(context);
+                                    final messenger = ScaffoldMessenger.of(
+                                      context,
+                                    );
+
+                                    final actualizado =
+                                        await ApiService.updateVehiculo(
+                                          vehiculoId: vehicle.idVehiculo,
+                                          placa: placaCtrl.text,
+                                          vin: vinCtrl.text,
+                                          marca: marcaCtrl.text,
+                                          modelo: modeloCtrl.text,
+                                          anio: int.tryParse(anioCtrl.text),
+                                          color: colorCtrl.text,
+                                          kilometrajeActual: int.tryParse(
+                                            kmCtrl.text,
+                                          ),
+                                        );
+
+                                    if (!mounted) return;
+                                    navigator.pop();
+
+                                    await _loadAllData(showLoader: false);
+
+                                    if (!mounted) return;
+
+                                    messenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          actualizado != null
+                                              ? 'Vehículo actualizado correctamente'
+                                              : 'No se pudo actualizar el vehículo',
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.save_rounded),
+                                  label: const Text('Guardar'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _accentColor,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1120,87 +1406,200 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Dialog(
-              backgroundColor: const Color(0xFF151B47),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 24,
               ),
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 520),
-                padding: const EdgeInsets.all(22),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildModalHeader(
-                      title: 'Asignar conductor',
-                      subtitle:
-                          'Selecciona el conductor para ${vehicle.placa}.',
-                      icon: Icons.person_add_alt_1_rounded,
-                    ),
-                    const SizedBox(height: 18),
-                    _buildDriverDropdown(selectedConductorId, (value) {
-                      setModalState(() => selectedConductorId = value);
-                    }),
-                    const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text(
-                              'Cancelar',
-                              style: TextStyle(color: Colors.white70),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              final navigator = Navigator.of(context);
-                              final messenger = ScaffoldMessenger.of(context);
-
-                              final actualizado =
-                                  await ApiService.asignarConductorVehiculo(
-                                    vehiculoId: vehicle.idVehiculo,
-                                    idConductor: selectedConductorId!,
-                                  );
-
-                              if (!mounted) return;
-                              navigator.pop();
-
-                              await _loadAllData(showLoader: false);
-
-                              if (!mounted) return;
-
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    actualizado != null
-                                        ? 'Conductor asignado correctamente'
-                                        : 'No se pudo asignar el conductor',
-                                  ),
-                                ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _accentColor,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: const Text('Asignar'),
-                          ),
-                        ),
-                      ],
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF20276D),
+                      Color(0xFF121842),
+                      Color(0xFF0D1234),
+                    ],
+                  ),
+                  border: Border.all(color: Colors.white24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 28,
+                      offset: const Offset(0, 18),
                     ),
                   ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildVehicleModalHeroHeader(
+                        title: 'Asignar conductor',
+                        subtitle:
+                            'Selecciona el conductor para ${vehicle.placa}.',
+                        icon: Icons.person_add_alt_1_rounded,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(22),
+                        child: Column(
+                          children: [
+                            _buildDriverDropdown(selectedConductorId, (value) {
+                              setModalState(() => selectedConductorId = value);
+                            }),
+                            const SizedBox(height: 18),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.white70,
+                                      side: BorderSide(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.18,
+                                        ),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    child: const Text('Cancelar'),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () async {
+                                      final navigator = Navigator.of(context);
+                                      final messenger = ScaffoldMessenger.of(
+                                        context,
+                                      );
+
+                                      if (selectedConductorId == null) return;
+
+                                      final actualizado =
+                                          await ApiService.asignarConductorVehiculo(
+                                            vehiculoId: vehicle.idVehiculo,
+                                            idConductor: selectedConductorId!,
+                                          );
+
+                                      if (!mounted) return;
+                                      navigator.pop();
+
+                                      await _loadAllData(showLoader: false);
+
+                                      if (!mounted) return;
+
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            actualizado != null
+                                                ? 'Conductor asignado correctamente'
+                                                : 'No se pudo asignar el conductor',
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.check_rounded),
+                                    label: const Text('Asignar'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _accentColor,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
           },
         );
       },
+    );
+  }
+
+  Widget _buildVehicleModalHeroHeader({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(22, 20, 16, 18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6C63FF), Color(0xFF4F4CE8)],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: _accentColor.withValues(alpha: 0.35),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 26),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close_rounded, color: Colors.white70),
+          ),
+        ],
+      ),
     );
   }
 

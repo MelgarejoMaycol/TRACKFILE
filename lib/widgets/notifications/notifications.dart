@@ -531,26 +531,41 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       switch (alert.type) {
         case AlertType.documentoVencimiento:
         case AlertType.documentoVencido:
-          context.goNamed('documentos', pathParameters: {'role': role});
+          context.goNamed(
+            'dashboard_section',
+            pathParameters: {'role': role, 'section': 'documentos'},
+          );
           break;
 
         case AlertType.solicitudCreada:
         case AlertType.solicitudActualizada:
-          context.goNamed('certificaciones', pathParameters: {'role': role});
+          context.goNamed(
+            'dashboard_section',
+            pathParameters: {'role': role, 'section': 'certificaciones'},
+          );
           break;
 
         case AlertType.mantenimientoActualizado:
         case AlertType.mantenimientoProgramado:
         case AlertType.mantenimientoSugerido:
-          context.goNamed('mantenimientos', pathParameters: {'role': role});
+          context.goNamed(
+            'dashboard_section',
+            pathParameters: {'role': role, 'section': 'mantenimientos'},
+          );
           break;
 
         case AlertType.sistema:
-          context.goNamed('inicio', pathParameters: {'role': role});
+          context.goNamed(
+            'dashboard_section',
+            pathParameters: {'role': role, 'section': 'inicio'},
+          );
           break;
 
         case AlertType.otro:
-          context.goNamed('perfil', pathParameters: {'role': role});
+          context.goNamed(
+            'dashboard_section',
+            pathParameters: {'role': role, 'section': 'perfil'},
+          );
           break;
       }
     } catch (e) {
