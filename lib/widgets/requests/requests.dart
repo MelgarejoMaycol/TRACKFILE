@@ -647,10 +647,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
     );
   }
 
-  Widget _buildPersonaSolicitudesLayout(
-    bool isCompact,
-    bool isTableCompact,
-  ) {
+  Widget _buildPersonaSolicitudesLayout(bool isCompact, bool isTableCompact) {
     final String nombre = widget.personaNombre ?? 'la persona';
     final String rol = widget.personaRole ?? 'Usuario';
 
@@ -1122,10 +1119,14 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
                           transitionBuilder: (child, animation) {
                             return SizeTransition(
                               sizeFactor: animation,
-                              axisAlignment: -1,
-                              child: FadeTransition(
-                                opacity: animation,
-                                child: child,
+                              axis: Axis.vertical,
+                              fixedCrossAxisSizeFactor: 1.0,
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: FadeTransition(
+                                  opacity: animation,
+                                  child: child,
+                                ),
                               ),
                             );
                           },
