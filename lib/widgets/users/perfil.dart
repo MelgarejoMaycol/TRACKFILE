@@ -704,50 +704,87 @@ class _PerfilWidgetState extends State<PerfilWidget> {
     );
   }
 
+  BoxDecoration _modalDecoration() {
+    return BoxDecoration(
+      borderRadius: BorderRadius.circular(28),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF20276D), Color(0xFF121842), Color(0xFF0D1234)],
+      ),
+      border: Border.all(color: Colors.white24),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.35),
+          blurRadius: 28,
+          offset: const Offset(0, 18),
+        ),
+      ],
+    );
+  }
+
   Widget _modalHeader({
     required IconData icon,
     required String title,
     required String subtitle,
+    VoidCallback? onClose,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: _accentColor.withValues(alpha: 0.22),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _borderColor.withValues(alpha: 0.55)),
-          ),
-          child: Icon(icon, color: Colors.white, size: 22),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(22, 20, 16, 18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6C63FF), Color(0xFF4F4CE8)],
               ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12.5,
-                  height: 1.35,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: _accentColor.withValues(alpha: 0.35),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
                 ),
-              ),
-            ],
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 26),
           ),
-        ),
-      ],
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onClose,
+            icon: const Icon(Icons.close_rounded, color: Colors.white70),
+          ),
+        ],
+      ),
     );
   }
 
@@ -767,26 +804,16 @@ class _PerfilWidgetState extends State<PerfilWidget> {
           builder: (context, setDialogState) {
             return Dialog(
               backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 22),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 24,
+              ),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: Container(
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    color: _cardColor,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: _softBorderColor.withValues(alpha: 0.65),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.28),
-                        blurRadius: 26,
-                        offset: const Offset(0, 14),
-                      ),
-                    ],
-                  ),
-                  child: SingleChildScrollView(
+                  decoration: _modalDecoration(),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -794,108 +821,132 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                           icon: Icons.person_rounded,
                           title: 'Editar información personal',
                           subtitle: 'Actualiza tus datos básicos de contacto.',
+                          onClose: guardando
+                              ? null
+                              : () => Navigator.pop(context),
                         ),
-                        const SizedBox(height: 22),
-                        _inputDialog(
-                          'Nombre',
-                          nombre,
-                          icon: Icons.badge_rounded,
-                        ),
-                        _inputDialog(
-                          'Apellido',
-                          apellido,
-                          icon: Icons.person_rounded,
-                        ),
-                        _inputDialog(
-                          'Teléfono',
-                          telefono,
-                          icon: Icons.phone_rounded,
-                          keyboardType: TextInputType.phone,
-                        ),
-                        _inputDialog(
-                          'Dirección',
-                          direccion,
-                          icon: Icons.location_on_rounded,
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: guardando
-                                    ? null
-                                    : () => Navigator.pop(context),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  side: BorderSide(
-                                    color: _softBorderColor.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 15,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
+                        Flexible(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(22),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _inputDialog(
+                                  'Nombre',
+                                  nombre,
+                                  icon: Icons.badge_rounded,
                                 ),
-                                child: const Text('Cancelar'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: guardando
-                                    ? null
-                                    : () async {
-                                        setDialogState(() => guardando = true);
-
-                                        final ok =
-                                            await ApiService.updateMiPerfil(
-                                              nombre: nombre.text,
-                                              apellido: apellido.text,
-                                              telefono: telefono.text,
-                                              direccion: direccion.text,
-                                            );
-
-                                        if (!context.mounted) return;
-
-                                        Navigator.pop(context);
-
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              ok
-                                                  ? 'Perfil actualizado correctamente'
-                                                  : 'No se pudo actualizar el perfil',
+                                _inputDialog(
+                                  'Apellido',
+                                  apellido,
+                                  icon: Icons.person_rounded,
+                                ),
+                                _inputDialog(
+                                  'Teléfono',
+                                  telefono,
+                                  icon: Icons.phone_rounded,
+                                  keyboardType: TextInputType.phone,
+                                ),
+                                _inputDialog(
+                                  'Dirección',
+                                  direccion,
+                                  icon: Icons.location_on_rounded,
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton(
+                                        onPressed: guardando
+                                            ? null
+                                            : () => Navigator.pop(context),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.white70,
+                                          side: BorderSide(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.18,
                                             ),
                                           ),
-                                        );
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 15,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                          ),
+                                        ),
+                                        child: const Text('Cancelar'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: guardando
+                                            ? null
+                                            : () async {
+                                                setDialogState(
+                                                  () => guardando = true,
+                                                );
 
-                                        if (ok) {
-                                          await _cargarPerfil(showLoader: false);
-                                          await widget.onPerfilActualizado
-                                              ?.call();
-                                        }
-                                      },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _accentColor,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 15,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
+                                                final ok =
+                                                    await ApiService.updateMiPerfil(
+                                                      nombre: nombre.text,
+                                                      apellido: apellido.text,
+                                                      telefono: telefono.text,
+                                                      direccion: direccion.text,
+                                                    );
+
+                                                if (!context.mounted) return;
+
+                                                Navigator.pop(context);
+
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      ok
+                                                          ? 'Perfil actualizado correctamente'
+                                                          : 'No se pudo actualizar el perfil',
+                                                    ),
+                                                  ),
+                                                );
+
+                                                if (ok) {
+                                                  await _cargarPerfil(
+                                                    showLoader: false,
+                                                  );
+                                                  await widget
+                                                      .onPerfilActualizado
+                                                      ?.call();
+                                                }
+                                              },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: _accentColor,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 15,
+                                          ),
+                                          elevation: 0,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          guardando
+                                              ? 'Guardando...'
+                                              : 'Guardar',
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                child: Text(
-                                  guardando ? 'Guardando...' : 'Guardar',
-                                ),
-                              ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
@@ -934,26 +985,16 @@ class _PerfilWidgetState extends State<PerfilWidget> {
           builder: (context, setDialogState) {
             return Dialog(
               backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 22),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 24,
+              ),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: Container(
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    color: _cardColor,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: _softBorderColor.withValues(alpha: 0.65),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.28),
-                        blurRadius: 26,
-                        offset: const Offset(0, 14),
-                      ),
-                    ],
-                  ),
-                  child: SingleChildScrollView(
+                  decoration: _modalDecoration(),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -962,103 +1003,127 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                           title: 'Editar empresa',
                           subtitle:
                               'Actualiza la información básica de la empresa.',
+                          onClose: guardando
+                              ? null
+                              : () => Navigator.pop(context),
                         ),
-                        const SizedBox(height: 22),
-                        _inputDialog(
-                          'Nombre de empresa',
-                          nombreEmpresa,
-                          icon: Icons.apartment_rounded,
-                        ),
-                        _inputDialog(
-                          'Teléfono',
-                          telefono,
-                          icon: Icons.phone_rounded,
-                          keyboardType: TextInputType.phone,
-                        ),
-                        _inputDialog(
-                          'Dirección',
-                          direccion,
-                          icon: Icons.location_city_rounded,
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: guardando
-                                    ? null
-                                    : () => Navigator.pop(context),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  side: BorderSide(
-                                    color: _softBorderColor.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 15,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
+                        Flexible(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(22),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _inputDialog(
+                                  'Nombre de empresa',
+                                  nombreEmpresa,
+                                  icon: Icons.apartment_rounded,
                                 ),
-                                child: const Text('Cancelar'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: guardando
-                                    ? null
-                                    : () async {
-                                        setDialogState(() => guardando = true);
-
-                                        final ok =
-                                            await ApiService.updateMiEmpresa(
-                                              nombreEmpresa: nombreEmpresa.text,
-                                              telefono: telefono.text,
-                                              direccion: direccion.text,
-                                            );
-
-                                        if (!context.mounted) return;
-
-                                        Navigator.pop(context);
-
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              ok
-                                                  ? 'Empresa actualizada correctamente'
-                                                  : 'No se pudo actualizar la empresa',
+                                _inputDialog(
+                                  'Teléfono',
+                                  telefono,
+                                  icon: Icons.phone_rounded,
+                                  keyboardType: TextInputType.phone,
+                                ),
+                                _inputDialog(
+                                  'Dirección',
+                                  direccion,
+                                  icon: Icons.location_city_rounded,
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton(
+                                        onPressed: guardando
+                                            ? null
+                                            : () => Navigator.pop(context),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.white70,
+                                          side: BorderSide(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.18,
                                             ),
                                           ),
-                                        );
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 15,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                          ),
+                                        ),
+                                        child: const Text('Cancelar'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: guardando
+                                            ? null
+                                            : () async {
+                                                setDialogState(
+                                                  () => guardando = true,
+                                                );
 
-                                        if (ok) {
-                                          await _cargarPerfil();
-                                          widget.onEmpresaActualizada?.call();
-                                          await widget.onPerfilActualizado
-                                              ?.call();
-                                        }
-                                      },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _accentColor,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 15,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
+                                                final ok =
+                                                    await ApiService.updateMiEmpresa(
+                                                      nombreEmpresa:
+                                                          nombreEmpresa.text,
+                                                      telefono: telefono.text,
+                                                      direccion: direccion.text,
+                                                    );
+
+                                                if (!context.mounted) return;
+
+                                                Navigator.pop(context);
+
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      ok
+                                                          ? 'Empresa actualizada correctamente'
+                                                          : 'No se pudo actualizar la empresa',
+                                                    ),
+                                                  ),
+                                                );
+
+                                                if (ok) {
+                                                  await _cargarPerfil();
+                                                  widget.onEmpresaActualizada
+                                                      ?.call();
+                                                  await widget
+                                                      .onPerfilActualizado
+                                                      ?.call();
+                                                }
+                                              },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: _accentColor,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 15,
+                                          ),
+                                          elevation: 0,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          guardando
+                                              ? 'Guardando...'
+                                              : 'Guardar',
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                child: Text(
-                                  guardando ? 'Guardando...' : 'Guardar',
-                                ),
-                              ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
@@ -1075,6 +1140,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
   void _abrirCambiarPassword() {
     final actual = TextEditingController();
     final nueva = TextEditingController();
+    final confirmarNueva = TextEditingController();
 
     showDialog(
       context: context,
@@ -1086,26 +1152,16 @@ class _PerfilWidgetState extends State<PerfilWidget> {
           builder: (context, setDialogState) {
             return Dialog(
               backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 22),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 24,
+              ),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 500),
                 child: Container(
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    color: _cardColor,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: _softBorderColor.withValues(alpha: 0.65),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.28),
-                        blurRadius: 26,
-                        offset: const Offset(0, 14),
-                      ),
-                    ],
-                  ),
-                  child: SingleChildScrollView(
+                  decoration: _modalDecoration(),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -1114,91 +1170,151 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                           title: 'Cambiar contraseña',
                           subtitle:
                               'Ingresa tu contraseña actual y define una nueva.',
+                          onClose: guardando
+                              ? null
+                              : () => Navigator.pop(context),
                         ),
-                        const SizedBox(height: 22),
-                        _inputDialog(
-                          'Contraseña actual',
-                          actual,
-                          icon: Icons.lock_outline_rounded,
-                          obscureText: true,
-                        ),
-                        _inputDialog(
-                          'Nueva contraseña',
-                          nueva,
-                          icon: Icons.lock_reset_rounded,
-                          obscureText: true,
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: guardando
-                                    ? null
-                                    : () => Navigator.pop(context),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  side: BorderSide(
-                                    color: _softBorderColor.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 15,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
+                        Flexible(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(22),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _inputDialog(
+                                  'Contraseña actual',
+                                  actual,
+                                  icon: Icons.lock_outline_rounded,
+                                  obscureText: true,
                                 ),
-                                child: const Text('Cancelar'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: guardando
-                                    ? null
-                                    : () async {
-                                        setDialogState(() => guardando = true);
-
-                                        final result =
-                                            await ApiService.cambiarMiPassword(
-                                              passwordActual: actual.text,
-                                              passwordNueva: nueva.text,
-                                            );
-
-                                        if (!context.mounted) return;
-
-                                        Navigator.pop(context);
-
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              result['ok'] == true
-                                                  ? result['mensaje'].toString()
-                                                  : result['error'].toString(),
+                                _inputDialog(
+                                  'Nueva contraseña',
+                                  nueva,
+                                  icon: Icons.lock_reset_rounded,
+                                  obscureText: true,
+                                ),
+                                _inputDialog(
+                                  'Confirmar nueva contraseña',
+                                  confirmarNueva,
+                                  icon: Icons.lock_person_rounded,
+                                  obscureText: true,
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton(
+                                        onPressed: guardando
+                                            ? null
+                                            : () => Navigator.pop(context),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.white70,
+                                          side: BorderSide(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.18,
                                             ),
                                           ),
-                                        );
-                                      },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _accentColor,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 15,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 15,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                          ),
+                                        ),
+                                        child: const Text('Cancelar'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: guardando
+                                            ? null
+                                            : () async {
+                                                if (nueva.text.trim() !=
+                                                    confirmarNueva.text
+                                                        .trim()) {
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        'La nueva contraseña y la confirmación no coinciden.',
+                                                      ),
+                                                    ),
+                                                  );
+                                                  return;
+                                                }
+
+                                                if (nueva.text.trim().isEmpty ||
+                                                    confirmarNueva.text
+                                                        .trim()
+                                                        .isEmpty) {
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        'La nueva contraseña no puede estar vacía.',
+                                                      ),
+                                                    ),
+                                                  );
+                                                  return;
+                                                }
+                                                setDialogState(
+                                                  () => guardando = true,
+                                                );
+
+                                                final result =
+                                                    await ApiService.cambiarMiPassword(
+                                                      passwordActual:
+                                                          actual.text,
+                                                      passwordNueva: nueva.text,
+                                                    );
+
+                                                if (!context.mounted) return;
+
+                                                Navigator.pop(context);
+
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      result['ok'] == true
+                                                          ? result['mensaje']
+                                                                .toString()
+                                                          : result['error']
+                                                                .toString(),
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: _accentColor,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 15,
+                                          ),
+                                          elevation: 0,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          guardando
+                                              ? 'Guardando...'
+                                              : 'Cambiar',
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                child: Text(
-                                  guardando ? 'Guardando...' : 'Cambiar',
-                                ),
-                              ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
