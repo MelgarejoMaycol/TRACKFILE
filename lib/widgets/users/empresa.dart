@@ -1,38 +1,34 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:trackfile/services/api_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-/// Muestra informacion de la empresa vinculada a un conductor con vision, mision y feedback.
 class EmpresaWidget extends StatefulWidget {
   final String? userId;
   final String? jsonPath;
   final String? companyId;
 
-  const EmpresaWidget({super.key, this.userId, this.jsonPath, this.companyId});
+  const EmpresaWidget({
+    super.key,
+    this.userId,
+    this.jsonPath,
+    this.companyId,
+  });
 
   @override
   State<EmpresaWidget> createState() => _EmpresaWidgetState();
 }
 
-class _Company {
-  final int id;
+class _EmpresaInfo {
   final String nombre;
-  final String logo;
-  final String vision;
-  final String mision;
-  final String descripcion;
-  final String contactoEmail;
-  final String contactoTelefono;
+  final String correo;
+  final String telefono;
+  final String direccion;
 
-  const _Company({
-    required this.id,
+  const _EmpresaInfo({
     required this.nombre,
-    required this.logo,
-    required this.vision,
-    required this.mision,
-    required this.descripcion,
-    required this.contactoEmail,
-    required this.contactoTelefono,
+    required this.correo,
+    required this.telefono,
+    required this.direccion,
   });
 }
 
@@ -42,143 +38,101 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
   static const Color _surfaceColor = Color(0xFF131760);
 
   bool _isLoading = true;
-  _Company? _company;
-  final TextEditingController _messageController = TextEditingController();
-  bool _feedbackSending = false;
-  bool _feedbackSent = false;
+  String? _error;
+  _EmpresaInfo? _empresa;
 
   @override
   void initState() {
     super.initState();
-    _loadCompany();
+    _loadEmpresa();
   }
 
-  @override
-  void dispose() {
-    _messageController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadCompany() async {
-    final String path = (widget.jsonPath != null && widget.jsonPath!.isNotEmpty)
-        ? widget.jsonPath!
-        : 'assets/companies_data.json';
+  Future<void> _loadEmpresa() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
     try {
-      final String raw = await rootBundle.loadString(path);
-      final dynamic decoded = json.decode(raw);
-      final List<dynamic>? companies = decoded is Map<String, dynamic>
-          ? decoded['companies'] as List<dynamic>?
-          : decoded as List<dynamic>?;
+      final data = await ApiService.getMiEmpresa();
 
-      if (companies != null && companies.isNotEmpty) {
-        _Company? selected;
-        if (widget.companyId != null) {
-          final int? target = int.tryParse(widget.companyId!);
-          if (target != null) {
-            selected = companies
-                .whereType<Map<String, dynamic>>()
-                .map(_mapToCompany)
-                .firstWhere(
-                  (company) => company.id == target,
-                  orElse: () => companies
-                      .whereType<Map<String, dynamic>>()
-                      .map(_mapToCompany)
-                      .first,
-                );
-          }
-        }
-        selected ??= companies.whereType<Map<String, dynamic>>().map(_mapToCompany).first;
+      if (!mounted) return;
 
-        if (!mounted) {
-          return;
-        }
+      if (data == null) {
         setState(() {
-          _company = selected;
+          _empresa = null;
+          _error = 'No se encontró información de la empresa.';
           _isLoading = false;
         });
         return;
       }
-    } catch (e) {
-      debugPrint('Error cargando empresa: $e');
-    }
 
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _company = const _Company(
-        id: 0,
-        nombre: 'Empresa sin datos',
-        logo: 'assets/logo.png',
-        vision: 'Sin vision disponible.',
-        mision: 'Sin mision disponible.',
-        descripcion: 'No se encontro informacion de la empresa.',
-        contactoEmail: 'contacto@empresa.com',
-        contactoTelefono: '+57 300 000 0000',
-      );
-      _isLoading = false;
-    });
-  }
-
-  _Company _mapToCompany(Map<String, dynamic> map) {
-    return _Company(
-      id: int.tryParse(map['id_empresa']?.toString() ?? '') ?? 0,
-      nombre: map['nombre']?.toString() ?? 'Empresa',
-      logo: map['logo']?.toString() ?? 'assets/logo.png',
-      vision: map['vision']?.toString() ?? 'Sin vision disponible.',
-      mision: map['mision']?.toString() ?? 'Sin mision disponible.',
-      descripcion: map['descripcion']?.toString() ?? 'Sin descripcion.',
-      contactoEmail: map['contacto_email']?.toString() ?? 'contacto@empresa.com',
-      contactoTelefono: map['contacto_telefono']?.toString() ?? '+57 300 000 0000',
-    );
-  }
-
-  void _showInfoModal({required String title, required String body}) {
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: _surfaceColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-          content: SingleChildScrollView(
-            child: Text(body, style: const TextStyle(color: Colors.white70, height: 1.5)),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(foregroundColor: Colors.white),
-              child: const Text('Cerrar'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _submitFeedback() async {
-    if (_messageController.text.trim().isEmpty) {
       setState(() {
-        _feedbackSent = false;
+        _empresa = _mapEmpresa(data);
+        _isLoading = false;
       });
-      return;
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _error = 'No se pudo cargar la información de la empresa.';
+        _isLoading = false;
+      });
+
+      debugPrint('Error cargando empresa desde backend: $e');
     }
+  }
 
-    setState(() {
-      _feedbackSending = true;
-    });
+  _EmpresaInfo _mapEmpresa(Map<String, dynamic> map) {
+    return _EmpresaInfo(
+      nombre: _value(
+        map['nombreEmpresa'] ??
+            map['nombre_empresa'] ??
+            map['nombre'] ??
+            map['razonSocial'],
+      ),
+      correo: _value(map['correo'] ?? map['email']),
+      telefono: _value(map['telefono'] ?? map['celular']),
+      direccion: _value(map['direccion']),
+    );
+  }
 
-    await Future<void>.delayed(const Duration(milliseconds: 800));
+  String _value(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? 'No registrado' : text;
+  }
 
-    if (!mounted) {
-      return;
+  Future<void> _openEmail(String correo) async {
+    if (correo == 'No registrado') return;
+
+    final uri = Uri(
+      scheme: 'mailto',
+      path: correo,
+      query: 'subject=Contacto desde TrackFile',
+    );
+
+    await _launch(uri);
+  }
+
+  Future<void> _openPhone(String telefono) async {
+    if (telefono == 'No registrado') return;
+
+    final cleanPhone = telefono.replaceAll(RegExp(r'\s+'), '');
+    final uri = Uri(scheme: 'tel', path: cleanPhone);
+
+    await _launch(uri);
+  }
+
+  Future<void> _launch(Uri uri) async {
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo abrir esta opción.'),
+        ),
+      );
     }
-    setState(() {
-      _feedbackSending = false;
-      _feedbackSent = true;
-      _messageController.clear();
-    });
   }
 
   @override
@@ -187,246 +141,247 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_company == null) {
-      return const Center(child: Text('No se encontro la empresa.', style: TextStyle(color: Colors.white)));
+    if (_error != null || _empresa == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            _error ?? 'No se encontró información de la empresa.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white70),
+          ),
+        ),
+      );
     }
 
-    final _Company company = _company!;
+    final empresa = _empresa!;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final bool isCompact = constraints.maxWidth < 640;
+        final bool isCompact = constraints.maxWidth < 700;
 
         return SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 24, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 18 : 34,
+            vertical: 28,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 850),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: Image.asset(
-                      company.logo,
-                      width: isCompact ? 72 : 92,
-                      height: isCompact ? 72 : 92,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  const SizedBox(width: 18),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          company.nombre,
-                          style: TextStyle(color: Colors.white, fontSize: isCompact ? 20 : 24, fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          company.descripcion,
-                          style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13, height: 1.4),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _buildHeader(empresa, isCompact),
+                  const SizedBox(height: 24),
+                  _buildMainInfo(empresa, isCompact),
                 ],
               ),
-              const SizedBox(height: 24),
-              Wrap(
-                spacing: 16,
-                runSpacing: 12,
-                children: [
-                  _buildInfoButton(
-                    icon: Icons.visibility_rounded,
-                    label: 'Vision',
-                    onTap: () => _showInfoModal(title: 'Vision', body: company.vision),
-                  ),
-                  _buildInfoButton(
-                    icon: Icons.flag_rounded,
-                    label: 'Mision',
-                    onTap: () => _showInfoModal(title: 'Mision', body: company.mision),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              _buildContactCard(company, isCompact),
-              const SizedBox(height: 28),
-              _buildFeedbackSection(isCompact),
-            ],
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _buildInfoButton({required IconData icon, required String label, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: LinearGradient(
-              colors: [_accentColor.withValues(alpha: 0.85), _accentColor.withValues(alpha: 0.6)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+  Widget _buildHeader(_EmpresaInfo empresa, bool isCompact) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isCompact ? 20 : 28),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            _cardColor.withValues(alpha: 0.96),
+            _accentColor.withValues(alpha: 0.38),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 22,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: isCompact ? 64 : 78,
+            height: isCompact ? 64 : 78,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(24),
             ),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.28), blurRadius: 18, offset: const Offset(0, 12)),
-            ],
+            child: const Icon(
+              Icons.apartment_rounded,
+              color: Colors.white,
+              size: 38,
+            ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: Colors.white),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Empresa vinculada',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  empresa.nombre,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isCompact ? 23 : 30,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainInfo(_EmpresaInfo empresa, bool isCompact) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 18 : 26,
+        vertical: isCompact ? 18 : 24,
+      ),
+      decoration: BoxDecoration(
+        color: _surfaceColor.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        children: [
+          _buildContactRow(
+            icon: Icons.email_rounded,
+            title: 'Correo',
+            value: empresa.correo,
+            actionText: 'Enviar correo',
+            onTap: () => _openEmail(empresa.correo),
+          ),
+          _divider(),
+          _buildContactRow(
+            icon: Icons.phone_in_talk_rounded,
+            title: 'Teléfono',
+            value: empresa.telefono,
+            actionText: 'Llamar',
+            onTap: () => _openPhone(empresa.telefono),
+          ),
+          _divider(),
+          _buildContactRow(
+            icon: Icons.location_on_rounded,
+            title: 'Dirección',
+            value: empresa.direccion,
+            actionText: null,
+            onTap: null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactRow({
+    required IconData icon,
+    required String title,
+    required String value,
+    required String? actionText,
+    required VoidCallback? onTap,
+  }) {
+    final bool canTap = onTap != null && value != 'No registrado';
+
+    return InkWell(
+      onTap: canTap ? onTap : null,
+      borderRadius: BorderRadius.circular(18),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: _accentColor.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (canTap && actionText != null) ...[
               const SizedBox(width: 12),
-              Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: _accentColor.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: _accentColor.withValues(alpha: 0.38),
+                  ),
+                ),
+                child: Text(
+                  actionText,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildContactCard(_Company company, bool isCompact) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: isCompact ? 18 : 22, vertical: 20),
-      decoration: BoxDecoration(
-        color: _cardColor.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Contacto directo', style: TextStyle(color: Colors.white, fontSize: isCompact ? 16 : 18, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(Icons.email_rounded, color: Colors.white54, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(company.contactoEmail, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              const Icon(Icons.phone_in_talk_rounded, color: Colors.white54, size: 18),
-              const SizedBox(width: 8),
-              Text(company.contactoTelefono, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFeedbackSection(bool isCompact) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: isCompact ? 18 : 22, vertical: 20),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Enviar mensaje a la empresa',
-            style: TextStyle(color: Colors.white, fontSize: isCompact ? 16 : 18, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Comparte reseñas o peticiones para el equipo administrativo. El mensaje se enviara al buzón corporativo.',
-            style: TextStyle(color: Colors.white70, fontSize: isCompact ? 12 : 13, height: 1.4),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _messageController,
-            maxLines: 4,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              hintText: 'Escribe tu mensaje...',
-              hintStyle: const TextStyle(color: Colors.white54),
-              filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.08),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
-              ),
-              focusedBorder: const OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(16)),
-                borderSide: BorderSide(color: _accentColor),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 240),
-                  child: _feedbackSent
-                      ? const Text(
-                          'Mensaje enviado correctamente.',
-                          key: ValueKey('sent'),
-                          style: TextStyle(
-                            color: Color(0xFF7CFC9A),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        )
-                      : Text(
-                          'Los mensajes se remiten al area administrativa.',
-                          key: const ValueKey('helper'),
-                          style: TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton(
-                onPressed: _feedbackSending ? null : _submitFeedback,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _accentColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                child: _feedbackSending
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.send_rounded, size: 18),
-                          SizedBox(width: 8),
-                          Text('Enviar'),
-                        ],
-                      ),
-              ),
-            ],
-          ),
-        ],
-      ),
+  Widget _divider() {
+    return Divider(
+      height: 1,
+      color: Colors.white.withValues(alpha: 0.08),
     );
   }
 }

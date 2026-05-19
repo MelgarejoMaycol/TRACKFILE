@@ -255,6 +255,12 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                         _buildDetallesCard(isCompact),
                       ],
                     ),
+
+                    if (widget.role.toLowerCase() == 'empresa') ...[
+                      const SizedBox(height: 24),
+                      _buildEmpresaInfoCard(isCompact),
+                    ],
+
                     const SizedBox(height: 24),
                     _buildAccionesPerfil(isCompact),
                     const SizedBox(height: 30),
@@ -456,6 +462,82 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                 .map(
                   (dato) => SizedBox(
                     width: isCompact ? double.infinity : 280,
+                    child: _buildDatoTile(dato),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmpresaInfoCard(bool isCompact) {
+    final empresa = _empresaActual ?? {};
+
+    final datosEmpresa = [
+      _PerfilDato(
+        label: 'Nombre de empresa',
+        value: _empresaValor(
+          empresa['nombreEmpresa'] ??
+              empresa['nombre_empresa'] ??
+              empresa['nombre'],
+        ),
+      ),
+      _PerfilDato(
+        label: 'Correo corporativo',
+        value: _empresaValor(empresa['correo'] ?? empresa['email']),
+      ),
+      _PerfilDato(
+        label: 'Teléfono',
+        value: _empresaValor(empresa['telefono'] ?? empresa['celular']),
+      ),
+      _PerfilDato(
+        label: 'Dirección',
+        value: _empresaValor(empresa['direccion']),
+      ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        border: Border.all(color: _softBorderColor.withValues(alpha: 0.45)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.business_rounded, color: _primaryColor, size: 20),
+              SizedBox(width: 10),
+              Text(
+                'Información de la empresa',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 18,
+            runSpacing: 16,
+            children: datosEmpresa
+                .map(
+                  (dato) => SizedBox(
+                    width: isCompact ? double.infinity : 310,
                     child: _buildDatoTile(dato),
                   ),
                 )
@@ -1337,6 +1419,11 @@ class _PerfilWidgetState extends State<PerfilWidget> {
     if (dato.isEmpty) return '';
 
     return dato.first.value == '-' ? '' : dato.first.value;
+  }
+
+  String _empresaValor(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? 'No registrado' : text;
   }
 
   Widget _inputDialog(
