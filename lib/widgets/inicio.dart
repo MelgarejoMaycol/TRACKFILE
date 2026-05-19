@@ -114,12 +114,21 @@ class _InicioWidgetState extends State<InicioWidget> {
             return estado == 'SUGERIDO';
           }).length;
 
+          // ✅ Solicitudes pendientes de responder para la empresa
+          final solicitudes = await ApiService.getSolicitudes();
+
+          final solicitudesPendientes = solicitudes.where((s) {
+            final estado = s['estado']?.toString().trim().toUpperCase() ?? '';
+            return estado == 'EN_REVISION';
+          }).length;
+
           summary = {
             'fleetSize': vehiculos.length,
             'activeDrivers': conductores.length,
             'documentsExpired': vencidos.length,
             'maintenanceScheduled': programados,
             'maintenanceSuggested': sugeridos,
+            'certificateRequests': solicitudesPendientes,
           };
 
           // Guardar propietarios en el estado
