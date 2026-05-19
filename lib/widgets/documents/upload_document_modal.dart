@@ -133,16 +133,23 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
 
   /// Extrae el ID de una persona
   int _getIdPersona(Map<String, dynamic> persona) {
-    if (persona['id'] != null) {
-      return int.tryParse(persona['id'].toString()) ?? 0;
-    }
-    if (persona['idConductor'] != null) {
-      return int.tryParse(persona['idConductor'].toString()) ?? 0;
-    }
-    if (persona['idPropietario'] != null) {
-      return int.tryParse(persona['idPropietario'].toString()) ?? 0;
-    }
-    return 0;
+    final raw =
+        persona['idRegistroRol'] ??
+        persona['id'] ??
+        persona['idConductor'] ??
+        persona['idPropietario'];
+
+    return int.tryParse(raw?.toString() ?? '') ?? 0;
+  }
+
+  int? _getUsuarioIdPersona(Map<String, dynamic> persona) {
+    final raw =
+        persona['idUsuario'] ??
+        persona['usuarioId'] ??
+        persona['id_usuario'] ??
+        (persona['usuario'] is Map ? persona['usuario']['id'] : null);
+
+    return int.tryParse(raw?.toString() ?? '');
   }
 
   /// Categoriza documentos según su aplicabilidad
@@ -297,38 +304,90 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
   Future<void> _loadPersonas() async {
     setState(() {
       isLoadingPersonas = true;
-      personasLoadError = null; // Resetear error
+      personasLoadError = null;
     });
 
     try {
-      final conds = await DocumentService.getConductores(token: widget.token);
-      final props = await DocumentService.getPropietarios(token: widget.token);
+      final usuarios = await DocumentService.getUsuariosEmpresa(
+        token: widget.token,
+      );
 
-      if (mounted) {
-        setState(() {
-          conductores = conds;
-          propietarios = props;
-          isLoadingPersonas = false;
-        });
+      final condsApi = await DocumentService.getConductores(
+        token: widget.token,
+      );
+      final propsApi = await DocumentService.getPropietarios(
+        token: widget.token,
+      );
 
-        if (conds.isEmpty && props.isEmpty) {
-          debugPrint('⚠️ [Modal] ¡SIN CONDUCTORES NI PROPIETARIOS!');
+      final Map<String, Map<String, dynamic>> conductoresMap = {};
+      final Map<String, Map<String, dynamic>> propietariosMap = {};
+
+      for (final user in usuarios) {
+        final rol = (user['rol'] ?? '').toString().toUpperCase();
+        final usuarioId =
+            (user['id'] ?? user['idUsuario'] ?? user['id_usuario'])?.toString();
+
+        if (usuarioId == null || usuarioId.isEmpty) continue;
+
+        final base = {
+          ...user,
+          'idUsuario': int.tryParse(usuarioId),
+          'usuarioId': int.tryParse(usuarioId),
+          'nombreCompleto': '${user['nombre'] ?? ''} ${user['apellido'] ?? ''}'
+              .trim(),
+        };
+
+        if (rol.contains('CONDUCTOR')) {
+          conductoresMap[usuarioId] = {...base, 'id': int.tryParse(usuarioId)};
+        }
+
+        if (rol.contains('PROPIETARIO')) {
+          propietariosMap[usuarioId] = {...base, 'id': int.tryParse(usuarioId)};
         }
       }
+
+      for (final c in condsApi) {
+        final usuarioId = _getUsuarioIdPersona(c)?.toString();
+        if (usuarioId == null || usuarioId.isEmpty) continue;
+
+        conductoresMap[usuarioId] = {
+          ...?conductoresMap[usuarioId],
+          ...c,
+          'idUsuario': int.tryParse(usuarioId),
+          'usuarioId': int.tryParse(usuarioId),
+          'idRegistroRol': c['id'],
+        };
+      }
+
+      for (final p in propsApi) {
+        final usuarioId = _getUsuarioIdPersona(p)?.toString();
+        if (usuarioId == null || usuarioId.isEmpty) continue;
+
+        propietariosMap[usuarioId] = {
+          ...?propietariosMap[usuarioId],
+          ...p,
+          'idUsuario': int.tryParse(usuarioId),
+          'usuarioId': int.tryParse(usuarioId),
+          'idRegistroRol': p['id'],
+        };
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        conductores = conductoresMap.values.toList();
+        propietarios = propietariosMap.values.toList();
+        isLoadingPersonas = false;
+      });
     } catch (e) {
       debugPrint('❌ [Modal] Error cargando personas: $e');
-      if (mounted) {
-        // Limpiar el mensaje de error para que sea más user-friendly
-        String errorMessage = e.toString();
-        if (errorMessage.startsWith('Exception: ')) {
-          errorMessage = errorMessage.substring(11); // Remover "Exception: "
-        }
 
-        setState(() {
-          isLoadingPersonas = false;
-          personasLoadError = errorMessage;
-        });
-      }
+      if (!mounted) return;
+
+      setState(() {
+        isLoadingPersonas = false;
+        personasLoadError = e.toString().replaceFirst('Exception: ', '');
+      });
     }
   }
 

@@ -227,56 +227,62 @@ class _PerfilWidgetState extends State<PerfilWidget> {
     if (_hasError || _perfil == null) {
       return _buildError();
     }
-    return ColoredBox(
-      color: _surfaceColor,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final bool isCompact = constraints.maxWidth < 920;
-          return SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              isCompact ? 16 : 24,
-              24,
-              isCompact ? 16 : 24,
-              isCompact ? 120 : 80,
-            ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(isCompact),
-                    const SizedBox(height: 24),
-                    Wrap(
-                      spacing: 18,
-                      runSpacing: 18,
-                      children: [
-                        _buildPerfilCard(isCompact),
-                        _buildDetallesCard(isCompact),
-                      ],
-                    ),
-
-                    if (widget.role.toLowerCase() == 'empresa') ...[
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(28),
+        topRight: Radius.circular(28),
+      ),
+      child: Container(
+        color: _surfaceColor,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isCompact = constraints.maxWidth < 920;
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                isCompact ? 16 : 24,
+                24,
+                isCompact ? 16 : 24,
+                isCompact ? 120 : 80,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1100),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(isCompact),
                       const SizedBox(height: 24),
-                      _buildEmpresaInfoCard(isCompact),
-                    ],
-
-                    const SizedBox(height: 24),
-                    _buildAccionesPerfil(isCompact),
-                    const SizedBox(height: 30),
-                    Align(
-                      alignment: Alignment.center,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 320),
-                        child: const LogoutButton(),
+                      Wrap(
+                        spacing: 18,
+                        runSpacing: 18,
+                        children: [
+                          _buildPerfilCard(isCompact),
+                          _buildDetallesCard(isCompact),
+                        ],
                       ),
-                    ),
-                  ],
+
+                      if (widget.role.toLowerCase() == 'empresa') ...[
+                        const SizedBox(height: 24),
+                        _buildEmpresaInfoCard(isCompact),
+                      ],
+
+                      const SizedBox(height: 24),
+                      _buildAccionesPerfil(isCompact),
+                      const SizedBox(height: 30),
+                      Align(
+                        alignment: Alignment.center,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 320),
+                          child: const LogoutButton(),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

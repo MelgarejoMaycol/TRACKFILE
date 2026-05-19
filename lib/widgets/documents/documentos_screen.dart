@@ -589,16 +589,22 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
         final padding = _screenPadding(width);
         final isEmpresa = widget.role?.toLowerCase() == 'empresa';
 
-        final content = Container(
-          padding: EdgeInsets.fromLTRB(padding, padding, padding, 16),
-          color: _surfaceColor,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: 16),
-              Expanded(child: _buildContent()),
-            ],
+        final content = ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(28),
+            topRight: Radius.circular(28),
+          ),
+          child: Container(
+            padding: EdgeInsets.fromLTRB(padding, padding, padding, 16),
+            color: _surfaceColor,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: 16),
+                Expanded(child: _buildContent()),
+              ],
+            ),
           ),
         );
 

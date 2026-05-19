@@ -164,41 +164,92 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
       });
 
       final token = await _token();
-      final uri = ApiConfig.resolve(_baseUrl, _endpointBase);
 
-      final response = await _client
-          .get(
-            uri,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
-          )
-          .timeout(const Duration(seconds: 12));
+      final usuariosUri = ApiConfig.resolve(_baseUrl, '/api/usuarios');
+      final personasUri = ApiConfig.resolve(_baseUrl, _endpointBase);
 
-      if (!mounted) return;
+      final responses = await Future.wait([
+        _client.get(
+          usuariosUri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+        ),
+        _client.get(
+          personasUri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+        ),
+      ]);
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as List<dynamic>;
+      final usuariosResponse = responses[0];
+      final personasResponse = responses[1];
 
-        setState(() {
-          _personas = data
+      if (usuariosResponse.statusCode != 200) {
+        throw Exception(
+          'Error usuarios ${usuariosResponse.statusCode}: ${usuariosResponse.body}',
+        );
+      }
+
+      final List<Map<String, dynamic>> usuarios =
+          (json.decode(usuariosResponse.body) as List)
               .map((e) => Map<String, dynamic>.from(e as Map))
               .toList();
-          _isLoading = false;
-        });
-      } else if (response.statusCode == 404) {
-        setState(() {
-          _personas = [];
-          _isLoading = false;
-        });
-      } else if (response.statusCode == 403) {
-        throw Exception('No tienes permisos para ver $_titulo.');
-      } else {
-        throw Exception('Error ${response.statusCode}: ${response.body}');
+
+      final List<Map<String, dynamic>> registrosRol =
+          personasResponse.statusCode == 200
+          ? (json.decode(personasResponse.body) as List)
+                .map((e) => Map<String, dynamic>.from(e as Map))
+                .toList()
+          : [];
+
+      final rolBuscado = _esConductor ? 'CONDUCTOR' : 'PROPIETARIO';
+
+      final Map<String, Map<String, dynamic>> personasPorUsuario = {};
+
+      for (final user in usuarios) {
+        final rol = _value(user, ['rol']).toUpperCase();
+
+        if (!rol.contains(rolBuscado)) continue;
+
+        final usuarioId = _value(user, ['id', 'idUsuario', 'id_usuario']);
+        if (usuarioId.isEmpty) continue;
+
+        personasPorUsuario[usuarioId] = {
+          ...user,
+          'usuarioId': usuarioId,
+          'idUsuario': usuarioId,
+          'nombreCompleto':
+              '${_value(user, ['nombre'])} ${_value(user, ['apellido'])}'
+                  .trim(),
+        };
       }
+
+      for (final persona in registrosRol) {
+        final usuarioId = _obtenerUsuarioId(persona)?.toString() ?? '';
+        if (usuarioId.isEmpty) continue;
+
+        personasPorUsuario[usuarioId] = {
+          ...?personasPorUsuario[usuarioId],
+          ...persona,
+          'usuarioId': usuarioId,
+          'idUsuario': usuarioId,
+        };
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _personas = personasPorUsuario.values.toList()
+          ..sort((a, b) => _nombreCompleto(a).compareTo(_nombreCompleto(b)));
+        _isLoading = false;
+      });
     } catch (e) {
       if (!mounted) return;
+
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -872,14 +923,21 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                           final Map<String, dynamic> body = _esConductor
                               ? {
                                   if (!editando) 'idUsuario': idUsuario,
-                                  'nombre': nombreController.text.trim(),
-                                  'apellido': apellidoController.text.trim(),
-                                  'tipoDocumento': tipoDocumentoSeleccionado,
-                                  'numeroDocumento': numeroDocumentoController
-                                      .text
-                                      .trim(),
-                                  'telefono': telefonoController.text.trim(),
-                                  'direccion': direccionController.text.trim(),
+                                  if (!editando)
+                                    'nombre': nombreController.text.trim(),
+                                  if (!editando)
+                                    'apellido': apellidoController.text.trim(),
+                                  if (!editando)
+                                    'tipoDocumento': tipoDocumentoSeleccionado,
+                                  if (!editando)
+                                    'numeroDocumento': numeroDocumentoController
+                                        .text
+                                        .trim(),
+                                  if (!editando)
+                                    'telefono': telefonoController.text.trim(),
+                                  if (!editando)
+                                    'direccion': direccionController.text
+                                        .trim(),
                                   'licenciaConduccion': licenciaController.text
                                       .trim(),
                                   'categoriaLicencia':
@@ -889,14 +947,21 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                                 }
                               : {
                                   if (!editando) 'idUsuario': idUsuario,
-                                  'nombre': nombreController.text.trim(),
-                                  'apellido': apellidoController.text.trim(),
-                                  'tipoDocumento': tipoDocumentoSeleccionado,
-                                  'numeroDocumento': numeroDocumentoController
-                                      .text
-                                      .trim(),
-                                  'telefono': telefonoController.text.trim(),
-                                  'direccion': direccionController.text.trim(),
+                                  if (!editando)
+                                    'nombre': nombreController.text.trim(),
+                                  if (!editando)
+                                    'apellido': apellidoController.text.trim(),
+                                  if (!editando)
+                                    'tipoDocumento': tipoDocumentoSeleccionado,
+                                  if (!editando)
+                                    'numeroDocumento': numeroDocumentoController
+                                        .text
+                                        .trim(),
+                                  if (!editando)
+                                    'telefono': telefonoController.text.trim(),
+                                  if (!editando)
+                                    'direccion': direccionController.text
+                                        .trim(),
                                   'documentoPropietario':
                                       documentoPropietarioController.text
                                           .trim(),
@@ -904,6 +969,11 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
                           if (editando) {
                             final int id = int.parse(persona['id'].toString());
+
+                            body['idUsuario'] = _obtenerUsuarioId(
+                              persona,
+                            )?.toString();
+
                             await _editarPersona(id, body);
                           } else {
                             await _crearPersona(body);
@@ -974,11 +1044,13 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                                 controller: nombreController,
                                 label: 'Nombre',
                                 icon: Icons.person_rounded,
+                                enabled: !editando,
                               ),
                               _formInput(
                                 controller: apellidoController,
                                 label: 'Apellido',
                                 icon: Icons.person_outline_rounded,
+                                enabled: !editando,
                               ),
                               _formSelect(
                                 label: 'Tipo documento',
@@ -1002,6 +1074,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                                 controller: numeroDocumentoController,
                                 label: 'Número documento',
                                 icon: Icons.confirmation_number_rounded,
+                                enabled: !editando,
                               ),
                               _formInput(
                                 controller: telefonoController,
@@ -1009,11 +1082,13 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                                 hint: 'Ej: 3001234567',
                                 icon: Icons.phone_rounded,
                                 keyboardType: TextInputType.phone,
+                                enabled: !editando,
                               ),
                               _formInput(
                                 controller: direccionController,
                                 label: 'Dirección',
                                 icon: Icons.location_on_rounded,
+                                enabled: !editando,
                               ),
 
                               if (!editando) ...[
@@ -1132,13 +1207,15 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
     required IconData icon,
     String? hint,
     TextInputType? keyboardType,
+    bool enabled = true,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
+        enabled: enabled,
         controller: controller,
         keyboardType: keyboardType,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: enabled ? Colors.white : Colors.white54),
         decoration: InputDecoration(
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(
@@ -1147,15 +1224,27 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
           ),
           labelText: label,
           hintText: hint,
-          labelStyle: const TextStyle(color: Colors.white70),
+          labelStyle: TextStyle(
+            color: enabled ? Colors.white70 : Colors.white38,
+          ),
           hintStyle: const TextStyle(color: Colors.white38),
-          prefixIcon: Icon(icon, color: Colors.white54, size: 18),
+          prefixIcon: Icon(
+            icon,
+            color: enabled ? Colors.white54 : Colors.white30,
+            size: 18,
+          ),
           prefixIconConstraints: const BoxConstraints(minWidth: 42),
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.06),
+          fillColor: enabled
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.white.withValues(alpha: 0.025),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
@@ -1910,53 +1999,59 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
     final items = _filtrados;
 
-    return Container(
-      color: _bgColor,
-      child: RefreshIndicator(
-        onRefresh: _loadPersonas,
-        color: _accentColor,
-        child: ListView(
-          padding: EdgeInsets.all(
-            _paddingResponsive(MediaQuery.of(context).size.width),
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(26),
+        topRight: Radius.circular(26),
+      ),
+      child: Container(
+        color: _bgColor,
+        child: RefreshIndicator(
+          onRefresh: _loadPersonas,
+          color: _accentColor,
+          child: ListView(
+            padding: EdgeInsets.all(
+              _paddingResponsive(MediaQuery.of(context).size.width),
+            ),
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 18),
+              _buildSearchAndActions(),
+              const SizedBox(height: 18),
+
+              if (items.isEmpty)
+                _buildEmpty()
+              else
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final width = constraints.maxWidth;
+
+                    final crossAxisCount = width > 1100
+                        ? 3
+                        : width > 720
+                        ? 2
+                        : 1;
+
+                    return GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: items.length,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                        mainAxisExtent: width < 360 ? 205 : 190,
+                      ),
+                      itemBuilder: (context, index) {
+                        return _buildCard(items[index]);
+                      },
+                    );
+                  },
+                ),
+
+              const SizedBox(height: 32),
+            ],
           ),
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 18),
-            _buildSearchAndActions(),
-            const SizedBox(height: 18),
-
-            if (items.isEmpty)
-              _buildEmpty()
-            else
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final width = constraints.maxWidth;
-
-                  final crossAxisCount = width > 1100
-                      ? 3
-                      : width > 720
-                      ? 2
-                      : 1;
-
-                  return GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: items.length,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                      mainAxisExtent: width < 360 ? 205 : 190,
-                    ),
-                    itemBuilder: (context, index) {
-                      return _buildCard(items[index]);
-                    },
-                  );
-                },
-              ),
-
-            const SizedBox(height: 32),
-          ],
         ),
       ),
     );

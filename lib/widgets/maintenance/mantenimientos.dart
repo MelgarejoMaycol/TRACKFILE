@@ -1022,19 +1022,16 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                 ? buildVistaEmpresaToggle(isCompact: smallHeader)
                 : const SizedBox.shrink();
 
-            if (smallHeader) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [toggle, const SizedBox(height: 12), title],
-              );
-            }
-
-            return Row(
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                toggle,
-                const SizedBox(width: 16),
-                Expanded(child: title),
+                title,
+                if (_isEmpresa &&
+                    !_viendoPersona &&
+                    widget.vehiculoId == null) ...[
+                  const SizedBox(height: 12),
+                  Align(alignment: Alignment.centerLeft, child: toggle),
+                ],
               ],
             );
           },

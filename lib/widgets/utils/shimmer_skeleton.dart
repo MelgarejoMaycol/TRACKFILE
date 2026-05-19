@@ -195,59 +195,65 @@ class ShimmerPerfilPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: _surfaceColor,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final bool isCompact = constraints.maxWidth < 920;
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(28),
+        topRight: Radius.circular(28),
+      ),
+      child: Container(
+        color: _surfaceColor,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isCompact = constraints.maxWidth < 920;
 
-          return SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              isCompact ? 16 : 24,
-              24,
-              isCompact ? 16 : 24,
-              isCompact ? 120 : 80,
-            ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const ShimmerSkeleton(
-                      width: 260,
-                      height: 28,
-                      borderRadius: 8,
-                    ),
-                    const SizedBox(height: 10),
-                    const ShimmerSkeleton(
-                      width: 520,
-                      height: 14,
-                      borderRadius: 8,
-                    ),
-                    const SizedBox(height: 14),
-                    const ShimmerSkeleton(
-                      width: 190,
-                      height: 38,
-                      borderRadius: 12,
-                    ),
-                    const SizedBox(height: 24),
-                    Wrap(
-                      spacing: 18,
-                      runSpacing: 18,
-                      children: [
-                        _profileCard(isCompact),
-                        _detailsCard(isCompact),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    _actionsCard(isCompact),
-                  ],
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                isCompact ? 16 : 24,
+                24,
+                isCompact ? 16 : 24,
+                isCompact ? 120 : 80,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1100),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const ShimmerSkeleton(
+                        width: 260,
+                        height: 28,
+                        borderRadius: 8,
+                      ),
+                      const SizedBox(height: 10),
+                      const ShimmerSkeleton(
+                        width: 520,
+                        height: 14,
+                        borderRadius: 8,
+                      ),
+                      const SizedBox(height: 14),
+                      const ShimmerSkeleton(
+                        width: 190,
+                        height: 38,
+                        borderRadius: 12,
+                      ),
+                      const SizedBox(height: 24),
+                      Wrap(
+                        spacing: 18,
+                        runSpacing: 18,
+                        children: [
+                          _profileCard(isCompact),
+                          _detailsCard(isCompact),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      _actionsCard(isCompact),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -642,10 +648,7 @@ class ShimmerDashboardLoadingPage extends StatelessWidget {
                       _leftSidebar(),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: _contentPanel(
-                          radius: radius,
-                          isCompact: false,
-                        ),
+                        child: _contentPanel(radius: radius, isCompact: false),
                       ),
                     ],
                   ),
@@ -834,9 +837,17 @@ class ShimmerDashboardLoadingPage extends StatelessWidget {
                     child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ShimmerSkeleton(width: 46, height: 46, borderRadius: 16),
+                        ShimmerSkeleton(
+                          width: 46,
+                          height: 46,
+                          borderRadius: 16,
+                        ),
                         SizedBox(height: 14),
-                        ShimmerSkeleton(width: 130, height: 16, borderRadius: 6),
+                        ShimmerSkeleton(
+                          width: 130,
+                          height: 16,
+                          borderRadius: 6,
+                        ),
                         SizedBox(height: 8),
                         ShimmerSkeleton(width: 90, height: 12, borderRadius: 6),
                       ],
@@ -918,9 +929,7 @@ class _FakeSelectedButton extends StatelessWidget {
       decoration: BoxDecoration(
         color: ShimmerDashboardLoadingPage._accentColor.withValues(alpha: 0.34),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.28),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
       ),
       child: const Center(
         child: ShimmerSkeleton(width: 64, height: 10, borderRadius: 6),
@@ -964,7 +973,9 @@ class _FakeSelectedMenuItem extends StatelessWidget {
         color: ShimmerDashboardLoadingPage._accentColor.withValues(alpha: 0.30),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: ShimmerDashboardLoadingPage._accentColor.withValues(alpha: 0.45),
+          color: ShimmerDashboardLoadingPage._accentColor.withValues(
+            alpha: 0.45,
+          ),
         ),
       ),
       child: const Row(
@@ -1009,7 +1020,9 @@ class _FakeBottomSelectedItem extends StatelessWidget {
         color: ShimmerDashboardLoadingPage._accentColor.withValues(alpha: 0.32),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: ShimmerDashboardLoadingPage._accentColor.withValues(alpha: 0.45),
+          color: ShimmerDashboardLoadingPage._accentColor.withValues(
+            alpha: 0.45,
+          ),
         ),
       ),
       child: const Center(
