@@ -10,10 +10,10 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trackfile/services/api_link.dart';
+import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
 import 'package:trackfile/utils/api_config.dart';
 import 'package:trackfile/utils/role_router.dart';
-import 'package:trackfile/services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   static const route = '/login';
@@ -1119,7 +1119,7 @@ class _LoginScreenState extends State<LoginScreen>
     final double logoRadius = logoDiameter / 2;
     const darkBlue = Color(0xFF06135E);
     return Scaffold(
-      backgroundColor: const Color(0xFF0C1C58),
+      backgroundColor: const Color(0xFF101F63),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -1135,54 +1135,67 @@ class _LoginScreenState extends State<LoginScreen>
                       constraints: const BoxConstraints(minHeight: 0),
                       child: Card(
                         color: Colors.white,
-                        elevation: 0,
-                        shadowColor: Colors.transparent,
+                        elevation: 14,
+                        shadowColor: const Color(
+                          0xFF06135E,
+                        ).withValues(alpha: 0.18),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(28),
                           side: BorderSide.none,
                         ),
                         child: Padding(
                           padding: EdgeInsets.fromLTRB(
-                            horizontalPadding,
-                            16,
-                            horizontalPadding,
-                            16,
+                            horizontalPadding + 8,
+                            24,
+                            horizontalPadding + 8,
+                            22,
                           ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               // Simple TabBar without any visible selection indicator
-                              TabBar(
-                                controller: _tabController,
-                                labelColor: darkBlue,
-                                unselectedLabelColor: darkBlue.withValues(
-                                  alpha: 0.6,
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 6,
                                 ),
-                                labelStyle: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 15,
-                                ),
-                                unselectedLabelStyle: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 15,
-                                ),
-                                // Ensure the TabBar does not draw any underline or indicator
-                                indicator: const UnderlineTabIndicator(
-                                  borderSide: BorderSide(
-                                    color: Colors.transparent,
-                                    width: 0,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF4F6FF),
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: const Color(0xFFE4E8F8),
+                                    width: 1,
                                   ),
                                 ),
-                                indicatorWeight: 0,
-                                indicatorPadding: EdgeInsets.zero,
-                                indicatorSize: TabBarIndicatorSize.tab,
-                                overlayColor: WidgetStatePropertyAll<Color>(
-                                  Colors.transparent,
+                                child: TabBar(
+                                  controller: _tabController,
+                                  dividerColor: Colors.transparent,
+                                  indicatorColor: Colors.transparent,
+                                  indicatorWeight: 0.01,
+                                  indicatorSize: TabBarIndicatorSize.label,
+                                  overlayColor:
+                                      const WidgetStatePropertyAll<Color>(
+                                        Colors.transparent,
+                                      ),
+                                  labelColor: const Color(0xFF06135E),
+                                  unselectedLabelColor: const Color(
+                                    0xFF06135E,
+                                  ).withValues(alpha: 0.48),
+                                  labelStyle: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 15,
+                                    letterSpacing: 0.3,
+                                  ),
+                                  unselectedLabelStyle: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    letterSpacing: 0.1,
+                                  ),
+                                  tabs: const [
+                                    Tab(text: 'ÚNETE'),
+                                    Tab(text: 'INICIA SESIÓN'),
+                                  ],
                                 ),
-                                tabs: const [
-                                  Tab(text: 'ÚNETE'),
-                                  Tab(text: 'INICIA SESIÓN'),
-                                ],
                               ),
                               const SizedBox(height: 8),
                               // Let the TabBarView expand to fill available space inside the card
@@ -1279,7 +1292,8 @@ class _LoginScreenState extends State<LoginScreen>
             FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
           ],
           decoration: _inputDecoration('Contraseña').copyWith(
-            prefixIcon: IconButton(
+            prefixIcon: const Icon(Icons.lock_outline_rounded),
+            suffixIcon: IconButton(
               icon: Icon(
                 _signupPassObscure ? Icons.visibility_off : Icons.visibility,
               ),
@@ -1298,7 +1312,8 @@ class _LoginScreenState extends State<LoginScreen>
           controller: _confirmPassCtrl,
           obscureText: _confirmPassObscure,
           decoration: _inputDecoration('Confirmar Contraseña').copyWith(
-            prefixIcon: IconButton(
+            prefixIcon: const Icon(Icons.verified_user_outlined),
+            suffixIcon: IconButton(
               icon: Icon(
                 _confirmPassObscure ? Icons.visibility_off : Icons.visibility,
               ),
@@ -1363,7 +1378,7 @@ class _LoginScreenState extends State<LoginScreen>
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: (_isUneteValid && !_signUpLoading)
-                      ? const [Color(0xFF06135E), Color(0xFF16C79A)]
+                      ? const [Color(0xFF06135E), Color(0xFF3330BE)]
                       : [Colors.grey.shade400, Colors.grey.shade500],
                 ),
                 borderRadius: const BorderRadius.all(Radius.circular(12)),
@@ -1406,7 +1421,9 @@ class _LoginScreenState extends State<LoginScreen>
             fontWeight: FontWeight.w500,
             color: Color(0xFF333333),
           ),
-          decoration: _inputDecoration('Correo electrónico'),
+          decoration: _inputDecoration(
+            'Correo electrónico',
+          ).copyWith(prefixIcon: const Icon(Icons.mail_outline_rounded)),
         ),
         const SizedBox(height: 12),
         TextField(
@@ -1418,7 +1435,8 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           obscureText: _loginPassObscure,
           decoration: _inputDecoration('Contraseña').copyWith(
-            prefixIcon: IconButton(
+            prefixIcon: const Icon(Icons.lock_outline_rounded),
+            suffixIcon: IconButton(
               icon: Icon(
                 _loginPassObscure ? Icons.visibility_off : Icons.visibility,
               ),
@@ -1453,7 +1471,7 @@ class _LoginScreenState extends State<LoginScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFF06135E), Color(0xFF16C79A)],
+                  colors: [Color(0xFF06135E), Color(0xFF3330BE)],
                 ),
                 borderRadius: BorderRadius.all(Radius.circular(12)),
               ),
@@ -1471,7 +1489,7 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       )
                     : const Text(
-                        'Inicia Sesion',
+                        'Iniciar sesión',
                         style: TextStyle(color: Colors.white),
                       ),
               ),
@@ -1493,26 +1511,42 @@ class _LoginScreenState extends State<LoginScreen>
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
+      floatingLabelBehavior: FloatingLabelBehavior.auto,
+      labelStyle: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: const Color(0xFF06135E).withValues(alpha: 0.72),
+      ),
+      floatingLabelStyle: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
         color: Color(0xFF06135E),
       ),
       filled: true,
-      fillColor: const Color(0xFFF5F7FA),
+      fillColor: const Color(0xFFF8FAFF),
+      prefixIconColor: const Color(0xFF06135E),
+      suffixIconColor: const Color(0xFF06135E),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1.5),
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: Color(0xFFE2E7F3), width: 1.2),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFD0D0D0), width: 1.5),
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: Color(0xFFE2E7F3), width: 1.2),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF06135E), width: 2),
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: Color(0xFF3330BE), width: 1.7),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: Color(0xFFD92D20), width: 1.3),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: Color(0xFFD92D20), width: 1.5),
+      ),
     );
   }
 
