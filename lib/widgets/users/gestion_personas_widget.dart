@@ -13,6 +13,7 @@ class GestionPersonasWidget extends StatefulWidget {
   final TipoGestionPersona tipoInicial;
   final bool permitirCambiarTipo;
   final String nombreEmpresa;
+  final String? initialSearch;
   final void Function({
     required int usuarioId,
     required String tipoPersona,
@@ -50,6 +51,7 @@ class GestionPersonasWidget extends StatefulWidget {
     this.onVerMantenimientosPersona,
     this.onVerVehiculosPersona,
     this.onVerCertificadosPersona,
+    this.initialSearch,
   });
 
   @override
@@ -106,7 +108,19 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
   void initState() {
     super.initState();
     _tipoActual = widget.tipoInicial;
+    _search = widget.initialSearch?.trim() ?? '';
     _init();
+  }
+
+  @override
+  void didUpdateWidget(covariant GestionPersonasWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.initialSearch != oldWidget.initialSearch) {
+      setState(() {
+        _search = widget.initialSearch?.trim() ?? '';
+      });
+    }
   }
 
   Future<void> _init() async {
@@ -289,11 +303,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
     if (query.isEmpty) return _personas;
 
     return _personas.where((item) {
-      final nombre = _value(item, [
-        'nombreCompleto',
-        'nombre',
-        'apellido',
-      ]).toLowerCase();
+      final nombre = _nombreCompleto(item).toLowerCase();
       final documento = _value(item, [
         'numeroDocumento',
         'documentoPropietario',

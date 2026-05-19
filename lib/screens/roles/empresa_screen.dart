@@ -10,8 +10,10 @@ import 'package:trackfile/widgets/inicio.dart';
 import 'package:trackfile/widgets/maintenance/mantenimientos.dart';
 import 'package:trackfile/widgets/notifications/notifications.dart';
 import 'package:trackfile/widgets/requests/requests.dart';
+import 'package:trackfile/widgets/search/global_dashboard_search.dart';
 import 'package:trackfile/widgets/users/gestion_personas_widget.dart';
 import 'package:trackfile/widgets/users/perfil.dart';
+import 'package:trackfile/widgets/utils/shimmer_skeleton.dart';
 import 'package:trackfile/widgets/vehicles/vehiculos.dart';
 
 import '../../services/notifications/notificaciones_realtime_service.dart';
@@ -69,6 +71,9 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   int? _selectedTopIndex;
   String _activeSection = 'Inicio';
   int _contentRefreshKey = 0;
+  final TextEditingController _pageSearchController = TextEditingController();
+  String? _initialInnerSearch;
+  late final List<GlobalSearchOption> _globalSearchOptions;
   bool _isLoading = true;
   String? _selectedDocumentsUserId;
   String? _selectedMaintenanceUserId;
@@ -112,6 +117,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     _hydrateCompany();
     _loadDashboard();
     _loadNotificationsCount();
+    _globalSearchOptions = _buildGlobalSearchOptions();
   }
 
   void _hydrateCompany() {
@@ -342,10 +348,27 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   }
 
   void _onBottomMenuTap(int index) {
+    setState(() {
+      _initialInnerSearch = null;
+      _selectedPersonaVehiculoUserId = null;
+      _selectedPersonaVehiculoTipo = null;
+      _selectedPersonaVehiculoNombre = null;
+      _selectedMaintenanceUserId = null;
+      _selectedMaintenanceRole = null;
+      _selectedMaintenancePersonName = null;
+      _selectedCertificadosUserId = null;
+      _selectedCertificadosRole = null;
+      _selectedCertificadosPersonName = null;
+    });
+
     _goToSection(_bottomMenuOptions[index].section);
   }
 
   void _onTopMenuTap(int index) {
+    setState(() {
+      _initialInnerSearch = null;
+    });
+
     _goToSection(_topMenuOptions[index].section);
   }
 
@@ -370,6 +393,9 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           tipoInicial: TipoGestionPersona.conductor,
           permitirCambiarTipo: false,
           nombreEmpresa: _companyName,
+          initialSearch: _activeSection == 'Conductores'
+              ? _initialInnerSearch
+              : null,
           onVerDocumentosPersona:
               ({
                 required int usuarioId,
@@ -437,6 +463,9 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           tipoInicial: TipoGestionPersona.propietario,
           permitirCambiarTipo: false,
           nombreEmpresa: _companyName,
+          initialSearch: _activeSection == 'Propietarios'
+              ? _initialInnerSearch
+              : null,
           onVerDocumentosPersona:
               ({
                 required int usuarioId,
@@ -533,6 +562,9 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           personaUserId: _selectedCertificadosUserId,
           personaRole: _selectedCertificadosRole,
           personaNombre: _selectedCertificadosPersonName,
+          initialSearch: _activeSection == 'Solicitudes'
+              ? _initialInnerSearch
+              : null,
         );
       case 'Vehículos':
         return _buildFleetContent();
@@ -550,6 +582,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       personaTipo: _selectedPersonaVehiculoTipo,
       personaNombre: _selectedPersonaVehiculoNombre,
       jsonPath: 'assets/vehicles_data.json',
+      initialSearch: _activeSection == 'Vehículos' ? _initialInnerSearch : null,
       onVerDocumentosVehiculo:
           ({required int vehiculoId, required String placa}) {
             setState(() {
@@ -589,6 +622,9 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       personaNombre: _selectedMaintenancePersonName,
       vehiculoId: _selectedMaintenanceVehicleId,
       vehiculoPlaca: _selectedMaintenanceVehiclePlate,
+      initialSearch: _activeSection == 'Mantenimientos'
+          ? _initialInnerSearch
+          : null,
     );
   }
 
@@ -651,43 +687,55 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Left: Logo + Company Info
-                  CircleAvatar(
-                    radius: avatarSize / 2,
-                    backgroundColor: Colors.white24,
-                    child: avatarContent,
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _companyName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  InkWell(
+                    onTap: () => _activateSection('Perfil'),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 4,
                       ),
-                      const SizedBox(height: 1),
-                      Text(
-                        'Rep: $representativeLabel | NIT: $_nit',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 10,
-                        ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: avatarSize / 2,
+                            backgroundColor: Colors.white24,
+                            child: avatarContent,
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _companyName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                'Rep: $representativeLabel | NIT: $_nit',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
 
                   const SizedBox(width: 20),
 
-                  // Center: Search bar
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -698,43 +746,22 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                         color: Colors.white.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: TextField(
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white.withValues(alpha: 0.14),
-                          hintText: 'Buscar por documento, propietario o placa',
-                          hintStyle: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
-                          prefixIcon: const Icon(
-                            Icons.search_rounded,
-                            color: Colors.white70,
-                            size: 18,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                            horizontal: 8,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
+                      child: _buildPageSearchField(
+                        hintText:
+                            'Buscar página: documentos, vehículos, mantenimientos...',
                       ),
                     ),
                   ),
 
                   const SizedBox(width: 16),
 
-                  // Right: Bell icon with notification
                   Align(
                     alignment: Alignment.centerRight,
                     child: Stack(
                       children: [
                         GestureDetector(
                           onTap: () => _activateSection('Mensajes'),
-                          child: Icon(
+                          child: const Icon(
                             Icons.notifications_none_rounded,
                             color: Colors.white,
                             size: 22,
@@ -767,7 +794,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
             ),
           ),
         ),
-        // Bottom row: Menu buttons
         Container(
           color: _primaryColor,
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 20),
@@ -792,6 +818,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
 
   Widget _buildHeader({required bool isCompact}) {
     final double avatarSize = isCompact ? 48 : 56;
+
     Widget avatarContent;
     if (_companyLogo != null && _companyLogo!.isNotEmpty) {
       avatarContent = ClipOval(
@@ -819,81 +846,88 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: avatarSize / 2,
-            backgroundColor: Colors.white24,
-            child: avatarContent,
-          ),
-          SizedBox(width: isCompact ? 8 : 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _companyName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: isCompact ? 14 : 16,
-                    fontWeight: FontWeight.bold,
+            child: InkWell(
+              onTap: () => _activateSection('Perfil'),
+              borderRadius: BorderRadius.circular(14),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: avatarSize / 2,
+                    backgroundColor: Colors.white24,
+                    child: avatarContent,
                   ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  'Representante: $representativeLabel',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: isCompact ? 10 : 11,
+                  SizedBox(width: isCompact ? 8 : 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _companyName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isCompact ? 14 : 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          'Representante: $representativeLabel',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: isCompact ? 10 : 11,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          'NIT: $_nit',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: isCompact ? 9 : 10,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  'NIT: $_nit',
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: isCompact ? 9 : 10,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Stack(
-              children: [
-                GestureDetector(
-                  onTap: () => _activateSection('Mensajes'),
-                  child: Icon(
-                    Icons.notifications_none_rounded,
-                    color: Colors.white,
-                    size: isCompact ? 20 : 24,
-                  ),
+          Stack(
+            children: [
+              GestureDetector(
+                onTap: () => _activateSection('Mensajes'),
+                child: Icon(
+                  Icons.notifications_none_rounded,
+                  color: Colors.white,
+                  size: isCompact ? 20 : 24,
                 ),
-                if (_notifications > 0)
-                  Positioned(
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '$_notifications',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
+              ),
+              if (_notifications > 0)
+                Positioned(
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$_notifications',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ],
       ),
@@ -1016,32 +1050,9 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              TextField(
-                                decoration: InputDecoration(
-                                  filled: true,
-                                  fillColor: Colors.white.withValues(
-                                    alpha: 0.14,
-                                  ),
-                                  hintText:
-                                      'Buscar por documento, propietario o placa',
-                                  hintStyle: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 13,
-                                  ),
-                                  prefixIcon: const Icon(
-                                    Icons.search_rounded,
-                                    color: Colors.white70,
-                                    size: 18,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 10,
-                                    horizontal: 10,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
+                              _buildPageSearchField(
+                                hintText:
+                                    'Buscar página: documentos, vehículos, mantenimientos...',
                               ),
                               const SizedBox(height: 8),
                               Wrap(
@@ -1091,29 +1102,9 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              TextField(
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.14),
-                  hintText: 'Buscar por documento, propietario o placa',
-                  hintStyle: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
-                  prefixIcon: const Icon(
-                    Icons.search_rounded,
-                    color: Colors.white70,
-                    size: 18,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 8,
-                    horizontal: 10,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
+              _buildPageSearchField(
+                hintText:
+                    'Buscar página: documentos, vehículos, mantenimientos...',
               ),
               const SizedBox(height: 6),
               Wrap(
@@ -1334,12 +1325,204 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   }
 
   @override
+  void dispose() {
+    _pageSearchController.dispose();
+    super.dispose();
+  }
+
+  String _normalizeSearch(String value) {
+    return value
+        .toLowerCase()
+        .trim()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u');
+  }
+
+  List<GlobalSearchOption> _buildGlobalSearchOptions() {
+    return const [
+      GlobalSearchOption(
+        label: 'Página: Inicio',
+        section: 'Inicio',
+        searchText: '',
+        icon: Icons.dashboard_rounded,
+        type: 'Página',
+      ),
+      GlobalSearchOption(
+        label: 'Página: Documentos',
+        section: 'Documentos',
+        searchText: '',
+        icon: Icons.folder_special_rounded,
+        type: 'Página',
+      ),
+      GlobalSearchOption(
+        label: 'Página: Vehículos',
+        section: 'Vehículos',
+        searchText: '',
+        icon: Icons.directions_car_filled_rounded,
+        type: 'Página',
+      ),
+      GlobalSearchOption(
+        label: 'Página: Mantenimientos',
+        section: 'Mantenimientos',
+        searchText: '',
+        icon: Icons.build_rounded,
+        type: 'Página',
+      ),
+      GlobalSearchOption(
+        label: 'Página: Solicitudes',
+        section: 'Solicitudes',
+        searchText: '',
+        icon: Icons.assignment_rounded,
+        type: 'Página',
+      ),
+      GlobalSearchOption(
+        label: 'Página: Perfil',
+        section: 'Perfil',
+        searchText: '',
+        icon: Icons.person_rounded,
+        type: 'Página',
+      ),
+      GlobalSearchOption(
+        label: 'Página: Mensajes',
+        section: 'Mensajes',
+        searchText: '',
+        icon: Icons.notifications_rounded,
+        type: 'Página',
+      ),
+
+      GlobalSearchOption(
+        label: 'Mantenimiento: Cambio de aceite',
+        section: 'Mantenimientos',
+        searchText: 'aceite',
+        icon: Icons.local_gas_station_rounded,
+        type: 'Mantenimiento',
+      ),
+      GlobalSearchOption(
+        label: 'Mantenimiento: Preventivo',
+        section: 'Mantenimientos',
+        searchText: 'preventivo',
+        icon: Icons.build_circle_rounded,
+        type: 'Mantenimiento',
+      ),
+      GlobalSearchOption(
+        label: 'Mantenimiento: Correctivo',
+        section: 'Mantenimientos',
+        searchText: 'correctivo',
+        icon: Icons.car_repair_rounded,
+        type: 'Mantenimiento',
+      ),
+
+      GlobalSearchOption(
+        label: 'Solicitud: Certificado laboral',
+        section: 'Solicitudes',
+        searchText: 'certificado laboral',
+        icon: Icons.verified_rounded,
+        type: 'Solicitud',
+      ),
+      GlobalSearchOption(
+        label: 'Solicitud: Constancia laboral',
+        section: 'Solicitudes',
+        searchText: 'constancia laboral',
+        icon: Icons.description_rounded,
+        type: 'Solicitud',
+      ),
+    ];
+  }
+
+  void _handlePageSearch(String value) {
+    final raw = value.trim();
+    final query = _normalizeSearch(raw);
+
+    if (query.isEmpty) return;
+
+    String? section;
+    String? innerSearch;
+
+    if (query.contains('inicio') || query.contains('home')) {
+      section = 'Inicio';
+    } else if (query.contains('document')) {
+      section = 'Documentos';
+    } else if (query.contains('perfil') || query.contains('cuenta')) {
+      section = 'Perfil';
+    } else if (query.contains('mensaje') ||
+        query.contains('notificacion') ||
+        query.contains('alerta')) {
+      section = 'Mensajes';
+    } else if (query.contains('solicitud') ||
+        query.contains('certificado') ||
+        query.contains('certificacion')) {
+      section = 'Solicitudes';
+      innerSearch = raw;
+    } else if (query.contains('mantenimiento') ||
+        query.contains('taller') ||
+        query.contains('revision') ||
+        query.contains('preventivo') ||
+        query.contains('correctivo') ||
+        query.contains('aceite')) {
+      section = 'Mantenimientos';
+      innerSearch = raw;
+    } else if (query.contains('vehiculo') ||
+        query.contains('vehiculos') ||
+        query.contains('carro') ||
+        query.contains('placa') ||
+        RegExp(r'^[a-zA-Z]{2,4}\d{2,4}$').hasMatch(raw.replaceAll(' ', ''))) {
+      section = 'Vehículos';
+      innerSearch = raw.replaceAll('placa', '').trim();
+    } else if (query.contains('conductor') || query.contains('conductores')) {
+      section = 'Conductores';
+      innerSearch = raw
+          .replaceAll(RegExp(r'conductor(es)?', caseSensitive: false), '')
+          .trim();
+    } else if (query.contains('propietario') ||
+        query.contains('propietarios')) {
+      section = 'Propietarios';
+      innerSearch = raw
+          .replaceAll(RegExp(r'propietario(s)?', caseSensitive: false), '')
+          .trim();
+    } else if (query.contains('empresa') || query.contains('compania')) {
+      section = 'Empresa';
+    } else {
+      // Si no reconoce página, intenta buscarlo como placa.
+      section = 'Vehículos';
+      innerSearch = raw;
+    }
+
+    setState(() {
+      _initialInnerSearch = innerSearch?.trim().isEmpty == true
+          ? null
+          : innerSearch;
+    });
+
+    _pageSearchController.clear();
+    _goToSection(section);
+  }
+
+  Widget _buildPageSearchField({required String hintText}) {
+    return GlobalDashboardSearch(
+      controller: _pageSearchController,
+      hintText: hintText,
+      options: _globalSearchOptions,
+      onSubmitted: _handlePageSearch,
+      onSelected: (option) {
+        setState(() {
+          _initialInnerSearch = option.searchText.trim().isEmpty
+              ? null
+              : option.searchText.trim();
+        });
+
+        _pageSearchController.clear();
+        _goToSection(option.section);
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        backgroundColor: _surfaceColor,
-        body: const Center(child: CircularProgressIndicator()),
-      );
+      return const ShimmerDashboardLoadingPage();
     }
 
     return Scaffold(

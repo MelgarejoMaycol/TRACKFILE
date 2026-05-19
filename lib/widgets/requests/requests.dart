@@ -13,6 +13,7 @@ class SolicitudesWidget extends StatefulWidget {
   final String? personaUserId;
   final String? personaRole;
   final String? personaNombre;
+  final String? initialSearch;
 
   const SolicitudesWidget({
     super.key,
@@ -21,6 +22,7 @@ class SolicitudesWidget extends StatefulWidget {
     this.personaUserId,
     this.personaRole,
     this.personaNombre,
+    this.initialSearch,
   });
 
   @override
@@ -257,7 +259,21 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
   void initState() {
     super.initState();
     _roleNormalized = widget.role.toLowerCase();
+    _searchQuery = widget.initialSearch?.trim() ?? '';
+    _searchController.text = _searchQuery;
     _loadData();
+  }
+
+  @override
+  void didUpdateWidget(covariant SolicitudesWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.initialSearch != oldWidget.initialSearch) {
+      setState(() {
+        _searchQuery = widget.initialSearch?.trim() ?? '';
+        _searchController.text = _searchQuery;
+      });
+    }
   }
 
   @override

@@ -601,3 +601,420 @@ class ShimmerNotificacionesPage extends StatelessWidget {
     );
   }
 }
+
+class ShimmerDashboardLoadingPage extends StatelessWidget {
+  const ShimmerDashboardLoadingPage({super.key});
+
+  static const Color _primaryColor = Color(0xFF3330BE);
+  static const Color _surfaceColor = Color(0xFF131760);
+  static const Color _accentColor = Color(0xFF4F4CE8);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _primaryColor,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isCompact = constraints.maxWidth < 860;
+            final double radius = isCompact ? 24 : 28;
+
+            if (isCompact) {
+              return Column(
+                children: [
+                  _mobileHeader(),
+                  _mobileSearch(),
+                  _mobileTabs(),
+                  Expanded(
+                    child: _contentPanel(radius: radius, isCompact: true),
+                  ),
+                  _bottomBar(),
+                ],
+              );
+            }
+
+            return Column(
+              children: [
+                _desktopHeader(),
+                Expanded(
+                  child: Row(
+                    children: [
+                      _leftSidebar(),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _contentPanel(
+                          radius: radius,
+                          isCompact: false,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  static Widget _desktopHeader() {
+    return Column(
+      children: [
+        Container(
+          color: _primaryColor,
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+          child: Row(
+            children: [
+              const ShimmerSkeleton(width: 52, height: 52, borderRadius: 26),
+              const SizedBox(width: 12),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShimmerSkeleton(width: 160, height: 16, borderRadius: 6),
+                  SizedBox(height: 8),
+                  ShimmerSkeleton(width: 220, height: 11, borderRadius: 6),
+                ],
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const ShimmerSkeleton(height: 38, borderRadius: 12),
+                ),
+              ),
+              const SizedBox(width: 16),
+              const ShimmerSkeleton(width: 34, height: 34, borderRadius: 17),
+            ],
+          ),
+        ),
+        Container(
+          color: _primaryColor,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+          child: Row(
+            children: const [
+              _FakeSelectedButton(width: 104),
+              SizedBox(width: 8),
+              _FakeButton(width: 112),
+              SizedBox(width: 8),
+              _FakeButton(width: 108),
+              SizedBox(width: 8),
+              _FakeButton(width: 132),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  static Widget _mobileHeader() {
+    return Container(
+      color: _primaryColor,
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      child: Row(
+        children: const [
+          ShimmerSkeleton(width: 60, height: 60, borderRadius: 30),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ShimmerSkeleton(width: 160, height: 18, borderRadius: 6),
+                SizedBox(height: 8),
+                ShimmerSkeleton(width: 220, height: 13, borderRadius: 6),
+              ],
+            ),
+          ),
+          ShimmerSkeleton(width: 34, height: 34, borderRadius: 17),
+        ],
+      ),
+    );
+  }
+
+  static Widget _mobileSearch() {
+    return Container(
+      color: _primaryColor,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ShimmerSkeleton(width: 130, height: 20, borderRadius: 6),
+          SizedBox(height: 10),
+          ShimmerSkeleton(height: 44, borderRadius: 14),
+        ],
+      ),
+    );
+  }
+
+  static Widget _mobileTabs() {
+    return Container(
+      color: _primaryColor,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: const [
+            _FakeSelectedButton(width: 92),
+            SizedBox(width: 10),
+            _FakeButton(width: 108),
+            SizedBox(width: 10),
+            _FakeButton(width: 98),
+            SizedBox(width: 10),
+            _FakeButton(width: 130),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Widget _leftSidebar() {
+    return Container(
+      width: 200,
+      color: _primaryColor,
+      padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ShimmerSkeleton(width: 70, height: 18, borderRadius: 6),
+          const SizedBox(height: 28),
+          const _FakeSelectedMenuItem(),
+          const SizedBox(height: 14),
+          ...List.generate(
+            4,
+            (_) => const Padding(
+              padding: EdgeInsets.only(bottom: 14),
+              child: _FakeMenuItem(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _contentPanel({
+    required double radius,
+    required bool isCompact,
+  }) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        color: _surfaceColor,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
+      ),
+      padding: EdgeInsets.all(isCompact ? 16 : 24),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const ShimmerSkeleton(width: 240, height: 28, borderRadius: 8),
+            const SizedBox(height: 10),
+            const ShimmerSkeleton(width: 420, height: 14, borderRadius: 8),
+            const SizedBox(height: 24),
+            Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: List.generate(
+                4,
+                (_) => SizedBox(
+                  width: isCompact ? double.infinity : 240,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.045),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _accentColor.withValues(alpha: 0.22),
+                      ),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ShimmerSkeleton(width: 46, height: 46, borderRadius: 16),
+                        SizedBox(height: 14),
+                        ShimmerSkeleton(width: 130, height: 16, borderRadius: 6),
+                        SizedBox(height: 8),
+                        ShimmerSkeleton(width: 90, height: 12, borderRadius: 6),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            ...List.generate(
+              4,
+              (_) => const Padding(
+                padding: EdgeInsets.only(bottom: 14),
+                child: ShimmerSkeleton(
+                  width: double.infinity,
+                  height: 90,
+                  borderRadius: 18,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Widget _bottomBar() {
+    return Container(
+      height: 60,
+      color: _primaryColor,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: const [
+          _FakeBottomSelectedItem(),
+          _FakeBottomItem(),
+          _FakeBottomItem(),
+          _FakeBottomItem(),
+        ],
+      ),
+    );
+  }
+}
+
+class _FakeButton extends StatelessWidget {
+  final double width;
+
+  const _FakeButton({required this.width});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: const Center(
+        child: ShimmerSkeleton(width: 62, height: 10, borderRadius: 6),
+      ),
+    );
+  }
+}
+
+class _FakeSelectedButton extends StatelessWidget {
+  final double width;
+
+  const _FakeSelectedButton({required this.width});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: ShimmerDashboardLoadingPage._accentColor.withValues(alpha: 0.34),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.28),
+        ),
+      ),
+      child: const Center(
+        child: ShimmerSkeleton(width: 64, height: 10, borderRadius: 6),
+      ),
+    );
+  }
+}
+
+class _FakeMenuItem extends StatelessWidget {
+  const _FakeMenuItem();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.045),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Row(
+        children: [
+          ShimmerSkeleton(width: 20, height: 20, borderRadius: 6),
+          SizedBox(width: 12),
+          ShimmerSkeleton(width: 96, height: 12, borderRadius: 6),
+        ],
+      ),
+    );
+  }
+}
+
+class _FakeSelectedMenuItem extends StatelessWidget {
+  const _FakeSelectedMenuItem();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: ShimmerDashboardLoadingPage._accentColor.withValues(alpha: 0.30),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ShimmerDashboardLoadingPage._accentColor.withValues(alpha: 0.45),
+        ),
+      ),
+      child: const Row(
+        children: [
+          ShimmerSkeleton(width: 20, height: 20, borderRadius: 6),
+          SizedBox(width: 12),
+          ShimmerSkeleton(width: 96, height: 12, borderRadius: 6),
+        ],
+      ),
+    );
+  }
+}
+
+class _FakeBottomItem extends StatelessWidget {
+  const _FakeBottomItem();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 54,
+      height: 44,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.055),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Center(
+        child: ShimmerSkeleton(width: 24, height: 24, borderRadius: 8),
+      ),
+    );
+  }
+}
+
+class _FakeBottomSelectedItem extends StatelessWidget {
+  const _FakeBottomSelectedItem();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 54,
+      height: 44,
+      decoration: BoxDecoration(
+        color: ShimmerDashboardLoadingPage._accentColor.withValues(alpha: 0.32),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ShimmerDashboardLoadingPage._accentColor.withValues(alpha: 0.45),
+        ),
+      ),
+      child: const Center(
+        child: ShimmerSkeleton(width: 24, height: 24, borderRadius: 8),
+      ),
+    );
+  }
+}

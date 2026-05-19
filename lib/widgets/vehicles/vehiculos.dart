@@ -17,6 +17,7 @@ class VehiculosWidget extends StatefulWidget {
   final String? personaTipo;
   final String? personaNombre;
   final bool showOwnerColumn;
+  final String? initialSearch;
 
   final void Function({required int vehiculoId, required String placa})?
   onVerDocumentosVehiculo;
@@ -41,6 +42,7 @@ class VehiculosWidget extends StatefulWidget {
     this.onVerMantenimientosVehiculo,
     this.onVerPropietario,
     this.onVerConductor,
+    this.initialSearch,
   });
 
   @override
@@ -152,7 +154,19 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
   @override
   void initState() {
     super.initState();
+    _searchTerm = widget.initialSearch?.trim() ?? '';
     _initialize();
+  }
+
+  @override
+  void didUpdateWidget(covariant VehiculosWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.initialSearch != oldWidget.initialSearch) {
+      setState(() {
+        _searchTerm = widget.initialSearch?.trim() ?? '';
+      });
+    }
   }
 
   Future<void> _initialize() async {

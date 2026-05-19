@@ -8,8 +8,10 @@ import 'package:trackfile/widgets/inicio.dart';
 import 'package:trackfile/widgets/maintenance/mantenimientos.dart';
 import 'package:trackfile/widgets/notifications/notifications.dart';
 import 'package:trackfile/widgets/requests/requests.dart';
+import 'package:trackfile/widgets/search/global_dashboard_search.dart';
 import 'package:trackfile/widgets/users/empresa.dart';
 import 'package:trackfile/widgets/users/perfil.dart';
+import 'package:trackfile/widgets/utils/shimmer_skeleton.dart';
 import 'package:trackfile/widgets/vehicles/vehiculos.dart';
 
 class _MenuOption {
@@ -71,6 +73,9 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   int? _selectedLowerIndex = 0;
   String _activeSection = 'Inicio';
   int _contentRefreshKey = 0;
+  final TextEditingController _pageSearchController = TextEditingController();
+  String? _initialInnerSearch;
+  late final List<GlobalSearchOption> _globalSearchOptions;
 
   static const List<_MenuOption> _upperMenuOptions = [
     _MenuOption('Mensajes', Icons.chat_bubble_rounded, 'Mensajes'),
@@ -95,13 +100,11 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     _syncSelectedMenuWithSection(_activeSection);
     NotificacionesRealtimeService.start();
     _loadInitialData();
+    _globalSearchOptions = _buildGlobalSearchOptions();
   }
 
   Future<void> _loadInitialData() async {
-    await Future.wait([
-      _loadOwnerProfile(),
-      _loadNotificationsCount(),
-    ]);
+    await Future.wait([_loadOwnerProfile(), _loadNotificationsCount()]);
 
     if (!mounted) return;
     setState(() {
@@ -432,30 +435,9 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
                         color: Colors.white.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: TextField(
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white.withValues(alpha: 0.14),
-                          hintText:
-                              'Buscar vehículos, documentos o propiedades',
-                          hintStyle: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
-                          prefixIcon: const Icon(
-                            Icons.search_rounded,
-                            color: Colors.white70,
-                            size: 18,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                            horizontal: 8,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
+                      child: _buildPageSearchField(
+                        hintText:
+                            'Buscar página: documentos, vehículo, mantenimientos...',
                       ),
                     ),
                   ),
@@ -674,6 +656,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     final String displayName = _userName.isNotEmpty
         ? _userName
         : (widget.personName.isNotEmpty ? widget.personName : 'Propietario');
+
     final String displayCompany = _userCompany.isNotEmpty
         ? _userCompany
         : (widget.companyName.isNotEmpty ? widget.companyName : 'Sin compañía');
@@ -686,40 +669,54 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: isCompact ? 30 : 36,
-            backgroundColor: Colors.white24,
-            backgroundImage: avatarImage,
-            child: avatarImage == null
-                ? Icon(
-                    Icons.person,
-                    size: isCompact ? 32 : 36,
-                    color: Colors.white,
-                  )
-                : null,
-          ),
-          SizedBox(width: isCompact ? 10 : 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  displayName,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: isCompact ? 16 : 18,
-                    fontWeight: FontWeight.bold,
+            child: InkWell(
+              onTap: _navigateToProfile,
+              borderRadius: BorderRadius.circular(14),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: isCompact ? 30 : 36,
+                    backgroundColor: Colors.white24,
+                    backgroundImage: avatarImage,
+                    child: avatarImage == null
+                        ? Icon(
+                            Icons.person,
+                            size: isCompact ? 32 : 36,
+                            color: Colors.white,
+                          )
+                        : null,
                   ),
-                ),
-                SizedBox(height: isCompact ? 2 : 4),
-                Text(
-                  displayCompany,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: isCompact ? 13 : 14,
+                  SizedBox(width: isCompact ? 10 : 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isCompact ? 16 : 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: isCompact ? 2 : 4),
+                        Text(
+                          displayCompany,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: isCompact ? 13 : 14,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           Stack(
@@ -779,22 +776,9 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
                 ),
               ),
               SizedBox(height: isCompact ? 8 : 10),
-              TextField(
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.14),
-                  hintText: 'Buscar',
-                  hintStyle: const TextStyle(color: Colors.white70),
-                  prefixIcon: const Icon(Icons.search, color: Colors.white70),
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 0,
-                    horizontal: 12,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
+              _buildPageSearchField(
+                hintText:
+                    'Buscar página: documentos, vehículo, mantenimientos...',
               ),
             ],
           ),
@@ -861,6 +845,9 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         return SolicitudesWidget(
           role: 'Propietario',
           userId: widget.userId ?? '1',
+          initialSearch: _activeSection == 'Solicitudes'
+              ? _initialInnerSearch
+              : null,
         );
       case 'Perfil':
         return PerfilWidget(
@@ -902,6 +889,9 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           role: 'Propietario',
           ownerId: widget.userId,
           jsonPath: 'assets/vehicles_data.json',
+          initialSearch: _activeSection == 'Vehículo'
+              ? _initialInnerSearch
+              : null,
 
           onVerDocumentosVehiculo:
               ({required int vehiculoId, required String placa}) {
@@ -948,22 +938,214 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           userId: widget.userId ?? '1',
           vehiculoId: _selectedMaintenanceVehicleId,
           vehiculoPlaca: _selectedMaintenanceVehiclePlate,
+          initialSearch: _activeSection == 'Mantenimientos'
+              ? _initialInnerSearch
+              : null,
         );
       default:
-        return InicioWidget(
-          role: 'Propietario',
-          userId: widget.userId ?? '1',
-        );
+        return InicioWidget(role: 'Propietario', userId: widget.userId ?? '1');
     }
+  }
+
+  @override
+  void dispose() {
+    _pageSearchController.dispose();
+    super.dispose();
+  }
+
+  String _normalizeSearch(String value) {
+    return value
+        .toLowerCase()
+        .trim()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u');
+  }
+
+  List<GlobalSearchOption> _buildGlobalSearchOptions() {
+    return const [
+      GlobalSearchOption(
+        label: 'Página: Inicio',
+        section: 'Inicio',
+        searchText: '',
+        icon: Icons.dashboard_rounded,
+        type: 'Página',
+      ),
+      GlobalSearchOption(
+        label: 'Página: Documentos',
+        section: 'Documentos',
+        searchText: '',
+        icon: Icons.folder_special_rounded,
+        type: 'Página',
+      ),
+      GlobalSearchOption(
+        label: 'Página: Vehículos',
+        section: 'Vehículos',
+        searchText: '',
+        icon: Icons.directions_car_filled_rounded,
+        type: 'Página',
+      ),
+      GlobalSearchOption(
+        label: 'Página: Mantenimientos',
+        section: 'Mantenimientos',
+        searchText: '',
+        icon: Icons.build_rounded,
+        type: 'Página',
+      ),
+      GlobalSearchOption(
+        label: 'Página: Solicitudes',
+        section: 'Solicitudes',
+        searchText: '',
+        icon: Icons.assignment_rounded,
+        type: 'Página',
+      ),
+      GlobalSearchOption(
+        label: 'Página: Perfil',
+        section: 'Perfil',
+        searchText: '',
+        icon: Icons.person_rounded,
+        type: 'Página',
+      ),
+      GlobalSearchOption(
+        label: 'Página: Mensajes',
+        section: 'Mensajes',
+        searchText: '',
+        icon: Icons.notifications_rounded,
+        type: 'Página',
+      ),
+
+      GlobalSearchOption(
+        label: 'Mantenimiento: Cambio de aceite',
+        section: 'Mantenimientos',
+        searchText: 'aceite',
+        icon: Icons.local_gas_station_rounded,
+        type: 'Mantenimiento',
+      ),
+      GlobalSearchOption(
+        label: 'Mantenimiento: Preventivo',
+        section: 'Mantenimientos',
+        searchText: 'preventivo',
+        icon: Icons.build_circle_rounded,
+        type: 'Mantenimiento',
+      ),
+      GlobalSearchOption(
+        label: 'Mantenimiento: Correctivo',
+        section: 'Mantenimientos',
+        searchText: 'correctivo',
+        icon: Icons.car_repair_rounded,
+        type: 'Mantenimiento',
+      ),
+
+      GlobalSearchOption(
+        label: 'Solicitud: Certificado laboral',
+        section: 'Solicitudes',
+        searchText: 'certificado laboral',
+        icon: Icons.verified_rounded,
+        type: 'Solicitud',
+      ),
+      GlobalSearchOption(
+        label: 'Solicitud: Constancia laboral',
+        section: 'Solicitudes',
+        searchText: 'constancia laboral',
+        icon: Icons.description_rounded,
+        type: 'Solicitud',
+      ),
+    ];
+  }
+
+  void _handlePageSearch(String value) {
+    final raw = value.trim();
+    final query = _normalizeSearch(raw);
+
+    if (query.isEmpty) return;
+
+    String? section;
+    String? innerSearch;
+
+    if (query.contains('inicio') || query.contains('home')) {
+      section = 'Inicio';
+    } else if (query.contains('document')) {
+      section = 'Documentos';
+    } else if (query.contains('perfil') || query.contains('cuenta')) {
+      section = 'Perfil';
+    } else if (query.contains('mensaje') ||
+        query.contains('notificacion') ||
+        query.contains('alerta')) {
+      section = 'Mensajes';
+    } else if (query.contains('solicitud') ||
+        query.contains('certificado') ||
+        query.contains('certificacion')) {
+      section = 'Solicitudes';
+      innerSearch = raw;
+    } else if (query.contains('mantenimiento') ||
+        query.contains('taller') ||
+        query.contains('revision') ||
+        query.contains('preventivo') ||
+        query.contains('correctivo') ||
+        query.contains('aceite')) {
+      section = 'Mantenimientos';
+      innerSearch = raw;
+    } else if (query.contains('vehiculo') ||
+        query.contains('vehiculos') ||
+        query.contains('carro') ||
+        query.contains('placa') ||
+        RegExp(r'^[a-zA-Z]{2,4}\d{2,4}$').hasMatch(raw.replaceAll(' ', ''))) {
+      section = 'Vehículos';
+      innerSearch = raw.replaceAll('placa', '').trim();
+    } else if (query.contains('conductor') || query.contains('conductores')) {
+      section = 'Conductores';
+      innerSearch = raw
+          .replaceAll(RegExp(r'conductor(es)?', caseSensitive: false), '')
+          .trim();
+    } else if (query.contains('propietario') ||
+        query.contains('propietarios')) {
+      section = 'Propietarios';
+      innerSearch = raw
+          .replaceAll(RegExp(r'propietario(s)?', caseSensitive: false), '')
+          .trim();
+    } else if (query.contains('empresa') || query.contains('compania')) {
+      section = 'Empresa';
+    } else {
+      // Si no reconoce página, intenta buscarlo como placa.
+      section = 'Vehículos';
+      innerSearch = raw;
+    }
+
+    setState(() {
+      _initialInnerSearch = innerSearch?.trim().isEmpty == true
+          ? null
+          : innerSearch;
+    });
+
+    _pageSearchController.clear();
+    _goToSection(section);
+  }
+
+  Widget _buildPageSearchField({required String hintText}) {
+    return GlobalDashboardSearch(
+      controller: _pageSearchController,
+      hintText: hintText,
+      options: _globalSearchOptions,
+      onSubmitted: _handlePageSearch,
+      onSelected: (option) {
+        setState(() {
+          _initialInnerSearch = option.searchText.trim().isEmpty
+              ? null
+              : option.searchText.trim();
+        });
+
+        _pageSearchController.clear();
+        _goToSection(option.section);
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF131760),
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const ShimmerDashboardLoadingPage();
     }
 
     return Scaffold(

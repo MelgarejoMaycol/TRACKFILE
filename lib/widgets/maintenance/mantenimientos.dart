@@ -16,6 +16,7 @@ class MantenimientosWidget extends StatefulWidget {
 
   final String? vehiculoId;
   final String? vehiculoPlaca;
+  final String? initialSearch;
 
   const MantenimientosWidget({
     super.key,
@@ -26,6 +27,7 @@ class MantenimientosWidget extends StatefulWidget {
     this.personaNombre,
     this.vehiculoId,
     this.vehiculoPlaca,
+    this.initialSearch,
   });
 
   @override
@@ -264,7 +266,19 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
   @override
   void initState() {
     super.initState();
+    maintenanceSearch = widget.initialSearch?.trim().toLowerCase() ?? '';
     _loadData();
+  }
+
+  @override
+  void didUpdateWidget(covariant MantenimientosWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.initialSearch != oldWidget.initialSearch) {
+      setState(() {
+        maintenanceSearch = widget.initialSearch?.trim().toLowerCase() ?? '';
+      });
+    }
   }
 
   Future<void> _loadData({bool showLoader = true}) async {
