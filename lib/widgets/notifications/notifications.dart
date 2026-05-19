@@ -105,7 +105,11 @@ class _AlertNotification {
   }
 
   bool get isExpired => dueDate != null && dueDate!.isBefore(DateTime.now());
-  bool get isUnread => estado.toUpperCase() == 'ENVIADA';
+  bool get isUnread {
+    final value = estado.toUpperCase();
+    return value == 'ENVIADA' || value == 'NO_LEIDA' || value == 'PENDIENTE';
+  }
+
   bool get isDueSoon {
     if (dueDate == null) return false;
     final Duration diff = dueDate!.difference(DateTime.now());
@@ -193,20 +197,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
   }
 
   List<_AlertNotification> _filtrarPorRol(List<_AlertNotification> lista) {
-    final String rol = _role.toLowerCase();
-    final String? userId = widget.userId?.toString();
-
-    if (rol == 'empresa' || rol == 'admin') {
-      return lista;
-    }
-
-    if (userId == null || userId.isEmpty) {
-      return lista;
-    }
-
-    return lista.where((alerta) {
-      return alerta.idUsuario == userId;
-    }).toList();
+    return lista;
   }
 
   @override
@@ -597,7 +588,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
   }
 
   Widget _propietarioMensajes() {
-    return _buildMensajesGeneral('Empresa');
+    return _buildMensajesGeneral('Propietario');
   }
 
   Widget _secretariaMensajes() {
