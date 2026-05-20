@@ -605,8 +605,6 @@ class _LoginScreenState extends State<LoginScreen>
           await prefs.setString('user_id', usuarioId.toString());
           await prefs.setString('usuario_id', usuarioId.toString());
 
-          await NotificacionesRealtimeService.start();
-
           final empresaId = sessionData['empresaId']?.toString();
           if (empresaId != null && empresaId.isNotEmpty) {
             await prefs.setString('empresa_id', empresaId);
@@ -617,6 +615,9 @@ class _LoginScreenState extends State<LoginScreen>
           context.go(
             '/dashboard/$rolRuta?session=${DateTime.now().millisecondsSinceEpoch}',
           );
+
+          // Iniciar notificaciones después de navegar, sin bloquear el login
+          unawaited(NotificacionesRealtimeService.start());
         } on FormatException {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Respuesta del servidor inválida.')),

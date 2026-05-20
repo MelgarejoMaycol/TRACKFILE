@@ -814,8 +814,6 @@ class _ConductorScreenState extends State<ConductorScreen> {
         return InicioWidget(
           key: ValueKey(_inicioRefreshKey),
           role: 'Conductor',
-          jsonPath: 'assets/documents_data.json',
-          userProfilePath: 'assets/user_profile.json',
           userId: widget.userId ?? '1',
           onNavigateToDocuments: _navigateToDocuments,
           onNavigateToProfile: _navigateToProfile,
@@ -872,7 +870,6 @@ class _ConductorScreenState extends State<ConductorScreen> {
         return VehiculosWidget(
           role: 'Conductor',
           ownerId: widget.userId,
-          jsonPath: 'assets/vehicles_data.json',
           initialSearch: _activeSection == 'Vehículo'
               ? _initialInnerSearch
               : null,

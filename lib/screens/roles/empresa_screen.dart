@@ -1,7 +1,4 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notificaciones_service.dart';
 import 'package:trackfile/utils/browser_url.dart';
@@ -49,9 +46,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   static const Color _accentColor = Color(0xFF4F4CE8);
   static const Color _chipBorderColor = Color(0xFF6B68F1);
 
-  static const String _dashboardAsset = 'assets/empresa_dashboard.json';
-  static const String _companyProfileAsset = 'assets/companies_data.json';
-
   static const List<_MenuOption> _bottomMenuOptions = [
     _MenuOption('Inicio', Icons.dashboard_rounded, 'Inicio'),
     _MenuOption('Conductores', Icons.groups_rounded, 'Conductores'),
@@ -92,10 +86,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   String? _selectedPersonaVehiculoTipo;
   String? _selectedPersonaVehiculoNombre;
 
-  Map<String, dynamic> _summary = {};
-  List<Map<String, dynamic>> _documents = [];
-  List<Map<String, dynamic>> _fleetVehicles = [];
-
   String _companyName = 'Mi empresa';
   String _representative = '';
   String _nit = '--';
@@ -103,9 +93,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
   String? _companyId;
   String? _companyEmail;
   String? _companyPhone;
-  String? _companyDescription;
-  String? _companyVision;
-  String? _companyMission;
   int _notifications = 0;
 
   @override
@@ -115,7 +102,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     _syncSelectedMenuWithSection(_activeSection);
     NotificacionesRealtimeService.start();
     _hydrateCompany();
-    _loadDashboard();
+    _finishLoading();
     _loadNotificationsCount();
     _globalSearchOptions = _buildGlobalSearchOptions();
   }
@@ -145,10 +132,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           rawCompany['telefono']?.toString() ??
           rawCompany['celular']?.toString() ??
           _companyPhone;
-      _companyDescription =
-          rawCompany['descripcion']?.toString() ?? _companyDescription;
-      _companyVision = rawCompany['vision']?.toString() ?? _companyVision;
-      _companyMission = rawCompany['mision']?.toString() ?? _companyMission;
     }
 
     if (_representative.isEmpty && rawUser != null) {
@@ -193,8 +176,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           empresa['id_empresa']?.toString() ??
           _companyId;
     });
-
-    await _loadDashboard();
   }
 
   Map<String, dynamic>? _asMap(dynamic source) {
@@ -208,81 +189,12 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     return null;
   }
 
-  Future<void> _loadDashboard() async {
-    try {
-      final String raw = await rootBundle.loadString(_dashboardAsset);
-      final Map<String, dynamic> data =
-          json.decode(raw) as Map<String, dynamic>;
+  void _finishLoading() {
+    if (!mounted) return;
 
-      final Map<String, dynamic> summary =
-          data['summary'] is Map<String, dynamic>
-          ? Map<String, dynamic>.from(data['summary'] as Map)
-          : <String, dynamic>{};
-
-      final List<Map<String, dynamic>> documents =
-          (data['documents'] as List<dynamic>? ?? [])
-              .whereType<Map<String, dynamic>>()
-              .map((entry) {
-                final DateTime? expiry = DateTime.tryParse(
-                  entry['expiryDate']?.toString() ?? '',
-                );
-                final DateTime? payment = DateTime.tryParse(
-                  entry['paymentDate']?.toString() ?? '',
-                );
-                return {
-                  'name': entry['name']?.toString() ?? 'Documento',
-                  'category': entry['category']?.toString() ?? '',
-                  'responsible': entry['responsible']?.toString() ?? '',
-                  'status': entry['status']?.toString() ?? '',
-                  'paymentDate': payment,
-                  'expiryDate': expiry,
-                };
-              })
-              .toList();
-
-      final List<Map<String, dynamic>> vehicles =
-          (data['vehicles'] as List<dynamic>? ?? [])
-              .whereType<Map<String, dynamic>>()
-              .map((entry) {
-                final DateTime? nextExpiry = DateTime.tryParse(
-                  entry['nextExpiry']?.toString() ?? '',
-                );
-                final DateTime? lastService = DateTime.tryParse(
-                  entry['lastService']?.toString() ?? '',
-                );
-                final num? utilizationRaw = entry['utilization'] as num?;
-                return {
-                  'plate': entry['plate']?.toString() ?? '',
-                  'model': entry['model']?.toString() ?? '',
-                  'driver': entry['driver']?.toString() ?? '',
-                  'status': entry['status']?.toString() ?? '',
-                  'nextExpiry': nextExpiry,
-                  'lastService': lastService,
-                  'utilization': utilizationRaw?.toDouble(),
-                };
-              })
-              .toList();
-
-      if (!mounted) return;
-
-      setState(() {
-        _summary = summary;
-        _documents = documents;
-        _fleetVehicles = vehicles;
-        //_notifications = notifications;
-        _isLoading = false;
-      });
-    } catch (e) {
-      debugPrint('Error cargando dashboard empresa: $e');
-      if (!mounted) return;
-      setState(() {
-        _summary = {};
-        _documents = [];
-        _fleetVehicles = [];
-        _notifications = 0;
-        _isLoading = false;
-      });
-    }
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   Future<void> _loadNotificationsCount() async {
@@ -381,8 +293,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       case 'Inicio':
         return InicioWidget(
           role: 'Empresa',
-          jsonPath: _dashboardAsset,
-          userProfilePath: _companyProfileAsset,
           userId: _companyId ?? widget.usuario?['id']?.toString(),
           onNavigateToDocuments: () => _activateSection('Documentos'),
           onNavigateToMessages: () => _activateSection('Mensajes'),
@@ -581,7 +491,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       personaUserId: _selectedPersonaVehiculoUserId,
       personaTipo: _selectedPersonaVehiculoTipo,
       personaNombre: _selectedPersonaVehiculoNombre,
-      jsonPath: 'assets/vehicles_data.json',
       initialSearch: _activeSection == 'Vehículos' ? _initialInnerSearch : null,
       onVerDocumentosVehiculo:
           ({required int vehiculoId, required String placa}) {
@@ -948,47 +857,10 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     );
   }
 
-  Widget _buildQuickBadge(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: Colors.white70),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 10),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSearchAndWelcome({required bool isCompact}) {
-    final DateTime now = DateTime.now();
-    final int fleetTotal =
-        (_summary['fleetSize'] as num?)?.toInt() ?? _fleetVehicles.length;
-    final int expiredComputed = _documents
-        .where(
-          (doc) => (doc['expiryDate'] as DateTime?)?.isBefore(now) ?? false,
-        )
-        .length;
-    final int docsExpired = expiredComputed > 0
-        ? expiredComputed
-        : (_summary['documentsExpired'] as num?)?.toInt() ??
-              (_summary['documentsPending'] as num?)?.toInt() ??
-              0;
-
     final bool isDesktop = !isCompact;
 
     if (isDesktop) {
-      // Desktop layout: two-column, larger search input and nicer spacing
       return Container(
         color: _primaryColor,
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1000,79 +872,30 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Left column: title and quick badges
-                  Expanded(
+                  const Expanded(
                     flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Panel corporativo',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: [
-                            _buildQuickBadge(
-                              Icons.directions_bus_rounded,
-                              '$fleetTotal vehículos',
-                            ),
-                            _buildQuickBadge(
-                              Icons.insert_drive_file_rounded,
-                              '$docsExpired vencidos',
-                            ),
-                          ],
-                        ),
-                      ],
+                    child: Text(
+                      'Panel corporativo',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-
                   const SizedBox(width: 16),
-
-                  // Right column: big search box
                   Expanded(
                     flex: 4,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.06),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildPageSearchField(
-                                hintText:
-                                    'Buscar página: documentos, vehículos, mantenimientos...',
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: [
-                                  _buildQuickBadge(
-                                    Icons.directions_bus_rounded,
-                                    '$fleetTotal vehículos',
-                                  ),
-                                  _buildQuickBadge(
-                                    Icons.insert_drive_file_rounded,
-                                    '$docsExpired vencidos',
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: _buildPageSearchField(
+                        hintText:
+                            'Buscar página: documentos, vehículos, mantenimientos...',
+                      ),
                     ),
                   ),
                 ],
@@ -1083,19 +906,18 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       );
     }
 
-    // Mobile / compact layout: responsive stacked layout
     return Container(
       color: _primaryColor,
-      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       child: Center(
         child: FractionallySizedBox(
           widthFactor: 0.95,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'Panel corporativo',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -1105,21 +927,6 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
               _buildPageSearchField(
                 hintText:
                     'Buscar página: documentos, vehículos, mantenimientos...',
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  _buildQuickBadge(
-                    Icons.directions_bus_rounded,
-                    '$fleetTotal vehículos',
-                  ),
-                  _buildQuickBadge(
-                    Icons.insert_drive_file_rounded,
-                    '$docsExpired vencidos',
-                  ),
-                ],
               ),
             ],
           ),

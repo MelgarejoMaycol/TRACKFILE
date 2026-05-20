@@ -888,7 +888,6 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         return VehiculosWidget(
           role: 'Propietario',
           ownerId: widget.userId,
-          jsonPath: 'assets/vehicles_data.json',
           initialSearch: _activeSection == 'Vehículo'
               ? _initialInnerSearch
               : null,
@@ -930,7 +929,6 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       case 'Empresa':
         return EmpresaWidget(
           userId: widget.userId,
-          jsonPath: 'assets/companies_data.json',
         );
       case 'Mantenimientos':
         return MantenimientosWidget(
