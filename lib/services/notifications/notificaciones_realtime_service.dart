@@ -5,12 +5,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../notificaciones_service.dart';
 import 'local_notification_helper.dart';
 import 'notificaciones_preferencias_service.dart';
+import 'package:flutter/material.dart';
 
 class NotificacionesRealtimeService {
   static Timer? _timer;
   static bool _running = false;
 
-  static Future<void> start() async {
+  static Future<void> Function()? onNotificationsChanged;
+
+  static Future<void> start({Future<void> Function()? onChanged}) async {
+    if (onChanged != null) {
+      onNotificationsChanged = onChanged;
+    }
+
     if (_running) return;
 
     _running = true;
@@ -28,12 +35,14 @@ class NotificacionesRealtimeService {
     _timer?.cancel();
     _timer = null;
     _running = false;
+    onNotificationsChanged = null;
   }
 
   static Future<void> _checkNotifications({bool firstLoad = false}) async {
     try {
       final activas = await NotificacionesPreferenciasService.estanActivas();
       if (!activas) return;
+
       final prefs = await SharedPreferences.getInstance();
 
       final oldIds =
@@ -45,19 +54,43 @@ class NotificacionesRealtimeService {
 
       final nuevas = data.where((item) {
         final id = _getId(item);
-        final estado = (item['estado'] ?? '').toString().toUpperCase();
+        final estado = (item['estado'] ?? item['status'] ?? '')
+            .toString()
+            .toUpperCase();
 
-        return id.isNotEmpty && !oldSet.contains(id) && estado == 'ENVIADA';
+        final leida = item['leida'] == true;
+
+        return id.isNotEmpty &&
+            !oldSet.contains(id) &&
+            !leida &&
+            estado != 'LEIDA' &&
+            estado != 'LEÍDA' &&
+            estado != 'READ';
       }).toList();
 
       final allIds = data.map(_getId).where((id) => id.isNotEmpty).toSet();
+
+      if (firstLoad) {
+        await prefs.setStringList(
+          'trackfile_notificaciones_vistas',
+          allIds.toList(),
+        );
+
+        await onNotificationsChanged?.call();
+        return;
+      }
+
+      if (nuevas.isEmpty) {
+        await onNotificationsChanged?.call();
+        return;
+      }
 
       await prefs.setStringList(
         'trackfile_notificaciones_vistas',
         allIds.toList(),
       );
 
-      if (firstLoad) return;
+      await onNotificationsChanged?.call();
 
       nuevas.sort((a, b) {
         final fa = DateTime.tryParse('${a['fechaEnvio'] ?? ''}');
@@ -74,8 +107,9 @@ class NotificacionesRealtimeService {
               .toString(),
         );
       }
-    } catch (_) {
-      // Evita romper la app si el token no existe o falla internet.
+    } catch (e) {
+      // Solo mientras pruebas
+      debugPrint('Error realtime notificaciones: $e');
     }
   }
 

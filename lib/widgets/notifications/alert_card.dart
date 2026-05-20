@@ -5,6 +5,7 @@ enum AlertType {
   documentoVencido,
   solicitudCreada,
   solicitudActualizada,
+  solicitudPendiente,
   mantenimientoActualizado,
   mantenimientoProgramado,
   mantenimientoSugerido,
@@ -198,6 +199,7 @@ class AlertCard extends StatelessWidget {
         return const Color(0xFFFF6B6B);
       case AlertType.solicitudCreada:
       case AlertType.solicitudActualizada:
+      case AlertType.solicitudPendiente:
         return const Color(0xFF4F4CE8);
       case AlertType.mantenimientoActualizado:
       case AlertType.mantenimientoProgramado:
@@ -216,6 +218,7 @@ class AlertCard extends StatelessWidget {
       case AlertType.documentoVencido:
         return Icons.warning_rounded;
       case AlertType.solicitudCreada:
+      case AlertType.solicitudPendiente:
         return Icons.assignment_late_rounded;
       case AlertType.solicitudActualizada:
         return Icons.assignment_turned_in_rounded;
@@ -249,6 +252,7 @@ class AlertCard extends StatelessWidget {
       case AlertType.documentoVencido:
         return 'Documento vencido';
       case AlertType.solicitudCreada:
+      case AlertType.solicitudPendiente:
         return 'Solicitud pendiente';
       case AlertType.solicitudActualizada:
         return 'Solicitud actualizada';

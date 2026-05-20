@@ -107,7 +107,8 @@ class _AlertNotification {
   bool get isExpired => dueDate != null && dueDate!.isBefore(DateTime.now());
   bool get isUnread {
     final value = estado.toUpperCase();
-    return value == 'ENVIADA' || value == 'NO_LEIDA' || value == 'PENDIENTE';
+
+    return value != 'LEIDA' && value != 'LEÍDA' && value != 'READ';
   }
 
   bool get isDueSoon {
@@ -127,6 +128,8 @@ AlertType _parseAlertType(String raw) {
       return AlertType.solicitudCreada;
     case 'SOLICITUD_ACTUALIZADA':
       return AlertType.solicitudActualizada;
+    case 'SOLICITUD_PENDIENTE':
+      return AlertType.solicitudPendiente;
     case 'MANTENIMIENTO_ACTUALIZADO':
       return AlertType.mantenimientoActualizado;
     case 'MANTENIMIENTO_PROGRAMADO':
@@ -197,7 +200,17 @@ class _MensajesWidgetState extends State<MensajesWidget> {
   }
 
   List<_AlertNotification> _filtrarPorRol(List<_AlertNotification> lista) {
-    return lista;
+    final role = _role.toLowerCase();
+
+    return lista.where((alert) {
+      final alertRole = (alert.rolUsuario ?? '').toLowerCase();
+
+      if (role == 'empresa') {
+        return true;
+      }
+
+      return alertRole == role || alertRole.isEmpty;
+    }).toList();
   }
 
   @override
@@ -234,7 +247,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       runSpacing: 12,
       children: [
         _buildSummaryCard(
-          label: 'No leídas',
+          label: 'Pendientes',
           value: '$unreadAlerts',
           icon: Icons.mark_email_unread_rounded,
           color: const Color(0xFFFF6B6B),
@@ -360,7 +373,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
 
         if (unreadAlerts.isNotEmpty) ...[
           Text(
-            'No leídas',
+            'Pendientes',
             style: TextStyle(
               color: Colors.white,
               fontSize: isCompact ? 14 : 15,
@@ -530,9 +543,10 @@ class _MensajesWidgetState extends State<MensajesWidget> {
 
         case AlertType.solicitudCreada:
         case AlertType.solicitudActualizada:
+        case AlertType.solicitudPendiente:
           context.goNamed(
             'dashboard_section',
-            pathParameters: {'role': role, 'section': 'certificaciones'},
+            pathParameters: {'role': role, 'section': 'solicitudes'},
           );
           break;
 

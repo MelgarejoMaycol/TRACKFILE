@@ -98,7 +98,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
     super.initState();
     _activeSection = widget.initialSection ?? 'Inicio';
     _syncSelectedMenuWithSection(_activeSection);
-    NotificacionesRealtimeService.start();
+    NotificacionesRealtimeService.start(onChanged: _loadNotificationsCount);
     _loadInitialData();
     _globalSearchOptions = _buildGlobalSearchOptions();
   }
@@ -927,9 +927,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
               },
         );
       case 'Empresa':
-        return EmpresaWidget(
-          userId: widget.userId,
-        );
+        return EmpresaWidget(userId: widget.userId);
       case 'Mantenimientos':
         return MantenimientosWidget(
           role: 'Propietario',

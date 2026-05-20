@@ -118,6 +118,8 @@ String _sectionFromUrl(String sectionUrl) {
       return 'Mensajes';
     case 'certificaciones':
       return 'Certificaciones';
+    case 'solicitudes':
+      return 'Solicitudes';
     case 'vehiculos':
       return 'Vehículos';
     case 'mantenimientos':

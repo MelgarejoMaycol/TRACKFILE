@@ -11,9 +11,13 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.remove('api_base_url');
 
-  runApp(const TrackFileApp());
+  await LocalNotificationHelper.init();
+  await LocalNotificationHelper.show(
+    title: 'Prueba TrackFile',
+    body: 'Las notificaciones están funcionando',
+  );
 
-  LocalNotificationHelper.init();
+  runApp(const TrackFileApp());
 }
 
 class TrackFileApp extends StatelessWidget {

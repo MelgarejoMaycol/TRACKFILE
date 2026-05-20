@@ -80,7 +80,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
     super.initState();
     _activeSection = widget.initialSection ?? 'Inicio';
     _syncSelectedMenuWithSection(_activeSection);
-    NotificacionesRealtimeService.start();
+    NotificacionesRealtimeService.start(onChanged: _loadNotificationsCount);
     _loadUserData();
     _loadNotificationsCount();
     _globalSearchOptions = _buildGlobalSearchOptions();

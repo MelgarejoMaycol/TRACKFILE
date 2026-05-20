@@ -1,5 +1,6 @@
 // ignore: deprecated_member_use, avoid_web_libraries_in_flutter
 import 'dart:html' as html;
+import 'package:flutter/material.dart';
 
 class LocalNotificationHelper {
   static Future<void> init() async {
@@ -16,12 +17,15 @@ class LocalNotificationHelper {
   }) async {
     if (!html.Notification.supported) return;
 
-    if (html.Notification.permission == 'granted') {
-      html.Notification(
-        title,
-        body: body,
-        icon: 'assets/assets/logo_circulo.png',
-      );
+    if (html.Notification.permission != 'granted') {
+      final permission = await html.Notification.requestPermission();
+
+      if (permission != 'granted') {
+        debugPrint('Permiso de notificaciones no concedido: $permission');
+        return;
+      }
     }
+
+    html.Notification(title, body: body, icon: 'assets/logo_circulo.png');
   }
 }

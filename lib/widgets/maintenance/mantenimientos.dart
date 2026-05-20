@@ -1677,7 +1677,10 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                           children: ordenados.map((detalle) {
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 12),
-                              child: buildMantenimientoCard(detalle),
+                              child: buildMantenimientoCard(
+                                detalle,
+                                closeParentAfterAction: true,
+                              ),
                             );
                           }).toList(),
                         ),
@@ -1754,7 +1757,10 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     );
   }
 
-  Widget buildMantenimientoCard(_MantenimientoDetalle detalle) {
+  Widget buildMantenimientoCard(
+    _MantenimientoDetalle detalle, {
+    bool closeParentAfterAction = false,
+  }) {
     final _Mantenimiento mantenimiento = detalle.mantenimiento;
     final _TipoMantenimiento? tipo = detalle.tipo;
     final bool finalizado = mantenimiento.estado.toUpperCase() == 'REALIZADO';
@@ -1874,8 +1880,10 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                                 'PROGRAMADO') &&
                         usuarioTieneAccesoAlVehiculo(mantenimiento.vehiculoId))
                     ? TextButton(
-                        onPressed: () =>
-                            showCompletarMantenimientoModal(detalle),
+                        onPressed: () => showCompletarMantenimientoModal(
+                          detalle,
+                          closeParentAfterAction: closeParentAfterAction,
+                        ),
                         style: TextButton.styleFrom(
                           foregroundColor: _successColor,
                           padding: EdgeInsets.zero,
@@ -2743,8 +2751,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
   }
 
   Future<void> showCompletarMantenimientoModal(
-    _MantenimientoDetalle detalle,
-  ) async {
+    _MantenimientoDetalle detalle, {
+    bool closeParentAfterAction = false,
+  }) async {
     final _Mantenimiento mantenimiento = detalle.mantenimiento;
 
     // Validar que el usuario tenga acceso al vehículo
@@ -3021,10 +3030,14 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                                       );
 
                                   if (result != null) {
-                                    await _loadData();
-
                                     if (!ctx.mounted) return;
                                     Navigator.of(ctx).pop();
+
+                                    if (closeParentAfterAction && mounted) {
+                                      Navigator.of(context).pop();
+                                    }
+
+                                    await _loadData(showLoader: false);
 
                                     if (!context.mounted) return;
                                     ScaffoldMessenger.of(context).showSnackBar(

@@ -9,6 +9,7 @@ class NotificacionesService {
   static final http.Client _client = http.Client();
 
   static String? _tokenCache;
+
   static String get baseUrl =>
       '${getApiLink().replaceAll(RegExp(r"/+$"), "")}/api';
 
@@ -32,8 +33,8 @@ class NotificacionesService {
     final token = await _token();
 
     return {
-      'Content-Type': 'application/json',
       'Accept': 'application/json',
+      'Content-Type': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
   }
@@ -41,13 +42,13 @@ class NotificacionesService {
   static Future<http.Response> _get(String url) async {
     return _client
         .get(Uri.parse(url), headers: await _headers())
-        .timeout(const Duration(seconds: 10));
+        .timeout(const Duration(seconds: 20));
   }
 
   static Future<http.Response> _patch(String url) async {
     return _client
         .patch(Uri.parse(url), headers: await _headers())
-        .timeout(const Duration(seconds: 10));
+        .timeout(const Duration(seconds: 20));
   }
 
   static Exception _error(String accion, http.Response response) {
@@ -69,7 +70,18 @@ class NotificacionesService {
       return _asMapList(data['data']);
     }
 
+    if (data is Map && data['content'] is List) {
+      return _asMapList(data['content']);
+    }
+
     return [];
+  }
+
+  static bool _esPendiente(Map<String, dynamic> n) {
+    final estado = '${n['estado'] ?? n['status'] ?? ''}'.toUpperCase();
+    final leida = n['leida'] == true;
+
+    return !leida && estado != 'LEIDA' && estado != 'LEÍDA' && estado != 'READ';
   }
 
   static Future<List<Map<String, dynamic>>> listar() async {
@@ -88,10 +100,11 @@ class NotificacionesService {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      return List<Map<String, dynamic>>.from(data);
+      return _asMapList(data);
     }
 
-    throw _error('listar notificaciones no leídas', response);
+    final todas = await listar();
+    return todas.where(_esPendiente).toList();
   }
 
   static Future<int> contador() async {
@@ -99,20 +112,12 @@ class NotificacionesService {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      return int.tryParse('${data['noLeidas'] ?? 0}') ?? 0;
+      return int.tryParse('${data['noLeidas'] ?? data['pendientes'] ?? 0}') ??
+          0;
     }
 
-    if (response.statusCode == 403 || response.statusCode == 404) {
-      final notificaciones = await listar();
-
-      return notificaciones.where((n) {
-        final estado = '${n['estado'] ?? n['status'] ?? ''}'.toUpperCase();
-        final leida = n['leida'] == true;
-        return estado == 'ENVIADA' || (!leida && estado != 'LEIDA');
-      }).length;
-    }
-
-    throw _error('obtener contador', response);
+    final notificaciones = await listar();
+    return notificaciones.where(_esPendiente).length;
   }
 
   static Future<Map<String, dynamic>?> marcarComoLeida(String id) async {

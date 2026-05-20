@@ -100,7 +100,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     super.initState();
     _activeSection = widget.initialSection ?? 'Inicio';
     _syncSelectedMenuWithSection(_activeSection);
-    NotificacionesRealtimeService.start();
+    NotificacionesRealtimeService.start(onChanged: _loadNotificationsCount);
     _hydrateCompany();
     _finishLoading();
     _loadNotificationsCount();
