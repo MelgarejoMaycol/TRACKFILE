@@ -4,11 +4,7 @@ import 'package:flutter/material.dart';
 
 class LocalNotificationHelper {
   static Future<void> init() async {
-    if (!html.Notification.supported) return;
-
-    if (html.Notification.permission != 'granted') {
-      await html.Notification.requestPermission();
-    }
+    return;
   }
 
   static Future<void> show({

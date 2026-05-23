@@ -3,19 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'router/app_router.dart';
-import 'services/notifications/local_notification_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final prefs = await SharedPreferences.getInstance();
   await prefs.remove('api_base_url');
-
-  await LocalNotificationHelper.init();
-  await LocalNotificationHelper.show(
-    title: 'Prueba TrackFile',
-    body: 'Las notificaciones están funcionando',
-  );
 
   runApp(const TrackFileApp());
 }

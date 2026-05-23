@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notificaciones_service.dart';
-import 'package:trackfile/utils/browser_url.dart';
+import 'package:trackfile/widgets/chatbot/faq_chatbot.dart';
 import 'package:trackfile/widgets/documents/documentos_screen.dart';
 import 'package:trackfile/widgets/inicio.dart';
 import 'package:trackfile/widgets/maintenance/mantenimientos.dart';
@@ -105,6 +106,37 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
     _finishLoading();
     _loadNotificationsCount();
     _globalSearchOptions = _buildGlobalSearchOptions();
+  }
+
+  @override
+  void didUpdateWidget(covariant EmpresaScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final nextSection = widget.initialSection ?? 'Inicio';
+    if (nextSection == _activeSection) {
+      return;
+    }
+
+    setState(() {
+      _contentRefreshKey++;
+      _activeSection = nextSection;
+      _syncSelectedMenuWithSection(nextSection);
+      _initialInnerSearch = null;
+      _selectedDocumentsUserId = null;
+      _selectedMaintenanceUserId = null;
+      _selectedMaintenanceRole = null;
+      _selectedMaintenancePersonName = null;
+      _selectedCertificadosUserId = null;
+      _selectedCertificadosRole = null;
+      _selectedCertificadosPersonName = null;
+      _selectedDocumentsVehicleId = null;
+      _selectedDocumentsVehiclePlate = null;
+      _selectedMaintenanceVehicleId = null;
+      _selectedMaintenanceVehiclePlate = null;
+      _selectedPersonaVehiculoUserId = null;
+      _selectedPersonaVehiculoTipo = null;
+      _selectedPersonaVehiculoNombre = null;
+    });
   }
 
   void _hydrateCompany() {
@@ -256,7 +288,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       _ => 'inicio',
     };
 
-    updateBrowserUrl('#/dashboard/empresa/$slug');
+    context.go('/dashboard/empresa/$slug');
   }
 
   void _onBottomMenuTap(int index) {
@@ -1334,9 +1366,11 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
 
     return Scaffold(
       backgroundColor: _primaryColor,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
+      body: Stack(
+        children: [
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
             final bool isCompact = constraints.maxWidth < 860;
             final double radius = isCompact ? 24 : 28;
             if (isCompact) {
@@ -1406,8 +1440,14 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                 ],
               );
             }
-          },
-        ),
+              },
+            ),
+          ),
+          FaqChatbot(
+            role: 'Empresa',
+            userId: widget.usuario?['id']?.toString() ?? _companyId,
+          ),
+        ],
       ),
     );
   }

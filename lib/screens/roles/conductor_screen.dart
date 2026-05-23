@@ -1,10 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notificaciones_service.dart';
 import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
-import 'package:trackfile/utils/browser_url.dart';
+import 'package:trackfile/widgets/chatbot/faq_chatbot.dart';
 import 'package:trackfile/widgets/documents/documentos_screen.dart';
 import 'package:trackfile/widgets/inicio.dart';
 import 'package:trackfile/widgets/maintenance/mantenimientos.dart';
@@ -84,6 +85,28 @@ class _ConductorScreenState extends State<ConductorScreen> {
     _loadUserData();
     _loadNotificationsCount();
     _globalSearchOptions = _buildGlobalSearchOptions();
+  }
+
+  @override
+  void didUpdateWidget(covariant ConductorScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final nextSection = widget.initialSection ?? 'Inicio';
+    final active = nextSection == 'Vehículos' ? 'Vehículo' : nextSection;
+    if (active == _activeSection) {
+      return;
+    }
+
+    setState(() {
+      _contentRefreshKey++;
+      _activeSection = active;
+      _syncSelectedMenuWithSection(active);
+      _initialInnerSearch = null;
+      _selectedDocumentsVehicleId = null;
+      _selectedDocumentsVehiclePlate = null;
+      _selectedMaintenanceVehicleId = null;
+      _selectedMaintenanceVehiclePlate = null;
+    });
   }
 
   Future<void> _loadUserData() async {
@@ -259,7 +282,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
       _ => 'inicio',
     };
 
-    updateBrowserUrl('#/dashboard/conductor/$slug');
+    context.go('/dashboard/conductor/$slug');
   }
 
   void _onUpperMenuTap(int idx) {
@@ -1131,49 +1154,23 @@ class _ConductorScreenState extends State<ConductorScreen> {
 
     return Scaffold(
       backgroundColor: _primaryColor,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final bool isCompact = constraints.maxWidth < 860;
-            final double radius = isCompact ? 24 : 28;
+      body: Stack(
+        children: [
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final bool isCompact = constraints.maxWidth < 860;
+                final double radius = isCompact ? 24 : 28;
 
-            if (isCompact) {
-              return Column(
-                children: [
-                  _buildHeader(isCompact: true),
-                  _buildSearchAndWelcome(isCompact: true),
-                  _buildMobileMenuTabs(),
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      height: double.infinity,
-                      decoration: BoxDecoration(
-                        color: _surfaceColor,
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(radius),
-                        ),
-                      ),
-                      child: KeyedSubtree(
-                        key: ValueKey('$_activeSection-$_contentRefreshKey'),
-                        child: _buildContentView(),
-                      ),
-                    ),
-                  ),
-                  _buildBottomBar(isCompact: true),
-                ],
-              );
-            }
-
-            return Column(
-              children: [
-                _buildDesktopTopBar(),
-                Expanded(
-                  child: Row(
+                if (isCompact) {
+                  return Column(
                     children: [
-                      _buildLeftSidebar(),
-                      const SizedBox(width: 16),
+                      _buildHeader(isCompact: true),
+                      _buildSearchAndWelcome(isCompact: true),
+                      _buildMobileMenuTabs(),
                       Expanded(
                         child: Container(
+                          width: double.infinity,
                           height: double.infinity,
                           decoration: BoxDecoration(
                             color: _surfaceColor,
@@ -1189,13 +1186,46 @@ class _ConductorScreenState extends State<ConductorScreen> {
                           ),
                         ),
                       ),
+                      _buildBottomBar(isCompact: true),
                     ],
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+                  );
+                }
+
+                return Column(
+                  children: [
+                    _buildDesktopTopBar(),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          _buildLeftSidebar(),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Container(
+                              height: double.infinity,
+                              decoration: BoxDecoration(
+                                color: _surfaceColor,
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(radius),
+                                ),
+                              ),
+                              child: KeyedSubtree(
+                                key: ValueKey(
+                                  '$_activeSection-$_contentRefreshKey',
+                                ),
+                                child: _buildContentView(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          FaqChatbot(role: 'Conductor', userId: widget.userId),
+        ],
       ),
     );
   }
