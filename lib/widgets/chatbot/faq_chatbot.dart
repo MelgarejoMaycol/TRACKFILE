@@ -71,8 +71,24 @@ class _FaqChatbotState extends State<FaqChatbot> {
 
   Future<void> _loadHistory() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_storageKey);
-    _addGreeting(save: false);
+    final restored = _decodeStoredMessages(prefs.getString(_storageKey));
+
+    if (!mounted) return;
+
+    setState(() {
+      _messages
+        ..clear()
+        ..addAll(restored);
+      _turnCount = _messages.where((message) => message.isUser).length;
+      _lastTopic = _inferLastTopicFromHistory();
+    });
+
+    if (_messages.isEmpty) {
+      _addGreeting(save: true);
+    } else {
+      unawaited(_saveHistory());
+      _scrollToBottom();
+    }
   }
 
   void _addGreeting({required bool save}) {
@@ -90,8 +106,39 @@ class _FaqChatbotState extends State<FaqChatbot> {
   }
 
   Future<void> _saveHistory() async {
-    // El chat debe iniciar limpio cada vez que se recarga la pagina.
-    // Se conserva la funcion para no romper el flujo existente.
+    final prefs = await SharedPreferences.getInstance();
+    final recent = _messages.length > 80
+        ? _messages.sublist(_messages.length - 80)
+        : _messages;
+    await prefs.setString(
+      _storageKey,
+      jsonEncode(recent.map((message) => message.toJson()).toList()),
+    );
+  }
+
+  List<_ChatMessage> _decodeStoredMessages(String? raw) {
+    if (raw == null || raw.isEmpty) return const [];
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+
+      return decoded
+          .whereType<Map>()
+          .map((item) => _ChatMessage.fromJson(item))
+          .whereType<_ChatMessage>()
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  String? _inferLastTopicFromHistory() {
+    for (final message in _messages.reversed) {
+      final topic = _detectTopic(_normalize(message.text));
+      if (topic != null) return topic;
+    }
+    return null;
   }
 
   Future<void> _clearHistory() async {
@@ -182,6 +229,7 @@ class _FaqChatbotState extends State<FaqChatbot> {
       _showShortcuts = false;
       _pendingBotActions = const [];
     });
+    unawaited(_saveHistory());
     _scrollToBottom();
 
     await Future<void>.delayed(const Duration(milliseconds: 360));
@@ -927,24 +975,79 @@ class _FaqChatbotState extends State<FaqChatbot> {
 
   Future<String> _answerOverview() async {
     try {
-      final docs = await _loadDocumentsForCurrentRole();
-      final expired = docs.where(_isDocumentExpired).length;
-      final expiring = _documentsExpiringSoon(docs).length;
+      final results = await Future.wait<dynamic>([
+        _loadDocumentsForCurrentRole(),
+        NotificacionesService.contador(),
+        NotificacionesService.listarNoLeidas(),
+        ApiService.getSolicitudes(),
+        _loadMantenimientosForCurrentRole(),
+        _loadVehiclesForCurrentRole(),
+      ]);
 
-      final notifications = await NotificacionesService.contador();
-      final solicitudes = await ApiService.getSolicitudes();
+      final docs = (results[0] as List<Map<String, dynamic>>)
+          .where(_isDocumentActive)
+          .toList();
+      final expired = docs.where(_isDocumentExpired).length;
+      final expiringDocs = _documentsExpiringSoon(docs);
+      final expiring = expiringDocs.length;
+
+      final notifications = results[1] as int;
+      final unreadNotifications = results[2] as List<Map<String, dynamic>>;
+      final solicitudes = results[3] as List<Map<String, dynamic>>;
       final pendingRequests = solicitudes.where(_isRequestPending).length;
 
-      final mantenimientos = await _loadMantenimientosForCurrentRole();
+      final mantenimientos = results[4] as List<Map<String, dynamic>>;
       final pendingMaintenance = mantenimientos.where(_isMaintenancePending).length;
-      final vehicles = await _loadVehiclesForCurrentRole();
+      final vehicles = results[5] as List<Map<String, dynamic>>;
 
-      return 'Te hago un resumen rapido con lo que puedo consultar ahora:\n\n'
-          'Documentos: $expired vencido${expired == 1 ? '' : 's'} y $expiring proximo${expiring == 1 ? '' : 's'} a vencer en 30 dias.\n'
+      _rememberResult(
+        'documentos',
+        expiringDocs.isNotEmpty
+            ? expiringDocs
+            : docs.where(_isDocumentExpired).toList(),
+        _actionsForTopic('documentos'),
+      );
+      _rememberResult(
+        'mantenimientos',
+        mantenimientos.where(_isMaintenancePending).toList(),
+        _actionsForTopic('mantenimientos'),
+      );
+      _rememberResult(
+        'solicitudes',
+        solicitudes.where(_isRequestPending).toList(),
+        _actionsForTopic('solicitudes'),
+      );
+      _rememberResult(
+        'vehiculos',
+        vehicles,
+        _actionsForTopic('vehiculos'),
+      );
+      _rememberResult(
+        'notificaciones',
+        unreadNotifications,
+        _actionsForTopic('notificaciones'),
+      );
+
+      final priorities = <String>[
+        if (expired > 0) 'actualizar documentos vencidos',
+        if (expiring > 0)
+          'preparar renovaciones de documentos que vencen pronto',
+        if (pendingRequests > 0) 'responder o revisar solicitudes pendientes',
+        if (pendingMaintenance > 0) 'programar mantenimientos pendientes',
+        if (notifications > 0) 'leer mensajes recientes',
+      ];
+
+      final nextStep = priorities.isEmpty
+          ? 'No veo alertas fuertes ahora mismo. Mantendria una revision periodica de Documentos y Mantenimientos.'
+          : 'Prioridad sugerida: ${priorities.take(3).join(', ')}.';
+
+      return 'Analice tu panel completo con los datos disponibles:\n\n'
+          'Documentos: ${docs.length} activos, $expired vencido${expired == 1 ? '' : 's'} y $expiring proximo${expiring == 1 ? '' : 's'} a vencer en 30 dias.\n'
           'Notificaciones: $notifications sin leer.\n'
           'Solicitudes/certificados: $pendingRequests pendiente${pendingRequests == 1 ? '' : 's'}.\n'
           'Mantenimientos: $pendingMaintenance pendiente${pendingMaintenance == 1 ? '' : 's'}.\n'
           'Vehiculos que puedes revisar: ${vehicles.length}.\n\n'
+          '$nextStep\n\n'
           '${_visibilityHint()}';
     } catch (_) {
       return 'No pude armar el resumen completo ahora mismo. Puedes preguntarme por partes: documentos vencidos, notificaciones, solicitudes pendientes, vehiculos o mantenimientos.';
@@ -3055,20 +3158,59 @@ class _ChatMessage {
     this.actions = const [],
   });
 
-  factory _ChatMessage.user(String text) {
-    return _ChatMessage(text: text, isUser: true, createdAt: DateTime.now());
+  factory _ChatMessage.user(String text, {DateTime? createdAt}) {
+    return _ChatMessage(
+      text: text,
+      isUser: true,
+      createdAt: createdAt ?? DateTime.now(),
+    );
   }
 
   factory _ChatMessage.bot(
     String text, {
+    DateTime? createdAt,
     List<_ChatAction> actions = const [],
   }) {
     return _ChatMessage(
       text: text,
       isUser: false,
-      createdAt: DateTime.now(),
+      createdAt: createdAt ?? DateTime.now(),
       actions: actions,
     );
+  }
+
+  static _ChatMessage? fromJson(Map<dynamic, dynamic> json) {
+    final text = json['text']?.toString() ?? '';
+    if (text.trim().isEmpty) return null;
+
+    final createdAt =
+        DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+        DateTime.now();
+
+    final actions = <_ChatAction>[];
+    final rawActions = json['actions'];
+    if (rawActions is List) {
+      for (final rawAction in rawActions.whereType<Map>()) {
+        final action = _ChatAction.fromJson(rawAction);
+        if (action != null) actions.add(action);
+      }
+    }
+
+    return _ChatMessage(
+      text: text,
+      isUser: json['isUser'] == true,
+      createdAt: createdAt,
+      actions: actions,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'text': text,
+      'isUser': isUser,
+      'createdAt': createdAt.toIso8601String(),
+      'actions': actions.map((action) => action.toJson()).toList(),
+    };
   }
 
   String get timeLabel {
@@ -3085,6 +3227,16 @@ class _ChatAction {
 
   const _ChatAction({required this.label, required this.target});
 
+  static _ChatAction? fromJson(Map<dynamic, dynamic> json) {
+    final label = json['label']?.toString() ?? '';
+    final target = json['target']?.toString() ?? '';
+    if (label.trim().isEmpty || target.trim().isEmpty) return null;
+    return _ChatAction(label: label, target: target);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'label': label, 'target': target};
+  }
 }
 
 class _ChatMemory {
