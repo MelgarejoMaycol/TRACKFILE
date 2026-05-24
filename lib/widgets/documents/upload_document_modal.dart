@@ -1,7 +1,9 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../l10n/app_language.dart';
 import '../../services/document_service.dart';
 import '../utils/shimmer_skeleton.dart';
 
@@ -448,7 +450,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
       }
     } catch (e) {
       if (mounted) {
-        _showErrorSnackBar('Error cargando vehículos: $e');
+        _showErrorSnackBar('${context.t('vehicles.loadError')}: $e');
         setState(() {
           isLoadingVehiculos = false;
         });
@@ -583,22 +585,22 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             ),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Subir documento',
-                  style: TextStyle(
+                  context.t('documents.uploadTitle'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'Carga un archivo y asígnalo a una persona o vehículo.',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  context.t('documents.uploadSubtitle'),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),
@@ -696,7 +698,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                                       borderRadius: BorderRadius.circular(16),
                                     ),
                                   ),
-                                  child: const Text('Cancelar'),
+                                  child: Text(context.t('common.cancel')),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -727,7 +729,9 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                                         )
                                       : const Icon(Icons.upload_rounded),
                                   label: Text(
-                                    isUploading ? 'Subiendo...' : 'Subir',
+                                    isUploading
+                                        ? context.t('documents.uploading')
+                                        : context.t('common.upload'),
                                   ),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF4F4CE8),
@@ -771,28 +775,28 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                             color: Colors.white.withValues(alpha: 0.14),
                           ),
                         ),
-                        child: const Column(
+                        child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            CircularProgressIndicator(
+                            const CircularProgressIndicator(
                               color: Colors.white,
                               strokeWidth: 3,
                             ),
-                            SizedBox(height: 16),
+                            const SizedBox(height: 16),
                             Text(
-                              'Subiendo documento...',
+                              context.t('documents.uploadingTitle'),
                               textAlign: TextAlign.center,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w800,
                                 fontSize: 16,
                               ),
                             ),
-                            SizedBox(height: 8),
+                            const SizedBox(height: 8),
                             Text(
-                              'Por favor espera. Estamos guardando el archivo.',
+                              context.t('documents.uploadingHelp'),
                               textAlign: TextAlign.center,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 13,
                               ),
@@ -859,14 +863,18 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.error_outline, color: Colors.red, size: 20),
-                    SizedBox(width: 8),
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Error del servidor',
-                        style: TextStyle(
+                        context.t('documents.serverError'),
+                        style: const TextStyle(
                           color: Colors.red,
                           fontWeight: FontWeight.bold,
                         ),
@@ -893,7 +901,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                     ElevatedButton.icon(
                       onPressed: _loadPersonas,
                       icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Reintentar'),
+                      label: Text(context.t('common.retry')),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.orange,
                         foregroundColor: Colors.white,
@@ -940,14 +948,18 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.error_outline, color: Colors.red, size: 20),
-                    SizedBox(width: 8),
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'No hay conductores disponibles',
-                        style: TextStyle(
+                        context.t('documents.noDrivers'),
+                        style: const TextStyle(
                           color: Colors.red,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1013,7 +1025,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
-                      'Seleccione el Conductor o Propietario',
+                      context.t('documents.selectPerson'),
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 11,
@@ -1027,14 +1039,17 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             items: [
               // Conductores
               if (conductores.isNotEmpty)
-                const DropdownMenuItem<String>(
+                DropdownMenuItem<String>(
                   enabled: false,
                   value: 'header_conductores',
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     child: Text(
-                      '👤 CONDUCTORES',
-                      style: TextStyle(
+                      '👤 ${context.t('documents.driversHeader')}',
+                      style: const TextStyle(
                         color: Colors.cyan,
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
@@ -1066,14 +1081,17 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
 
               // Propietarios (mostrar siempre que haya disponibles)
               if (propietarios.isNotEmpty) ...[
-                const DropdownMenuItem<String>(
+                DropdownMenuItem<String>(
                   enabled: false,
                   value: 'header_propietarios',
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     child: Text(
-                      '🏠 PROPIETARIOS',
-                      style: TextStyle(
+                      '🏠 ${context.t('documents.ownersHeader')}',
+                      style: const TextStyle(
                         color: Colors.lightGreenAccent,
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
@@ -1173,9 +1191,12 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Vehiculo',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          Text(
+            context.t('section.vehicles'),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 8),
           Container(
@@ -1189,10 +1210,10 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
               children: [
                 const Icon(Icons.directions_car, color: Colors.grey, size: 16),
                 const SizedBox(width: 8),
-                const Flexible(
+                Flexible(
                   child: Text(
-                    'Seleccione un usuario primero',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                    context.t('documents.selectUserFirst'),
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1208,9 +1229,12 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Vehiculo',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          Text(
+            context.t('section.vehicles'),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 8),
           ShimmerSkeleton(
@@ -1228,9 +1252,12 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Vehiculo',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          Text(
+            context.t('section.vehicles'),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 8),
           Container(
@@ -1244,10 +1271,10 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
               children: [
                 const Icon(Icons.info_outline, color: Colors.orange, size: 16),
                 const SizedBox(width: 8),
-                const Flexible(
+                Flexible(
                   child: Text(
-                    'Este usuario no tiene vehiculos asignados',
-                    style: TextStyle(color: Colors.orange, fontSize: 12),
+                    context.t('documents.noUserVehicles'),
+                    style: const TextStyle(color: Colors.orange, fontSize: 12),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1262,9 +1289,12 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Vehiculo',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        Text(
+          context.t('section.vehicles'),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 8),
         Container(
@@ -1296,7 +1326,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
-                      'Seleccione el Vehiculo (Opcional)',
+                      context.t('documents.selectVehicleOptional'),
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 11,
@@ -1309,13 +1339,16 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
             ),
             items: [
               // Primer item: "Sin seleccionar"
-              const DropdownMenuItem<String?>(
+              DropdownMenuItem<String?>(
                 value: null,
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   child: Text(
-                    '-- Sin seleccionar --',
-                    style: TextStyle(
+                    context.t('documents.noneSelected'),
+                    style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
                       fontStyle: FontStyle.italic,
@@ -1329,7 +1362,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                     ? int.parse(v['id'].toString())
                     : v['id'];
                 final value = 'vehicle_$id';
-                final placa = v['placa'] ?? 'Sin placa';
+                final placa = v['placa'] ?? context.t('documents.noPlate');
                 final marca = v['marca'] ?? '';
                 final modelo = v['modelo'] ?? '';
                 final label = '$placa - $marca $modelo'.trim();
@@ -1386,9 +1419,12 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Archivo',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        Text(
+          context.t('documents.file'),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 8),
         GestureDetector(
@@ -1407,7 +1443,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    selectedFileName ?? 'Seleccionar archivo',
+                    selectedFileName ?? context.t('documents.selectFile'),
                     style: TextStyle(
                       color: selectedFileName != null
                           ? Colors.white
@@ -1430,9 +1466,12 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Tipo de Documento',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          Text(
+            context.t('documents.type'),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 8),
           ShimmerSkeleton(
@@ -1449,9 +1488,12 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Tipo de Documento',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          Text(
+            context.t('documents.type'),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 8),
           Container(
@@ -1461,14 +1503,14 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.red),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.error, color: Colors.red, size: 18),
-                SizedBox(width: 8),
+                const Icon(Icons.error, color: Colors.red, size: 18),
+                const SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    'No se cargaron tipos de documentos. Revise la conexión.',
-                    style: TextStyle(color: Colors.red, fontSize: 12),
+                    context.t('documents.noTypesLoaded'),
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1484,9 +1526,9 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
 
     String docTypeInfo = '';
     if (hasVehicle) {
-      docTypeInfo = '🚗 Documentos del vehículo';
+      docTypeInfo = '🚗 ${context.t('documents.vehicleDocuments')}';
     } else {
-      docTypeInfo = '👤 Documentos del usuario';
+      docTypeInfo = '👤 ${context.t('documents.userDocuments')}';
     }
 
     // Validar si el tipo actualmente seleccionado está en la lista filtrada
@@ -1503,9 +1545,9 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Tipo de Documento',
-              style: TextStyle(
+            Text(
+              context.t('documents.type'),
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
@@ -1552,7 +1594,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
-                      'Seleccione el Tipo de Documento',
+                      context.t('documents.selectType'),
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 11,
@@ -1571,14 +1613,16 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                     .toString(),
               );
               if (id == null) {
-                return const DropdownMenuItem<int>(
+                return DropdownMenuItem<int>(
                   value: -1,
                   enabled: false,
-                  child: Text('Tipo inválido'),
+                  child: Text(context.t('documents.invalidType')),
                 );
               }
               final nombre =
-                  type['nombre'] ?? type['nombre_tipo'] ?? 'Sin nombre';
+                  type['nombre'] ??
+                  type['nombre_tipo'] ??
+                  context.t('documents.noName');
               return DropdownMenuItem<int>(
                 value: id,
                 child: Padding(
@@ -1663,16 +1707,16 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Área',
-              style: TextStyle(
+            Text(
+              context.t('documents.area'),
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
             ),
             if (selectedDocumentTypeId != null)
               Text(
-                '${permittedAreas.length} ${permittedAreas.length == 1 ? 'opción' : 'opciones'}',
+                '${permittedAreas.length} ${context.t(permittedAreas.length == 1 ? 'documents.option' : 'documents.options')}',
                 style: const TextStyle(
                   color: Colors.white54,
                   fontSize: 11,
@@ -1706,8 +1750,8 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                   Flexible(
                     child: Text(
                       selectedDocumentTypeId == null
-                          ? 'Selecciona un tipo primero'
-                          : 'Selecciona el área',
+                          ? context.t('documents.selectTypeFirst')
+                          : context.t('documents.selectArea'),
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 11,
@@ -1768,7 +1812,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Este documento tiene un área fija según su tipo',
+                      context.t('documents.fixedArea'),
                       style: const TextStyle(color: Colors.blue, fontSize: 11),
                     ),
                   ),
@@ -1784,9 +1828,12 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Fecha de Vencimiento',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        Text(
+          context.t('documents.expiryDate'),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 8),
         GestureDetector(
@@ -1804,7 +1851,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                 Text(
                   selectedExpiryDate != null
                       ? DateFormat('dd/MM/yyyy').format(selectedExpiryDate!)
-                      : 'Seleccionar fecha',
+                      : context.t('documents.selectDate'),
                   style: TextStyle(
                     color: selectedExpiryDate != null
                         ? Colors.white
@@ -1828,9 +1875,9 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
       children: [
         Row(
           children: [
-            const Text(
-              'Observaciones',
-              style: TextStyle(
+            Text(
+              context.t('documents.observations'),
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
@@ -1844,9 +1891,9 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                   border: Border.all(color: Colors.red, width: 1),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
-                  'Obligatorio',
-                  style: TextStyle(
+                child: Text(
+                  context.t('documents.required'),
+                  style: const TextStyle(
                     color: Colors.red,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -1854,9 +1901,9 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                 ),
               )
             else
-              const Text(
-                '(opcional)',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
+              Text(
+                context.t('documents.optional'),
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
               ),
           ],
         ),
@@ -1867,8 +1914,8 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
           enabled: !isUploading,
           decoration: InputDecoration(
             hintText: isRequired
-                ? 'Agrega una observación sobre este documento...'
-                : 'Agrega notas sobre el documento (opcional)...',
+                ? context.t('documents.observationRequiredHint')
+                : context.t('documents.observationOptionalHint'),
             hintStyle: const TextStyle(color: Colors.white54),
             filled: true,
             fillColor: Colors.white12,
@@ -1918,7 +1965,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Este tipo de documento requiere una observación descriptiva',
+                      context.t('documents.observationRequiredHelp'),
                       style: const TextStyle(
                         color: Colors.orange,
                         fontSize: 11,
@@ -1951,7 +1998,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
         });
       }
     } catch (e) {
-      _showErrorSnackBar('Error seleccionando archivo: $e');
+      _showErrorSnackBar('${context.t('documents.selectFile')}: $e');
     }
   }
 
@@ -1971,51 +2018,65 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
   }
 
   Future<void> _uploadDocument() async {
-    // Validar solo los campos obligatorios (vehículo es opcional)
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    final requiredFieldsText = context.t('documents.requiredFields');
+    final observationRequiredText = context.t(
+      'documents.observationRequiredHelp',
+    );
+    final vehicleTypeErrorText = context.t('documents.vehicleTypeError');
+    final userTypeErrorText = context.t('documents.userTypeError');
+    final uploadSuccessText = context.t('documents.uploadSuccess');
+    final uploadGenericErrorText = context.t('documents.uploadGenericError');
+
     if (((selectedFilePath == null || selectedFilePath!.isEmpty) &&
             selectedFileBytes == null) ||
         selectedDocumentTypeId == null ||
         selectedExpiryDate == null ||
         selectedPersonaId == null ||
         selectedArea == null) {
-      // Validar que tengamos bytes del archivo
-      _showErrorSnackBar(
-        '⚠️ Completa todos los campos requeridos: Persona, Tipo, Archivo, Área y Fecha',
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('⚠️ $requiredFieldsText'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
       );
       return;
     }
 
-    // Validar observación obligatoria si el documento lo requiere
     if (_isObservationRequired() && observationController.text.trim().isEmpty) {
-      _showErrorSnackBar(
-        '⚠️ Este tipo de documento requiere una observación descriptiva',
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('⚠️ $observationRequiredText'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
       );
       return;
     }
 
-    // Validar que se haya seleccionado correctamente el tipo de documento para el contexto
     final filteredDocs = _getFilteredDocumentTypes();
-    bool selectedDocIsValid = filteredDocs.any(
+    final selectedDocIsValid = filteredDocs.any(
       (d) => d['id'] == selectedDocumentTypeId,
     );
 
     if (!selectedDocIsValid) {
-      final bool hasVehicle =
-          selectedVehicleId != null && selectedVehicleId! > 0;
+      final hasVehicle = selectedVehicleId != null && selectedVehicleId! > 0;
+      final errorMsg = hasVehicle ? vehicleTypeErrorText : userTypeErrorText;
 
-      String errorMsg = '';
-      if (hasVehicle) {
-        errorMsg = 'Este documento no puede asignarse a un vehículo.';
-      } else {
-        errorMsg = 'Este documento no puede asignarse a un usuario.';
-      }
-
-      _showErrorSnackBar('⚠️ $errorMsg');
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('⚠️ $errorMsg'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
       return;
     }
 
-    // Obtener el ID numérico del usuario seleccionado
-    int? selectedPersonaIdInt = selectedPersonaId;
+    final selectedPersonaIdInt = selectedPersonaId;
 
     setState(() {
       isUploading = true;
@@ -2039,30 +2100,46 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
         fileBytes: selectedFileBytes,
       );
 
-      if (mounted) {
-        setState(() {
-          isUploading = false;
-        });
+      if (!context.mounted) return;
 
-        if (result != null) {
-          _showSuccessSnackBar('✅ Documento subido exitosamente');
-          Future.delayed(const Duration(milliseconds: 800), () {
-            if (mounted) {
-              Navigator.of(context).pop();
-              widget.onSuccess?.call();
-            }
-          });
-        } else {
-          _showErrorSnackBar('❌ Error - Revisa los logs');
-        }
+      setState(() {
+        isUploading = false;
+      });
+
+      if (result != null) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('✅ $uploadSuccessText'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        navigator.pop();
+        widget.onSuccess?.call();
+      } else {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('❌ $uploadGenericErrorText'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          isUploading = false;
-        });
-        _showErrorSnackBar('❌ $e');
-      }
+      if (!context.mounted) return;
+
+      setState(() {
+        isUploading = false;
+      });
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('❌ $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -2072,16 +2149,6 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
         content: Text(message),
         backgroundColor: Colors.red,
         duration: const Duration(seconds: 3),
-      ),
-    );
-  }
-
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
       ),
     );
   }

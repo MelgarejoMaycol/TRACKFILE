@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:trackfile/l10n/app_language.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -61,7 +62,7 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
       if (data == null) {
         setState(() {
           _empresa = null;
-          _error = 'No se encontró información de la empresa.';
+          _error = context.t('company.notFound');
           _isLoading = false;
         });
         return;
@@ -75,7 +76,7 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
       if (!mounted) return;
 
       setState(() {
-        _error = 'No se pudo cargar la información de la empresa.';
+        _error = context.t('company.loadError');
         _isLoading = false;
       });
 
@@ -99,11 +100,11 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
 
   String _value(dynamic value) {
     final text = value?.toString().trim() ?? '';
-    return text.isEmpty ? 'No registrado' : text;
+    return text.isEmpty ? context.t('common.notRegistered') : text;
   }
 
   Future<void> _openEmail(String correo) async {
-    if (correo == 'No registrado') return;
+    if (correo == context.t('common.notRegistered')) return;
 
     final uri = Uri(
       scheme: 'mailto',
@@ -115,7 +116,7 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
   }
 
   Future<void> _openPhone(String telefono) async {
-    if (telefono == 'No registrado') return;
+    if (telefono == context.t('common.notRegistered')) return;
 
     final cleanPhone = telefono.replaceAll(RegExp(r'\s+'), '');
     final uri = Uri(scheme: 'tel', path: cleanPhone);
@@ -128,8 +129,8 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
 
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se pudo abrir esta opción.'),
+        SnackBar(
+          content: Text(context.t('company.openError')),
         ),
       );
     }
@@ -146,7 +147,7 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            _error ?? 'No se encontró información de la empresa.',
+            _error ?? context.t('company.notFound'),
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white70),
           ),
@@ -226,9 +227,9 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Empresa vinculada',
-                  style: TextStyle(
+                Text(
+                  context.t('company.linked'),
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -270,23 +271,23 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
         children: [
           _buildContactRow(
             icon: Icons.email_rounded,
-            title: 'Correo',
+            title: context.t('profile.email'),
             value: empresa.correo,
-            actionText: 'Enviar correo',
+            actionText: context.t('company.sendEmail'),
             onTap: () => _openEmail(empresa.correo),
           ),
           _divider(),
           _buildContactRow(
             icon: Icons.phone_in_talk_rounded,
-            title: 'Teléfono',
+            title: context.t('profile.phone'),
             value: empresa.telefono,
-            actionText: 'Llamar',
+            actionText: context.t('company.call'),
             onTap: () => _openPhone(empresa.telefono),
           ),
           _divider(),
           _buildContactRow(
             icon: Icons.location_on_rounded,
-            title: 'Dirección',
+            title: context.t('profile.address'),
             value: empresa.direccion,
             actionText: null,
             onTap: null,

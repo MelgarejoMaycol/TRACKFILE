@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_language.dart';
+
 enum AlertType {
   documentoVencimiento,
   documentoVencido,
@@ -43,7 +45,7 @@ class AlertCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final baseColor = _alertBaseColor(type);
     final icon = _alertIcon(type);
-    final dueLabel = _dueDateLabel(dueDate);
+    final dueLabel = _dueDateLabel(context, dueDate);
     final urgencyColor = _urgencyColor(urgency);
 
     return LayoutBuilder(
@@ -134,14 +136,14 @@ class AlertCard extends StatelessWidget {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          _buildAlertChip(_labelType(type)),
+                          _buildAlertChip(_labelType(context, type)),
                           if (isUnread)
                             _buildAlertChip(
-                              'No leída',
+                              context.t('alerts.unread'),
                               color: const Color(0xFFFFC857),
                             ),
                           _buildAlertChip(
-                            'Urgencia ${_labelUrgency(urgency)}',
+                            '${context.t('alerts.urgency')} ${_labelUrgency(context, urgency)}',
                             color: urgencyColor,
                           ),
                           _buildAlertChip(
@@ -150,12 +152,12 @@ class AlertCard extends StatelessWidget {
                           ),
                           if (_isDueSoon(dueDate))
                             _buildAlertChip(
-                              'Atención esta semana',
+                              context.t('alerts.thisWeek'),
                               color: Colors.white.withValues(alpha: 0.35),
                             ),
                           if (_isExpired(dueDate))
                             _buildAlertChip(
-                              'Vencida',
+                              context.t('alerts.expired'),
                               color: const Color(0xFFFF6B6B),
                             ),
                         ],
@@ -245,40 +247,40 @@ class AlertCard extends StatelessWidget {
     }
   }
 
-  static String _labelType(AlertType type) {
+  static String _labelType(BuildContext context, AlertType type) {
     switch (type) {
       case AlertType.documentoVencimiento:
-        return 'Documento por vencer';
+        return context.t('alerts.documentDue');
       case AlertType.documentoVencido:
-        return 'Documento vencido';
+        return context.t('alerts.documentExpired');
       case AlertType.solicitudCreada:
       case AlertType.solicitudPendiente:
-        return 'Solicitud pendiente';
+        return context.t('alerts.requestPending');
       case AlertType.solicitudActualizada:
-        return 'Solicitud actualizada';
+        return context.t('alerts.requestUpdated');
       case AlertType.mantenimientoActualizado:
-        return 'Mantenimiento actualizado';
+        return context.t('alerts.maintenanceUpdated');
       case AlertType.mantenimientoProgramado:
-        return 'Mantenimiento programado';
+        return context.t('alerts.maintenanceScheduled');
       case AlertType.mantenimientoSugerido:
-        return 'Mantenimiento sugerido';
+        return context.t('alerts.maintenanceSuggested');
       case AlertType.sistema:
-        return 'Sistema';
+        return context.t('alerts.system');
       case AlertType.otro:
-        return 'Otro';
+        return context.t('alerts.other');
     }
   }
 
-  static String _labelUrgency(AlertUrgency urgency) {
+  static String _labelUrgency(BuildContext context, AlertUrgency urgency) {
     switch (urgency) {
       case AlertUrgency.alta:
-        return 'Alta';
+        return context.t('alerts.high');
       case AlertUrgency.baja:
-        return 'Baja';
+        return context.t('alerts.low');
       case AlertUrgency.media:
-        return 'Media';
+        return context.t('alerts.medium');
       case AlertUrgency.critica:
-        return 'Crítica';
+        return context.t('alerts.critical');
     }
   }
 
@@ -292,17 +294,17 @@ class AlertCard extends StatelessWidget {
     return !_isExpired(dueDate) && diff.inDays <= 7;
   }
 
-  static String _dueDateLabel(DateTime? dueDate) {
-    if (dueDate == null) return 'Sin fecha límite';
+  static String _dueDateLabel(BuildContext context, DateTime? dueDate) {
+    if (dueDate == null) return context.t('alerts.noDueDate');
 
     final diff = dueDate.difference(DateTime.now());
 
-    if (diff.inDays < 0) return 'Vencida ${_formatDate(dueDate)}';
-    if (diff.inDays == 0) return 'Vence hoy';
-    if (diff.inDays == 1) return 'Vence mañana';
-    if (diff.inDays <= 7) return 'Vence en ${diff.inDays} días';
+    if (diff.inDays < 0) return '${context.t('alerts.expired')} ${_formatDate(dueDate)}';
+    if (diff.inDays == 0) return context.t('alerts.dueToday');
+    if (diff.inDays == 1) return context.t('alerts.dueTomorrow');
+    if (diff.inDays <= 7) return '${context.t('alerts.dueIn')} ${diff.inDays} ${context.t('home.days')}';
 
-    return 'Vence el ${_formatDate(dueDate)}';
+    return '${context.t('alerts.dueOn')} ${_formatDate(dueDate)}';
   }
 
   static String _formatDate(DateTime date) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:trackfile/l10n/app_language.dart';
 
 import '../../services/api_service.dart';
 import '../utils/shimmer_skeleton.dart';
@@ -881,7 +882,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           horizontal: 14,
           vertical: 12,
         ),
-        hintText: 'Buscar por placa, vehículo o tipo',
+        hintText: context.t('maintenance.searchHint'),
         hintStyle: const TextStyle(color: Colors.white54, fontSize: 12),
         prefixIcon: const Icon(Icons.search, color: Colors.white54, size: 20),
         prefixIconConstraints: const BoxConstraints(minWidth: 42),
@@ -1002,14 +1003,14 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
 
             final title = Text(
               _viendoPersona
-                  ? 'Mantenimientos de ${widget.personaNombre ?? 'la persona'}'
+                  ? '${context.t('maintenance.personTitle')} ${widget.personaNombre ?? 'la persona'}'
                   : widget.vehiculoId != null
-                  ? 'Mantenimientos de ${widget.vehiculoPlaca ?? 'vehículo'}'
+                  ? '${context.t('maintenance.vehicleTitle')} ${widget.vehiculoPlaca ?? 'vehículo'}'
                   : _isConductor
-                  ? 'Mantenimientos asignados'
+                  ? context.t('maintenance.assignedTitle')
                   : _isPropietario
-                  ? 'Mantenimientos de tus vehículos'
-                  : 'Gestión de mantenimientos',
+                  ? context.t('maintenance.myVehiclesTitle')
+                  : context.t('maintenance.managementTitle'),
               style: TextStyle(
                 color: Colors.white,
                 fontSize: isCompact ? 18 : 22,
@@ -1156,7 +1157,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Mantenimientos activos',
+          context.t('maintenance.activeTitle'),
           style: TextStyle(
             color: Colors.white,
             fontSize: isCompact ? 16 : 18,
@@ -1372,9 +1373,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
         ),
-        child: const Text(
-          'No hay mantenimientos asociados a vehículos.',
-          style: TextStyle(color: Colors.white70),
+        child: Text(
+          context.t('maintenance.noVehicleMaintenance'),
+          style: const TextStyle(color: Colors.white70),
         ),
       );
     }
@@ -1383,7 +1384,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Mantenimientos por vehículo',
+          context.t('maintenance.byVehicleTitle'),
           style: TextStyle(
             color: Colors.white,
             fontSize: isCompact ? 16 : 18,
@@ -1666,10 +1667,10 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                 ),
                 Expanded(
                   child: ordenados.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Text(
-                            'No hay mantenimientos para mostrar.',
-                            style: TextStyle(color: Colors.white70),
+                            context.t('maintenance.noVisibleMaintenance'),
+                            style: const TextStyle(color: Colors.white70),
                           ),
                         )
                       : ListView(
@@ -1888,8 +1889,8 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                           foregroundColor: _successColor,
                           padding: EdgeInsets.zero,
                         ),
-                        child: const Text(
-                          'Completar mantenimiento',
+                        child: Text(
+                          context.t('maintenance.complete'),
                           overflow: TextOverflow.ellipsis,
                         ),
                       )
@@ -2084,7 +2085,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                            child: const Text('Cerrar'),
+                            child: Text(context.t('maintenance.close')),
                           ),
                         ),
                       ],
@@ -2268,7 +2269,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                 child: Column(
                   children: [
                     buildFloatingModalHeader(
-                      title: 'Crear mantenimiento',
+                      title: context.t('maintenance.create'),
                       subtitle:
                           'Sugiere, programa o registra un mantenimiento.',
                       icon: Icons.build_circle_rounded,
@@ -2294,18 +2295,18 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
 
                             DropdownButtonFormField<String>(
                               initialValue: selectedModo,
-                              items: const [
+                              items: [
                                 DropdownMenuItem(
                                   value: 'Sugerido',
-                                  child: Text('Sugerido'),
+                                  child: Text(context.t('maintenance.suggested')),
                                 ),
                                 DropdownMenuItem(
                                   value: 'Programado',
-                                  child: Text('Programado'),
+                                  child: Text(context.t('maintenance.scheduled')),
                                 ),
                                 DropdownMenuItem(
                                   value: 'Realizado',
-                                  child: Text('Realizado'),
+                                  child: Text(context.t('maintenance.done')),
                                 ),
                               ],
                               onChanged: (value) {
@@ -2432,18 +2433,18 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
 
                             DropdownButtonFormField<String>(
                               initialValue: selectedPrioridad,
-                              items: const [
+                              items: [
                                 DropdownMenuItem(
                                   value: 'Alta',
-                                  child: Text('Alta'),
+                                  child: Text(context.t('maintenance.high')),
                                 ),
                                 DropdownMenuItem(
                                   value: 'Media',
-                                  child: Text('Media'),
+                                  child: Text(context.t('maintenance.medium')),
                                 ),
                                 DropdownMenuItem(
                                   value: 'Baja',
-                                  child: Text('Baja'),
+                                  child: Text(context.t('maintenance.low')),
                                 ),
                               ],
                               onChanged: (value) {
@@ -2545,7 +2546,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                     ),
-                                    child: const Text('Cancelar'),
+                                    child: Text(context.t('common.cancel')),
                                   ),
                                 ),
 
@@ -2715,7 +2716,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                                       }
                                     },
                                     icon: const Icon(Icons.check_rounded),
-                                    label: const Text('Crear'),
+                                    label: Text(context.t('maintenance.create')),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: _accentColor,
                                       foregroundColor: Colors.white,
@@ -2759,8 +2760,8 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     // Validar que el usuario tenga acceso al vehículo
     if (!usuarioTieneAccesoAlVehiculo(mantenimiento.vehiculoId)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No tienes acceso a este vehículo'),
+        SnackBar(
+          content: Text(context.t('maintenance.noAccess')),
           backgroundColor: Colors.red,
         ),
       );
@@ -2852,8 +2853,8 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                           ),
                         ),
                         const SizedBox(height: 18),
-                        const Text(
-                          'Completar mantenimiento',
+                         Text(
+                          context.t('maintenance.complete'),
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -2970,7 +2971,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                 ),
-                                child: const Text('Cancelar'),
+                                child: Text(context.t('common.cancel')),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -3064,7 +3065,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                 ),
-                                child: const Text('Completar'),
+                                child: Text(context.t('maintenance.complete')),
                               ),
                             ),
                           ],
@@ -3102,7 +3103,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
             style: TextStyle(color: Colors.white, fontSize: 16),
           ),
           const SizedBox(height: 8),
-          TextButton(onPressed: _loadData, child: const Text('Reintentar')),
+          TextButton(onPressed: _loadData, child: Text(context.t('common.retry'))),
         ],
       ),
     );
@@ -3112,11 +3113,11 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: const [
+        children: [
           Icon(Icons.build_circle_outlined, color: Colors.white54, size: 48),
           SizedBox(height: 14),
           Text(
-            'No hay mantenimientos registrados.',
+            context.t('maintenance.empty'),
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -3125,7 +3126,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           ),
           SizedBox(height: 6),
           Text(
-            'Cuando la empresa te asigne un mantenimiento aparecerá aquí.',
+            context.t('maintenance.emptyHelp'),
             style: TextStyle(color: Colors.white70, fontSize: 13),
           ),
         ],
@@ -3146,13 +3147,13 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     final String normalized = normalizeStatus(value);
     switch (normalized) {
       case 'SUGERIDO':
-        return 'Sugerido';
+        return context.t('maintenance.suggested');
       case 'PROGRAMADO':
-        return 'Programado';
+        return context.t('maintenance.scheduled');
       case 'EN_PROCESO':
         return 'En proceso';
       case 'REALIZADO':
-        return 'Realizado';
+        return context.t('maintenance.done');
       case 'CANCELADO':
         return 'Cancelado';
       default:
@@ -3164,11 +3165,11 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
   String priorityLabel(String value) {
     final normalized = value.trim().toLowerCase();
 
-    if (normalized == 'alta') return 'Alta';
-    if (normalized == 'media') return 'Media';
-    if (normalized == 'baja') return 'Baja';
+    if (normalized == 'alta') return context.t('maintenance.high');
+    if (normalized == 'media') return context.t('maintenance.medium');
+    if (normalized == 'baja') return context.t('maintenance.low');
 
-    return value.trim().isEmpty ? 'Media' : value.trim();
+    return value.trim().isEmpty ? context.t('maintenance.medium') : value.trim();
   }
 
   Color priorityColor(String value) {

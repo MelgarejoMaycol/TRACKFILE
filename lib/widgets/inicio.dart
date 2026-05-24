@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/app_language.dart';
 import '../services/api_service.dart';
 import 'documents/document_preview_modal.dart';
 import 'utils/shimmer_skeleton.dart';
@@ -52,6 +53,10 @@ class _InicioWidgetState extends State<InicioWidget> {
   String _userName = 'Usuario';
   String _userCompany = 'Empresa';
   String? _userProfileImage;
+
+  String _metric(int count, String singularKey, String pluralKey) {
+    return '$count ${context.t(count == 1 ? singularKey : pluralKey)}';
+  }
 
   @override
   @override
@@ -893,18 +898,18 @@ class _InicioWidgetState extends State<InicioWidget> {
                 ),
                 const SizedBox(height: 16),
                 // Título
-                const Text(
-                  'Panel Conductor',
-                  style: TextStyle(
+                Text(
+                  context.t('home.driverPanel'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Resumen de tus asignaciones y documentos.',
-                  style: TextStyle(color: Colors.white70),
+                Text(
+                  context.t('home.driverSubtitle'),
+                  style: const TextStyle(color: Colors.white70),
                 ),
                 const SizedBox(height: 20),
                 // Chips de resumen
@@ -917,33 +922,33 @@ class _InicioWidgetState extends State<InicioWidget> {
                     children: [
                       _buildSummaryChip(
                         Icons.directions_car,
-                        '$totalVehicles vehículos',
-                        'Asignados',
+                        _metric(totalVehicles, 'home.vehicle', 'home.vehicles'),
+                        context.t('home.assigned'),
                       ),
                       _buildSummaryChip(
                         Icons.description_rounded,
-                        '$myDocuments documentos',
-                        'Personales',
+                        _metric(myDocuments, 'home.document', 'home.documents'),
+                        context.t('home.personal'),
                       ),
                       _buildSummaryChip(
                         Icons.warning_amber_rounded,
-                        '$docsExpired vencidos',
-                        'Expirados',
+                        '$docsExpired ${context.t('home.expiredStatus').toLowerCase()}',
+                        context.t('home.expired'),
                       ),
                       _buildSummaryChip(
                         Icons.schedule_rounded,
-                        '$docsExpiringSoon próximos',
-                        'Próximos 30 días',
+                        '$docsExpiringSoon ${context.t('home.next')}',
+                        context.t('home.next30'),
                       ),
                       _buildSummaryChip(
                         Icons.build_circle_rounded,
-                        '$maintenanceScheduled mantenimientos',
-                        'Programados',
+                        '$maintenanceScheduled ${context.t('home.maintenancePlural')}',
+                        context.t('home.scheduled'),
                       ),
                       _buildSummaryChip(
                         Icons.tips_and_updates_rounded,
-                        '$maintenanceSuggested mantenimientos',
-                        'Sugeridos',
+                        '$maintenanceSuggested ${context.t('home.maintenancePlural')}',
+                        context.t('home.suggested'),
                       ),
                     ],
                   ),
@@ -951,9 +956,9 @@ class _InicioWidgetState extends State<InicioWidget> {
                 const SizedBox(height: 26),
                 // Documentos próximos a vencer
                 if (upcomingDocs.isNotEmpty) ...[
-                  const Text(
-                    'Tus documentos próximos a vencer',
-                    style: TextStyle(
+                  Text(
+                    context.t('home.yourDocsExpiring'),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -970,9 +975,9 @@ class _InicioWidgetState extends State<InicioWidget> {
                         Icons.folder_copy_rounded,
                         color: Color(0xFF16C79A),
                       ),
-                      label: const Text(
-                        'Ver todos tus documentos',
-                        style: TextStyle(color: Color(0xFF16C79A)),
+                      label: Text(
+                        context.t('home.viewAllDocuments'),
+                        style: const TextStyle(color: Color(0xFF16C79A)),
                       ),
                     ),
                   ),
@@ -982,7 +987,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Center(
                       child: Text(
-                        'No hay documentos registrados',
+                        context.t('home.noDocuments'),
                         style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                     ),
@@ -991,9 +996,9 @@ class _InicioWidgetState extends State<InicioWidget> {
                 ],
                 // Vehículos asignados
                 if (vehiclesToShow.isNotEmpty) ...[
-                  const Text(
-                    'Vehículos asignados',
-                    style: TextStyle(
+                  Text(
+                    context.t('home.assignedVehicles'),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -1023,16 +1028,16 @@ class _InicioWidgetState extends State<InicioWidget> {
                       child: TextButton(
                         onPressed: () {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
-                                'Ver todos los vehículos aún no está disponible.',
+                                context.t('home.vehiclesUnavailable'),
                               ),
                             ),
                           );
                         },
-                        child: const Text(
-                          'Ver todos los vehículos',
-                          style: TextStyle(color: Color(0xFF16C79A)),
+                        child: Text(
+                          context.t('home.viewAllVehicles'),
+                          style: const TextStyle(color: Color(0xFF16C79A)),
                         ),
                       ),
                     ),
@@ -1042,7 +1047,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Center(
                       child: Text(
-                        'No hay vehículos asignados',
+                        context.t('home.noVehicles'),
                         style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                     ),
@@ -1143,13 +1148,13 @@ class _InicioWidgetState extends State<InicioWidget> {
                   final quickCards = <Widget>[
                     _buildQuickAccessCard(
                       Icons.folder_open,
-                      'Ver\ndocumentos',
+                      context.t('home.viewDocuments'),
                       _handleViewDocuments,
                     ),
                     if (showPaymentCard)
                       _buildQuickAccessCard(
                         Icons.payments,
-                        'Pagos\npendientes',
+                        context.t('home.pendingPayments'),
                         _handleViewPayments,
                       ),
                   ];
@@ -1336,9 +1341,9 @@ class _InicioWidgetState extends State<InicioWidget> {
         ),
       ),
       const SizedBox(height: 16),
-      const Text(
-        'Documentos del conductor',
-        style: TextStyle(
+      Text(
+        context.t('home.driverDocuments'),
+        style: const TextStyle(
           color: Colors.white,
           fontSize: 16,
           fontWeight: FontWeight.w700,
@@ -1349,11 +1354,11 @@ class _InicioWidgetState extends State<InicioWidget> {
 
     if (entries.isEmpty) {
       sheetChildren.add(
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 24),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
           child: Text(
-            'No hay documentos registrados.',
-            style: TextStyle(color: Colors.white70),
+            context.t('home.noDocuments'),
+            style: const TextStyle(color: Colors.white70),
           ),
         ),
       );
@@ -1374,8 +1379,8 @@ class _InicioWidgetState extends State<InicioWidget> {
           expiry.day,
         );
         final int days = expiryOnly.difference(todayOnly).inDays;
-        final details = <String>['Vence: ${_formatDate(expiry)}'];
-        if (payment != null) details.add('Pago: ${_formatDate(payment)}');
+        final details = <String>['${context.t('home.expires')}: ${_formatDate(expiry)}'];
+        if (payment != null) details.add('${context.t('home.payment')}: ${_formatDate(payment)}');
 
         if (i > 0) {
           sheetChildren.add(const Divider(color: Colors.white24, height: 24));
@@ -1397,10 +1402,10 @@ class _InicioWidgetState extends State<InicioWidget> {
             ),
             subtitle: Text(
               '${details.join(' • ')}\n${days < 0
-                  ? 'Vencido'
+                  ? context.t('home.expiredStatus')
                   : days == 0
-                  ? 'Se vence hoy'
-                  : '$days días restantes'}',
+                  ? context.t('home.expiresToday')
+                  : '$days ${context.t('home.daysRemaining')}'}',
               style: TextStyle(
                 color: days < 0
                     ? Colors.red[300]
@@ -1478,9 +1483,9 @@ class _InicioWidgetState extends State<InicioWidget> {
         ),
       ),
       const SizedBox(height: 16),
-      const Text(
-        'Próximos pagos',
-        style: TextStyle(
+      Text(
+        context.t('home.nextPayments'),
+        style: const TextStyle(
           color: Colors.white,
           fontSize: 16,
           fontWeight: FontWeight.w700,
@@ -1491,11 +1496,11 @@ class _InicioWidgetState extends State<InicioWidget> {
 
     if (entries.isEmpty) {
       sheetChildren.add(
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 24),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
           child: Text(
-            'No hay pagos programados.',
-            style: TextStyle(color: Colors.white70),
+            context.t('home.noPayments'),
+            style: const TextStyle(color: Colors.white70),
           ),
         ),
       );
@@ -1523,7 +1528,7 @@ class _InicioWidgetState extends State<InicioWidget> {
               ),
             ),
             subtitle: Text(
-              'Pago: ${_formatDate(entry.value)}${relatedExpiry != null ? '\nVence: ${_formatDate(relatedExpiry)}' : ''}',
+              '${context.t('home.payment')}: ${_formatDate(entry.value)}${relatedExpiry != null ? '\n${context.t('home.expires')}: ${_formatDate(relatedExpiry)}' : ''}',
               style: const TextStyle(color: Colors.white70, height: 1.2),
             ),
             isThreeLine: relatedExpiry != null,
@@ -1556,7 +1561,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      'No hay fecha de vencimiento para ${entry.key}',
+                      '${context.t('home.noDueDate')} ${entry.key}',
                     ),
                     backgroundColor: const Color(0xFF16C79A),
                   ),
@@ -1661,18 +1666,18 @@ class _InicioWidgetState extends State<InicioWidget> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text(
-                  'Panel Empresa',
-                  style: TextStyle(
+                Text(
+                  context.t('home.companyPanel'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Supervisa tus indicadores corporativos, próximos vencimientos y operaciones clave.',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                Text(
+                  context.t('home.companySubtitle'),
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
                 const SizedBox(height: 20),
                 Align(
@@ -1684,47 +1689,47 @@ class _InicioWidgetState extends State<InicioWidget> {
                     children: [
                       _buildSummaryChip(
                         Icons.apartment_rounded,
-                        '$fleetSize vehículos',
-                        'Flota total',
+                        _metric(fleetSize, 'home.vehicle', 'home.vehicles'),
+                        context.t('home.totalFleet'),
                       ),
                       _buildSummaryChip(
                         Icons.badge_rounded,
-                        '$totalDrivers conductores',
-                        'Activos hoy',
+                        '$totalDrivers ${context.t('home.drivers')}',
+                        context.t('home.activeToday'),
                       ),
                       _buildSummaryChip(
                         Icons.person_rounded,
-                        '$totalPropietarios propietarios',
-                        'Ligados',
+                        '$totalPropietarios ${context.t('home.owners')}',
+                        context.t('home.linked'),
                       ),
                       _buildSummaryChip(
                         Icons.warning_amber_rounded,
-                        '$documentsExpired vencidos',
-                        'Documentos vencidos',
+                        '$documentsExpired ${context.t('home.expiredStatus').toLowerCase()}',
+                        context.t('home.expiredDocuments'),
                       ),
                       _buildSummaryChip(
                         Icons.build_circle_rounded,
-                        '$maintenanceScheduled mantenimientos',
-                        'Programados',
+                        '$maintenanceScheduled ${context.t('home.maintenancePlural')}',
+                        context.t('home.scheduled'),
                       ),
                       _buildSummaryChip(
                         Icons.tips_and_updates_rounded,
-                        '$maintenanceSuggested mantenimientos',
-                        'Sugeridos',
+                        '$maintenanceSuggested ${context.t('home.maintenancePlural')}',
+                        context.t('home.suggested'),
                       ),
                       _buildSummaryChip(
                         Icons.assignment_turned_in_rounded,
-                        '$certificateRequests solicitudes',
-                        'Certificados',
+                        '$certificateRequests ${context.t('home.requests')}',
+                        context.t('home.certificates'),
                       ),
                     ],
                   ),
                 ),
                 if (upcomingDocs.isNotEmpty) ...[
                   const SizedBox(height: 26),
-                  const Text(
-                    'Documentos corporativos próximos a vencer',
-                    style: TextStyle(
+                  Text(
+                    context.t('home.companyDocsExpiring'),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -1741,9 +1746,9 @@ class _InicioWidgetState extends State<InicioWidget> {
                         Icons.folder_copy_rounded,
                         color: Color(0xFF16C79A),
                       ),
-                      label: const Text(
-                        'Ir al módulo de documentos',
-                        style: TextStyle(color: Color(0xFF16C79A)),
+                      label: Text(
+                        context.t('home.goDocuments'),
+                        style: const TextStyle(color: Color(0xFF16C79A)),
                       ),
                     ),
                   ),
@@ -1816,18 +1821,18 @@ class _InicioWidgetState extends State<InicioWidget> {
                 ),
                 const SizedBox(height: 16),
                 // Título
-                const Text(
-                  'Panel Propietario',
-                  style: TextStyle(
+                Text(
+                  context.t('home.ownerPanel'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Resumen de tu flota y documentos.',
-                  style: TextStyle(color: Colors.white70),
+                Text(
+                  context.t('home.ownerSubtitle'),
+                  style: const TextStyle(color: Colors.white70),
                 ),
                 const SizedBox(height: 20),
                 // Chips de resumen
@@ -1840,33 +1845,33 @@ class _InicioWidgetState extends State<InicioWidget> {
                     children: [
                       _buildSummaryChip(
                         Icons.directions_bus,
-                        '$totalVehicles vehículos',
-                        'Activos registrados',
+                        _metric(totalVehicles, 'home.vehicle', 'home.vehicles'),
+                        context.t('home.activeToday'),
                       ),
                       _buildSummaryChip(
                         Icons.description_rounded,
-                        '$myDocuments documentos',
-                        'Personales',
+                        _metric(myDocuments, 'home.document', 'home.documents'),
+                        context.t('home.personal'),
                       ),
                       _buildSummaryChip(
                         Icons.build_circle_rounded,
-                        '$maintenanceScheduled mantenimientos',
-                        'Programados',
+                        '$maintenanceScheduled ${context.t('home.maintenancePlural')}',
+                        context.t('home.scheduled'),
                       ),
                       _buildSummaryChip(
                         Icons.tips_and_updates_rounded,
-                        '$maintenanceSuggested mantenimientos',
-                        'Sugeridos',
+                        '$maintenanceSuggested ${context.t('home.maintenancePlural')}',
+                        context.t('home.suggested'),
                       ),
                       _buildSummaryChip(
                         Icons.warning_amber_rounded,
-                        '$docsExpired vencidos',
-                        'Expirados',
+                        '$docsExpired ${context.t('home.expiredStatus').toLowerCase()}',
+                        context.t('home.expired'),
                       ),
                       _buildSummaryChip(
                         Icons.schedule_rounded,
-                        '$docsExpiringSoon próximos',
-                        'Próximos 30 días',
+                        '$docsExpiringSoon ${context.t('home.next')}',
+                        context.t('home.next30'),
                       ),
                     ],
                   ),
@@ -1874,9 +1879,9 @@ class _InicioWidgetState extends State<InicioWidget> {
                 const SizedBox(height: 26),
                 // Sección de documentos próximos a vencer
                 if (upcomingDocs.isNotEmpty) ...[
-                  const Text(
-                    'Tus documentos próximos a vencer',
-                    style: TextStyle(
+                  Text(
+                    context.t('home.yourDocsExpiring'),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -1893,9 +1898,9 @@ class _InicioWidgetState extends State<InicioWidget> {
                         Icons.folder_copy_rounded,
                         color: Color(0xFF16C79A),
                       ),
-                      label: const Text(
-                        'Ver todos tus documentos',
-                        style: TextStyle(color: Color(0xFF16C79A)),
+                      label: Text(
+                        context.t('home.viewAllDocuments'),
+                        style: const TextStyle(color: Color(0xFF16C79A)),
                       ),
                     ),
                   ),
@@ -1905,7 +1910,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Center(
                       child: Text(
-                        'No hay documentos registrados',
+                        context.t('home.noDocuments'),
                         style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                     ),
@@ -1914,9 +1919,9 @@ class _InicioWidgetState extends State<InicioWidget> {
                 ],
                 // Sección de vehículos
                 if (vehiclesToShow.isNotEmpty) ...[
-                  const Text(
-                    'Vehículos asignados',
-                    style: TextStyle(
+                  Text(
+                    context.t('home.assignedVehicles'),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -1946,16 +1951,16 @@ class _InicioWidgetState extends State<InicioWidget> {
                       child: TextButton(
                         onPressed: () {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
-                                'Ver todos los vehículos aún no está disponible.',
+                                context.t('home.vehiclesUnavailable'),
                               ),
                             ),
                           );
                         },
-                        child: const Text(
-                          'Ver todos los vehículos',
-                          style: TextStyle(color: Color(0xFF16C79A)),
+                        child: Text(
+                          context.t('home.viewAllVehicles'),
+                          style: const TextStyle(color: Color(0xFF16C79A)),
                         ),
                       ),
                     ),
@@ -1965,7 +1970,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Center(
                       child: Text(
-                        'No hay vehículos asignados',
+                        context.t('home.noVehicles'),
                         style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                     ),
@@ -1992,27 +1997,27 @@ class _InicioWidgetState extends State<InicioWidget> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Panel Secretaría',
-                style: TextStyle(
+              Text(
+                context.t('home.secretaryPanel'),
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Tareas administrativas y solicitudes.',
-                style: TextStyle(color: Colors.white70),
+              Text(
+                context.t('home.secretarySubtitle'),
+                style: const TextStyle(color: Colors.white70),
               ),
               const SizedBox(height: 20),
-              _infoCard(Icons.request_page, 'Solicitudes nuevas', '8'),
+              _infoCard(Icons.request_page, context.t('home.newRequests'), '8'),
               const SizedBox(height: 26),
               // Documentos próximos a vencer
               if (upcomingDocs.isNotEmpty) ...[
-                const Text(
-                  'Documentos próximos a vencer',
-                  style: TextStyle(
+                Text(
+                  context.t('home.docsExpiring'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -2029,9 +2034,9 @@ class _InicioWidgetState extends State<InicioWidget> {
                       Icons.folder_copy_rounded,
                       color: Color(0xFF16C79A),
                     ),
-                    label: const Text(
-                      'Ir al módulo de documentos',
-                      style: TextStyle(color: Color(0xFF16C79A)),
+                    label: Text(
+                      context.t('home.goDocuments'),
+                      style: const TextStyle(color: Color(0xFF16C79A)),
                     ),
                   ),
                 ),
@@ -2040,7 +2045,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Center(
                     child: Text(
-                      'No hay documentos registrados',
+                      context.t('home.noDocuments'),
                       style: TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                   ),
@@ -2068,27 +2073,27 @@ class _InicioWidgetState extends State<InicioWidget> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Panel Admin',
-                  style: TextStyle(
+                Text(
+                  context.t('home.adminPanel'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Vista global del sistema.',
-                  style: TextStyle(color: Colors.white70),
+                Text(
+                  context.t('home.adminSubtitle'),
+                  style: const TextStyle(color: Colors.white70),
                 ),
                 const SizedBox(height: 20),
-                _infoCard(Icons.settings, 'Configuraciones', ''),
+                _infoCard(Icons.settings, context.t('home.settings'), ''),
                 const SizedBox(height: 26),
                 // Documentos próximos a vencer
                 if (upcomingDocs.isNotEmpty) ...[
-                  const Text(
-                    'Documentos próximos a vencer en el sistema',
-                    style: TextStyle(
+                  Text(
+                    context.t('home.systemDocsExpiring'),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -2105,9 +2110,9 @@ class _InicioWidgetState extends State<InicioWidget> {
                         Icons.folder_copy_rounded,
                         color: Color(0xFF16C79A),
                       ),
-                      label: const Text(
-                        'Ir al módulo de documentos',
-                        style: TextStyle(color: Color(0xFF16C79A)),
+                      label: Text(
+                        context.t('home.goDocuments'),
+                        style: const TextStyle(color: Color(0xFF16C79A)),
                       ),
                     ),
                   ),
@@ -2116,7 +2121,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Center(
                       child: Text(
-                        'No hay documentos registrados',
+                        context.t('home.noDocuments'),
                         style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                     ),
@@ -2290,7 +2295,7 @@ class _InicioWidgetState extends State<InicioWidget> {
                   : 1;
               final DateTime? paymentDate = _paymentDates?[entry.key];
               final String detailLabel =
-                  _documentVehicle[entry.key] ?? 'Sin detalle';
+                  _documentVehicle[entry.key] ?? context.t('home.noDetail');
 
               return SizedBox(
                 width: itemWidth,
@@ -2326,10 +2331,10 @@ class _InicioWidgetState extends State<InicioWidget> {
                     title: entry.key.split('-').first,
                     subtitle:
                         '$detailLabel\n${_formatDate(expiry)}\n${daysRemaining < 0
-                            ? '$daysRemaining días'
+                            ? '$daysRemaining ${context.t('home.days')}'
                             : daysRemaining == 0
-                            ? 'Hoy'
-                            : '$daysRemaining días'}',
+                            ? context.t('home.today')
+                            : '$daysRemaining ${context.t('home.days')}'}',
                     size: countdownSize,
                   ),
                 ),
@@ -2423,14 +2428,20 @@ class _InicioWidgetState extends State<InicioWidget> {
                 ),
                 const SizedBox(height: 6),
                 // Modelo
-                _buildVehicleInfoRow('Modelo', vehicle['model'] as String),
+                _buildVehicleInfoRow(
+                  context.t('home.model'),
+                  vehicle['model'] as String,
+                ),
                 // Propietario
-                _buildVehicleInfoRow('Propietario', ownerName),
+                _buildVehicleInfoRow(context.t('home.owner'), ownerName),
                 // Conductor
                 if (hasDriver)
-                  _buildVehicleInfoRow('Conductor', driverName)
+                  _buildVehicleInfoRow(context.t('home.driver'), driverName)
                 else
-                  _buildVehicleInfoRow('Conductor', 'Sin asignar'),
+                  _buildVehicleInfoRow(
+                    context.t('home.driver'),
+                    context.t('home.unassigned'),
+                  ),
                 // Año y Color en una sola fila si están disponibles
                 if (hasYear || hasColor)
                   Padding(
@@ -2438,12 +2449,20 @@ class _InicioWidgetState extends State<InicioWidget> {
                     child: Row(
                       children: [
                         if (hasYear) ...[
-                          Expanded(child: _buildVehicleInfoRow('Año', yearStr)),
+                          Expanded(
+                            child: _buildVehicleInfoRow(
+                              context.t('home.year'),
+                              yearStr,
+                            ),
+                          ),
                           const SizedBox(width: 8),
                         ],
                         if (hasColor) ...[
                           Expanded(
-                            child: _buildVehicleInfoRow('Color', colorStr),
+                            child: _buildVehicleInfoRow(
+                              context.t('home.color'),
+                              colorStr,
+                            ),
                           ),
                         ],
                       ],
@@ -2461,7 +2480,9 @@ class _InicioWidgetState extends State<InicioWidget> {
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Detalle de ${vehicle['plate']} - $ownerName'),
+                  content: Text(
+                    '${context.t('home.detail')} ${vehicle['plate']} - $ownerName',
+                  ),
                   backgroundColor: const Color(0xFF16C79A),
                 ),
               );
@@ -2631,13 +2652,13 @@ class _DocumentCountdownState extends State<DocumentCountdown> {
     final int days = d.inDays.abs();
 
     if (d.isNegative) {
-      if (days >= 365) return 'años vencido';
-      if (days >= 30) return 'meses vencido';
-      return 'días vencido';
+      if (days >= 365) return context.t('home.yearsExpired');
+      if (days >= 30) return context.t('home.monthsExpired');
+      return context.t('home.daysExpired');
     }
 
-    if (days >= 365) return 'años';
-    if (days >= 30) return 'meses';
-    return 'días';
+    if (days >= 365) return context.t('home.years');
+    if (days >= 30) return context.t('home.months');
+    return context.t('home.days');
   }
 }

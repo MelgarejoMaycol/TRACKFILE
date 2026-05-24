@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:trackfile/l10n/app_language.dart';
 
 import '../../services/api_service.dart';
 import '../documents/document_preview_modal.dart';
@@ -414,7 +415,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
       case 'secretaria':
         return _buildCommonLayout(
           isCompact: isCompact,
-          title: 'Panel de certificaciones',
+          title: context.t('requests.panel'),
           subtitle:
               'Visualiza y gestiona las solicitudes enviadas por los conductores.',
           tableDetalles: _detalles,
@@ -429,7 +430,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
             .toList();
         return _buildCommonLayout(
           isCompact: isCompact,
-          title: 'Estado de certificaciones',
+          title: context.t('requests.status'),
           subtitle:
               'Seguimiento de las solicitudes que realiza el conductor (certificado laboral, antecedentes y mas).',
           tableDetalles: aprobadas,
@@ -492,8 +493,8 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
             size: 20,
           ),
           hintText: _puedeGestionarSolicitudes
-              ? 'Buscar por nombre, documento o tipo de solicitud...'
-              : 'Buscar por tipo de solicitud...',
+              ? context.t('requests.searchAdmin')
+              : context.t('requests.searchUser'),
           hintStyle: const TextStyle(color: Colors.white54, fontSize: 13),
           suffixIcon: _searchQuery.trim().isEmpty
               ? null
@@ -633,8 +634,8 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
       children: [
         _buildCommonLayout(
           isCompact: isCompact,
-          title: 'Solicitudes',
-          subtitle: 'Solicita y consulta el estado de tus certificados.',
+          title: context.t('requests.title'),
+          subtitle: context.t('requests.subtitle'),
           tableDetalles: detallesOrdenados,
           tableCompact: isTableCompact,
         ),
@@ -649,7 +650,9 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
             elevation: 8,
             icon: const Icon(Icons.add_rounded),
             label: Text(
-              isCompact ? 'Solicitar' : 'Solicitar certificado',
+              isCompact
+                  ? context.t('requests.submit')
+                  : context.t('requests.requestCertificate'),
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
@@ -691,9 +694,8 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
 
     return _buildCommonLayout(
       isCompact: isCompact,
-      title: 'Solicitudes de $nombre',
-      subtitle:
-          'Consulta solicitudes, certificados e historial de esta persona. Rol: $rol.',
+      title: '${context.t('requests.of')} $nombre',
+      subtitle: '${context.t('requests.personSubtitle')}: $rol.',
       tableDetalles: detallesOrdenados,
       tableCompact: isTableCompact,
     );
@@ -722,11 +724,11 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
         final Widget? revisionPanel = enRevision.isEmpty
             ? null
             : _buildSectionPanel(
-                title: 'En revisión',
+                title: context.t('requests.inReview'),
                 count: enRevision.length,
                 color: _warningColor,
                 icon: Icons.hourglass_top_rounded,
-                emptyMessage: 'No hay solicitudes en revisión',
+                emptyMessage: context.t('requests.noInReview'),
                 children: enRevision
                     .map(
                       (detalle) => Padding(
@@ -740,11 +742,11 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
         final Widget? historialPanel = historialFinal.isEmpty
             ? null
             : _buildSectionPanel(
-                title: 'Historial',
+                title: context.t('requests.history'),
                 count: historialFinal.length,
                 color: _successColor,
                 icon: Icons.history_rounded,
-                emptyMessage: 'No hay solicitudes en historial',
+                emptyMessage: context.t('requests.noHistory'),
                 children: historialFinal
                     .map(
                       (detalle) => Padding(
@@ -1001,7 +1003,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
     if (url == null || url.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Esta solicitud no tiene documento disponible.'),
+          content: Text(context.t('requests.noDocument')),
           backgroundColor: _warningColor,
         ),
       );
@@ -1203,7 +1205,9 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
                                                 Icons.timeline_rounded,
                                                 size: 18,
                                               ),
-                                              label: const Text('Historial'),
+                                              label: Text(
+                                                context.t('requests.history'),
+                                              ),
                                               style: TextButton.styleFrom(
                                                 foregroundColor: Colors.white70,
                                               ),
@@ -1238,7 +1242,9 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
                                                   Icons.reply_rounded,
                                                   size: 18,
                                                 ),
-                                                label: const Text('Responder'),
+                                                label: Text(
+                                                  context.t('requests.respond'),
+                                                ),
                                                 style: ElevatedButton.styleFrom(
                                                   backgroundColor: _accentColor,
                                                   foregroundColor: Colors.white,
@@ -1474,7 +1480,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
                   children: [
                     _buildFloatingModalHeader(
                       ctx: ctx,
-                      title: 'Solicitar certificado',
+                      title: context.t('requests.requestCertificate'),
                       subtitle:
                           'Completa el formulario para crear una solicitud.',
                       icon: Icons.verified_rounded,
@@ -1635,7 +1641,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                     ),
-                                    child: const Text('Cancelar'),
+                                    child: Text(context.t('requests.cancel')),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -1650,7 +1656,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
                                             ctx,
                                           ),
                                     icon: const Icon(Icons.send_rounded),
-                                    label: const Text('Solicitar'),
+                                    label: Text(context.t('requests.submit')),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: _accentColor,
                                       foregroundColor: Colors.white,
@@ -1919,7 +1925,10 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
             style: TextStyle(color: Colors.white, fontSize: 16),
           ),
           const SizedBox(height: 8),
-          TextButton(onPressed: _loadData, child: const Text('Reintentar')),
+          TextButton(
+            onPressed: _loadData,
+            child: Text(context.t('requests.retry')),
+          ),
         ],
       ),
     );
@@ -1936,18 +1945,18 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
             size: 48,
           ),
           const SizedBox(height: 14),
-          const Text(
-            'No hay solicitudes registradas.',
-            style: TextStyle(
+          Text(
+            context.t('requests.empty'),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Cuando se cree una solicitud de certificacion aparecera aqui.',
-            style: TextStyle(color: Colors.white70, fontSize: 13),
+          Text(
+            context.t('requests.emptyHelp'),
+            style: const TextStyle(color: Colors.white70, fontSize: 13),
           ),
         ],
       ),
@@ -2036,7 +2045,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
                   children: [
                     _buildFloatingModalHeader(
                       ctx: ctx,
-                      title: 'Enviar respuesta',
+                      title: context.t('requests.sendResponse'),
                       subtitle:
                           detalle.tipo?.nombre ?? 'Solicitud de certificación',
                       icon: Icons.reply_rounded,
@@ -2081,14 +2090,14 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
                                   borderSide: BorderSide(color: _accentColor),
                                 ),
                               ),
-                              items: const [
+                              items: [
                                 DropdownMenuItem(
                                   value: 'ACEPTADA',
-                                  child: Text('Aceptar'),
+                                  child: Text(context.t('requests.accept')),
                                 ),
                                 DropdownMenuItem(
                                   value: 'RECHAZADA',
-                                  child: Text('Rechazar'),
+                                  child: Text(context.t('requests.reject')),
                                 ),
                               ],
                               onChanged: subiendoArchivo
@@ -2178,7 +2187,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
                               maxLines: 4,
                               style: const TextStyle(color: Colors.white),
                               decoration: InputDecoration(
-                                hintText: 'Escribe una observación...',
+                                hintText: context.t('requests.observationHint'),
                                 hintStyle: const TextStyle(
                                   color: Colors.white54,
                                 ),
@@ -2261,7 +2270,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                     ),
-                                    child: const Text('Cancelar'),
+                                    child: Text(context.t('requests.cancel')),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -2384,8 +2393,8 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
                                       subiendoArchivo
                                           ? 'Procesando...'
                                           : aceptada
-                                          ? 'Aceptar'
-                                          : 'Rechazar',
+                                          ? context.t('requests.accept')
+                                          : context.t('requests.reject'),
                                     ),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: actionColor,

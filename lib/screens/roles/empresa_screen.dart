@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:trackfile/l10n/app_language.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notificaciones_service.dart';
 import 'package:trackfile/widgets/chatbot/faq_chatbot.dart';
@@ -601,7 +602,10 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           size: 13,
           color: selected ? Colors.white : Colors.white70,
         ),
-        label: Text(option.label, style: const TextStyle(fontSize: 11)),
+        label: Text(
+          context.sectionLabel(option.section),
+          style: const TextStyle(fontSize: 11),
+        ),
         selected: selected,
         onSelected: (_) => _onTopMenuTap(index),
         selectedColor: _accentColor,
@@ -688,8 +692,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: _buildPageSearchField(
-                        hintText:
-                            'Buscar página: documentos, vehículos, mantenimientos...',
+                        hintText: context.t('dashboard.searchHint'),
                       ),
                     ),
                   ),
@@ -904,10 +907,10 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Expanded(
+                  Expanded(
                     flex: 3,
                     child: Text(
-                      'Panel corporativo',
+                      context.t('dashboard.companyPanel'),
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 17,
@@ -925,8 +928,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: _buildPageSearchField(
-                        hintText:
-                            'Buscar página: documentos, vehículos, mantenimientos...',
+                        hintText: context.t('dashboard.searchHint'),
                       ),
                     ),
                   ),
@@ -947,8 +949,8 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Panel corporativo',
+              Text(
+                context.t('dashboard.companyPanel'),
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -957,8 +959,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
               ),
               const SizedBox(height: 6),
               _buildPageSearchField(
-                hintText:
-                    'Buscar página: documentos, vehículos, mantenimientos...',
+                hintText: context.t('dashboard.searchHint'),
               ),
             ],
           ),
@@ -986,7 +987,10 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           size: iconSize,
           color: selected ? Colors.white : Colors.white70,
         ),
-        label: Text(option.label, style: TextStyle(fontSize: fontSize)),
+        label: Text(
+          context.sectionLabel(option.section),
+          style: TextStyle(fontSize: fontSize),
+        ),
         selected: selected,
         onSelected: (_) => _onTopMenuTap(index),
         selectedColor: _accentColor,
@@ -1038,7 +1042,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              'Menú',
+              context.t('dashboard.menu'),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -1085,7 +1089,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                option.label,
+                context.sectionLabel(option.section),
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 14,
@@ -1147,7 +1151,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
             Icon(option.icon, size: isCompact ? 20 : 22, color: Colors.white),
             const SizedBox(height: 3),
             Text(
-              option.label,
+              context.sectionLabel(option.section),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1371,75 +1375,77 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
-            final bool isCompact = constraints.maxWidth < 860;
-            final double radius = isCompact ? 24 : 28;
-            if (isCompact) {
-              // Layout móvil: menú superior + contenido + menú inferior
-              return Column(
-                children: [
-                  _buildHeader(isCompact: isCompact),
-                  _buildSearchAndWelcome(isCompact: isCompact),
-                  _buildTopMenuBar(isCompact: isCompact),
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      height: double.infinity,
-                      alignment: Alignment.topLeft,
-                      decoration: BoxDecoration(
-                        color: _surfaceColor,
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(radius),
-                        ),
-                      ),
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        child: KeyedSubtree(
-                          key: ValueKey('$_activeSection-$_contentRefreshKey'),
-                          child: _buildContentView(),
-                        ),
-                      ),
-                    ),
-                  ),
-                  _buildBottomBar(isCompact: isCompact),
-                ],
-              );
-            } else {
-              // Layout desktop: menú izquierdo + topbar + contenido
-              return Column(
-                children: [
-                  _buildDesktopTopBar(),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        _buildLeftSidebar(),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Container(
-                            height: double.infinity,
-                            alignment: Alignment.topLeft,
-                            decoration: BoxDecoration(
-                              color: _surfaceColor,
-                              borderRadius: BorderRadius.vertical(
-                                top: Radius.circular(radius),
-                              ),
+                final bool isCompact = constraints.maxWidth < 860;
+                final double radius = isCompact ? 24 : 28;
+                if (isCompact) {
+                  // Layout móvil: menú superior + contenido + menú inferior
+                  return Column(
+                    children: [
+                      _buildHeader(isCompact: isCompact),
+                      _buildSearchAndWelcome(isCompact: isCompact),
+                      _buildTopMenuBar(isCompact: isCompact),
+                      Expanded(
+                        child: Container(
+                          width: double.infinity,
+                          height: double.infinity,
+                          alignment: Alignment.topLeft,
+                          decoration: BoxDecoration(
+                            color: _surfaceColor,
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(radius),
                             ),
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 200),
-                              child: KeyedSubtree(
-                                key: ValueKey(
-                                  '$_activeSection-$_contentRefreshKey',
-                                ),
-                                child: _buildContentView(),
+                          ),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: KeyedSubtree(
+                              key: ValueKey(
+                                '$_activeSection-$_contentRefreshKey',
                               ),
+                              child: _buildContentView(),
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            }
+                      ),
+                      _buildBottomBar(isCompact: isCompact),
+                    ],
+                  );
+                } else {
+                  // Layout desktop: menú izquierdo + topbar + contenido
+                  return Column(
+                    children: [
+                      _buildDesktopTopBar(),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            _buildLeftSidebar(),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Container(
+                                height: double.infinity,
+                                alignment: Alignment.topLeft,
+                                decoration: BoxDecoration(
+                                  color: _surfaceColor,
+                                  borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(radius),
+                                  ),
+                                ),
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 200),
+                                  child: KeyedSubtree(
+                                    key: ValueKey(
+                                      '$_activeSection-$_contentRefreshKey',
+                                    ),
+                                    child: _buildContentView(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }
               },
             ),
           ),

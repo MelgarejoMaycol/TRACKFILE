@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_language.dart';
 import '../../services/document_service.dart';
 
 class EditDocumentModal {
@@ -88,8 +89,8 @@ class _EditDocumentDateDialogState extends State<_EditDocumentDateDialog> {
       widget.onSuccess();
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Fecha actualizada correctamente'),
+        SnackBar(
+          content: Text(context.t('documents.dateUpdated')),
           backgroundColor: Colors.green,
         ),
       );
@@ -98,7 +99,7 @@ class _EditDocumentDateDialogState extends State<_EditDocumentDateDialog> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('No se pudo actualizar la fecha: $e'),
+          content: Text('${context.t('documents.dateUpdateError')}: $e'),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -209,7 +210,7 @@ class _EditDocumentDateDialogState extends State<_EditDocumentDateDialog> {
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                            child: const Text('Cancelar'),
+                            child: Text(context.t('common.cancel')),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -226,7 +227,9 @@ class _EditDocumentDateDialogState extends State<_EditDocumentDateDialog> {
                                   )
                                 : const Icon(Icons.save_rounded),
                             label: Text(
-                              _guardando ? 'Guardando...' : 'Guardar',
+                              _guardando
+                                  ? context.t('common.saving')
+                                  : context.t('common.save'),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF4F4CE8),
@@ -286,22 +289,22 @@ class _EditDocumentDateDialogState extends State<_EditDocumentDateDialog> {
             ),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Editar fecha',
-                  style: TextStyle(
+                  context.t('documents.editDate'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'Actualiza la fecha de vencimiento del documento.',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  context.t('documents.updateDateSubtitle'),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),

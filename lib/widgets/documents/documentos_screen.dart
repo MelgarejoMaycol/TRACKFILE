@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:trackfile/l10n/app_language.dart';
 import 'package:trackfile/services/api_link.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/document_service.dart';
@@ -656,24 +657,22 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
     final String subtitle;
     switch (_view) {
       case _DocumentosFlowView.home:
-        subtitle =
-            'Explora documentos por tipo y accede rápido a la persona o el vehículo.';
+        subtitle = context.t('documents.homeSubtitle');
         break;
       case _DocumentosFlowView.people:
-        subtitle = 'Buscar conductores y propietarios por nombre o documento.';
+        subtitle = context.t('documents.peopleSubtitle');
         break;
       case _DocumentosFlowView.personDetail:
         subtitle =
             _selectedPerson?.fullName ??
-            'Detalles de la persona y sus documentos.';
+            context.t('documents.personSubtitle');
         break;
       case _DocumentosFlowView.vehicles:
-        subtitle =
-            'Selecciona un vehículo y revisa sus documentos en un diseño moderno.';
+        subtitle = context.t('documents.vehiclesSubtitle');
         break;
       case _DocumentosFlowView.vehicleDetail:
         subtitle =
-            _selectedVehicle?.title ?? 'Ficha del vehículo y sus documentos.';
+            _selectedVehicle?.title ?? context.t('documents.vehicleSubtitle');
         break;
     }
 
@@ -696,10 +695,10 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
             children: [
               Text(
                 _view == _DocumentosFlowView.people
-                    ? 'Personas'
+                    ? context.t('documents.people')
                     : _view == _DocumentosFlowView.vehicles
-                    ? 'Vehículos'
-                    : 'Documentos',
+                    ? context.t('documents.vehicles')
+                    : context.t('documents.title'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -964,7 +963,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                 children: [
                   _buildHomeCard(
                     icon: Icons.people_alt_rounded,
-                    title: 'Personas',
+                    title: context.t('documents.people'),
                     subtitle: _isEmpresa
                         ? 'Conductores y propietarios'
                         : 'Mis documentos personales',
@@ -973,8 +972,8 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                   ),
                   _buildHomeCard(
                     icon: Icons.directions_car_rounded,
-                    title: 'Vehículos',
-                    subtitle: 'Tarjetas por placa, modelo y marca',
+                    title: context.t('documents.vehicles'),
+                    subtitle: context.t('documents.vehicleCards'),
                     accent: Colors.teal.shade700,
                     onTap: () =>
                         setState(() => _view = _DocumentosFlowView.vehicles),
@@ -1114,7 +1113,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'Vence: ${doc.formattedExpiry}',
+                    '${context.t('documents.expires')}: ${doc.formattedExpiry}',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white70,
@@ -1238,7 +1237,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
             Expanded(
               child: persons.isEmpty
                   ? _buildEmptyState(
-                      title: 'No se encontraron personas',
+                      title: context.t('documents.noPeople'),
                       message: _searchQuery.isEmpty
                           ? 'Aún no existen conductores o propietarios en la empresa.'
                           : 'Ninguna persona coincide con la búsqueda.',
@@ -1275,7 +1274,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
         });
       },
       decoration: InputDecoration(
-        hintText: 'Buscar por nombre o número de documento',
+        hintText: context.t('documents.searchPerson'),
         prefixIcon: const Icon(Icons.search),
         filled: true,
         isDense: true,
@@ -1446,7 +1445,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
     final person = _selectedPerson;
     if (person == null) {
       return _buildEmptyState(
-        title: 'Persona no encontrada',
+        title: context.t('documents.personNotFound'),
         message: 'Selecciona una persona para ver sus documentos.',
       );
     }
@@ -1471,7 +1470,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Documentos de la persona',
+                context.t('documents.personDocuments'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1498,8 +1497,8 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
 
               Text(
                 person.documentNumber.isNotEmpty
-                    ? 'Documento: ${person.documentNumber}'
-                    : 'Documento no disponible',
+                    ? '${context.t('documents.documentNumber')}: ${person.documentNumber}'
+                    : context.t('documents.documentUnavailable'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: Colors.white70, fontSize: textSize),
@@ -1508,7 +1507,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
               const SizedBox(height: 4),
 
               Text(
-                'Rol: ${person.roles.join(' / ')}',
+                '${context.t('documents.role')}: ${person.roles.join(' / ')}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: Colors.white70, fontSize: textSize),
@@ -1517,7 +1516,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
               if (person.vehiclePlates.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'Vehículos vinculados: ${person.vehiclePlates.join(' • ')}',
+                  '${context.t('documents.linkedVehicles')}: ${person.vehiclePlates.join(' • ')}',
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: Colors.white70, fontSize: textSize),
@@ -1565,7 +1564,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                 SizedBox(
                   height: 320,
                   child: _buildEmptyState(
-                    title: 'Sin documentos',
+                    title: context.t('documents.noDocuments'),
                     message:
                         'Esta persona no tiene documentos asociados a la vista actual.',
                   ),
@@ -1611,7 +1610,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
             Expanded(
               child: _vehicles.isEmpty
                   ? _buildEmptyState(
-                      title: 'No hay vehículos',
+                      title: context.t('documents.noVehicles'),
                       message:
                           'No se encontraron vehículos asociados a la empresa.',
                     )
@@ -1749,7 +1748,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
     final vehicle = _selectedVehicle;
     if (vehicle == null) {
       return _buildEmptyState(
-        title: 'Vehículo no encontrado',
+        title: context.t('documents.vehicleNotFound'),
         message: 'Selecciona un vehículo para ver sus documentos.',
       );
     }
@@ -1774,7 +1773,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Documentos de propietario y conductor',
+                context.t('documents.ownerDriverDocuments'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1785,21 +1784,21 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                '${vehicle.title} • Placa ${vehicle.plate}',
+                '${vehicle.title} • ${context.t('documents.plate')} ${vehicle.plate}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: Colors.white70, fontSize: textSize),
               ),
               const SizedBox(height: 10),
               Text(
-                'Propietario: ${vehicle.propietario.isNotEmpty ? vehicle.propietario : 'No asignado'}',
+                '${context.t('documents.owner')}: ${vehicle.propietario.isNotEmpty ? vehicle.propietario : context.t('home.unassigned')}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: Colors.white70, fontSize: textSize),
               ),
               const SizedBox(height: 4),
               Text(
-                'Conductor: ${vehicle.conductor.isNotEmpty ? vehicle.conductor : 'No asignado'}',
+                '${context.t('documents.driver')}: ${vehicle.conductor.isNotEmpty ? vehicle.conductor : context.t('home.unassigned')}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: Colors.white70, fontSize: textSize),
@@ -1818,7 +1817,9 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                     color: Colors.white,
                   ),
                   label: Text(
-                    _showHistory ? 'Ver documentos activos' : 'Ver historial',
+                    _showHistory
+                        ? context.t('documents.viewActive')
+                        : context.t('documents.viewHistory'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Colors.white),
@@ -1842,8 +1843,8 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                 SizedBox(
                   height: 320,
                   child: _buildEmptyState(
-                    title: 'Sin documentos de vehículo',
-                    message: 'Este vehículo no tiene documentos disponibles.',
+                    title: context.t('documents.noVehicleDocuments'),
+                    message: context.t('documents.vehicleEmptyMessage'),
                   ),
                 )
               else
@@ -2138,8 +2139,8 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                                   icon: const Icon(Icons.edit_calendar_rounded),
                                   label: Text(
                                     document.isExpired
-                                        ? 'Debe subir nuevo'
-                                        : 'Editar fecha',
+                                        ? context.t('documents.uploadNew')
+                                        : context.t('documents.editDate'),
                                   ),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.white70,
@@ -2175,7 +2176,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                                           );
                                         },
                                   icon: const Icon(Icons.visibility_rounded),
-                                  label: const Text('Ver documento'),
+                                  label: Text(context.t('documents.viewDocument')),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: _accentColor,
                                     foregroundColor: Colors.white,
@@ -2383,7 +2384,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                 const SizedBox(height: 4),
                 if (document.expiryDate != null)
                   Text(
-                    'Vence: ${document.formattedExpiry}',
+                    '${context.t('documents.expires')}: ${document.formattedExpiry}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

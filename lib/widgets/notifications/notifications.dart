@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:trackfile/l10n/app_language.dart';
 
 import '../../services/notificaciones_service.dart';
 import '../utils/shimmer_skeleton.dart';
@@ -247,14 +248,14 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       runSpacing: 12,
       children: [
         _buildSummaryCard(
-          label: 'Pendientes',
+          label: context.t('notifications.pending'),
           value: '$unreadAlerts',
           icon: Icons.mark_email_unread_rounded,
           color: const Color(0xFFFF6B6B),
         ),
 
         _buildSummaryCard(
-          label: 'Leídas',
+          label: context.t('notifications.read'),
           value: '$readAlerts',
           icon: Icons.mark_email_read_rounded,
           color: const Color(0xFF16C79A),
@@ -324,7 +325,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Alertas emitidas',
+          context.t('notifications.issued'),
           style: TextStyle(
             color: Colors.white,
             fontSize: isCompact ? 16 : 18,
@@ -333,7 +334,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Primero verás las notificaciones pendientes. Las leídas quedan guardadas en historial.',
+          context.t('notifications.issuedHelp'),
           style: TextStyle(
             color: Colors.white60,
             fontSize: isCompact ? 11 : 12,
@@ -347,6 +348,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
             child: TextButton.icon(
               onPressed: () async {
                 final messenger = ScaffoldMessenger.of(context);
+                final errorText = context.t('notifications.markAllError');
 
                 try {
                   await NotificacionesService.marcarTodasComoLeidas();
@@ -354,16 +356,16 @@ class _MensajesWidgetState extends State<MensajesWidget> {
                   widget.onNotificationsChanged?.call();
                 } catch (e) {
                   messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('No se pudieron marcar todas como leídas'),
+                    SnackBar(
+                      content: Text(errorText),
                       backgroundColor: Colors.redAccent,
                     ),
                   );
                 }
               },
               icon: const Icon(Icons.done_all_rounded, color: Colors.white),
-              label: const Text(
-                'Marcar todas como leídas',
+              label: Text(
+                context.t('notifications.markAllRead'),
                 style: TextStyle(color: Colors.white),
               ),
             ),
@@ -373,7 +375,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
 
         if (unreadAlerts.isNotEmpty) ...[
           Text(
-            'Pendientes',
+            context.t('notifications.pending'),
             style: TextStyle(
               color: Colors.white,
               fontSize: isCompact ? 14 : 15,
@@ -395,8 +397,8 @@ class _MensajesWidgetState extends State<MensajesWidget> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.white24),
             ),
-            child: const Text(
-              'No tienes notificaciones pendientes.',
+            child: Text(
+              context.t('notifications.noPending'),
               style: TextStyle(color: Colors.white70),
             ),
           ),
@@ -428,7 +430,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Notificaciones leídas (${readAlerts.length})',
+                      '${context.t('notifications.readList')} (${readAlerts.length})',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontWeight: FontWeight.w700,
@@ -470,7 +472,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Alertas emitidas',
+          context.t('notifications.issued'),
           style: TextStyle(
             color: Colors.white,
             fontSize: isCompact ? 16 : 18,
@@ -479,7 +481,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
         ),
         const SizedBox(height: 6),
         Text(
-          'No hay alertas activas en este momento.',
+          context.t('notifications.noActive'),
           style: TextStyle(
             color: Colors.white60,
             fontSize: isCompact ? 11 : 12,
@@ -503,7 +505,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
               ),
               const SizedBox(height: 10),
               Text(
-                'Todo en orden. Sin alertas activas.',
+                context.t('notifications.allGood'),
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: isCompact ? 12 : 13,
@@ -518,6 +520,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
 
   Future<void> _abrirNotificacion(_AlertNotification alert) async {
     final messenger = ScaffoldMessenger.of(context);
+    final errorText = context.t('notifications.markAllError');
 
     try {
       if (alert.isUnread) {
@@ -575,10 +578,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
       }
     } catch (e) {
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('No se pudo abrir la notificación'),
-          backgroundColor: Colors.redAccent,
-        ),
+        SnackBar(content: Text(errorText), backgroundColor: Colors.redAccent),
       );
     }
   }
@@ -627,7 +627,7 @@ class _MensajesWidgetState extends State<MensajesWidget> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Centro de notificaciones',
+                context.t('notifications.center'),
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: isCompact ? 18 : 20,
@@ -638,8 +638,8 @@ class _MensajesWidgetState extends State<MensajesWidget> {
               const SizedBox(height: 8),
               Text(
                 roleLabel == 'Empresa'
-                    ? 'Consulta las alertas generadas para los usuarios de tu empresa.'
-                    : 'Consulta tus alertas personales y vencimientos importantes.',
+                    ? context.t('notifications.companySubtitle')
+                    : context.t('notifications.personalSubtitle'),
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: isCompact ? 12 : 13,

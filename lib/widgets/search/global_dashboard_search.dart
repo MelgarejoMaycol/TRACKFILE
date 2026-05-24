@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_language.dart';
+
 class GlobalSearchOption {
   final String label;
   final String section;
@@ -98,7 +100,7 @@ class _GlobalDashboardSearchState extends State<GlobalDashboardSearch> {
               size: 18,
             ),
             suffixIcon: IconButton(
-              tooltip: 'Buscar',
+              tooltip: context.t('common.search'),
               onPressed: () => widget.onSubmitted(textController.text),
               icon: const Icon(
                 Icons.arrow_forward_rounded,

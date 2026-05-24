@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'l10n/app_language.dart';
 import 'router/app_router.dart';
 
 void main() async {
@@ -9,6 +10,7 @@ void main() async {
 
   final prefs = await SharedPreferences.getInstance();
   await prefs.remove('api_base_url');
+  await AppLanguageController.instance.load();
 
   runApp(const TrackFileApp());
 }
@@ -18,20 +20,25 @@ class TrackFileApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'TrackFile',
-      debugShowCheckedModeBanner: false,
-      routerConfig: appRouter,
-      theme: ThemeData(
-        useMaterial3: true,
-        primaryColor: const Color(0xFF091B5A),
-        textTheme: GoogleFonts.poppinsTextTheme(),
-        scaffoldBackgroundColor: const Color(0xFF0C1C58),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0C1C58),
-          brightness: Brightness.dark,
-        ),
-      ),
+    return ValueListenableBuilder<Locale>(
+      valueListenable: AppLanguageController.instance,
+      builder: (context, _, __) {
+        return MaterialApp.router(
+          title: 'TrackFile',
+          debugShowCheckedModeBanner: false,
+          routerConfig: appRouter,
+          theme: ThemeData(
+            useMaterial3: true,
+            primaryColor: const Color(0xFF091B5A),
+            textTheme: GoogleFonts.poppinsTextTheme(),
+            scaffoldBackgroundColor: const Color(0xFF0C1C58),
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF0C1C58),
+              brightness: Brightness.dark,
+            ),
+          ),
+        );
+      },
     );
   }
 }

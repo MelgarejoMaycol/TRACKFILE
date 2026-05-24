@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:trackfile/l10n/app_language.dart';
 import 'package:trackfile/widgets/documents/utils/pdf_preview_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -175,8 +176,8 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
                 const SizedBox(height: 4),
                 Text(
                   widget.expiryDate != null
-                      ? 'Vencimiento: ${_formatDate(widget.expiryDate!)}'
-                      : 'Fecha de vencimiento no disponible',
+                      ? '${context.t('documents.expiration')}: ${_formatDate(widget.expiryDate!)}'
+                      : context.t('documents.expiryUnavailable'),
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
@@ -238,20 +239,20 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
             color: Colors.white38,
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Vista previa no disponible',
+          Text(
+            context.t('documents.previewUnavailable'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
           const SizedBox(height: 10),
-          const Text(
-            'Este archivo no se puede previsualizar aquí. Puedes descargarlo para abrirlo en tu dispositivo.',
+          Text(
+            context.t('documents.previewUnavailableHelp'),
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 14),
           Text(
@@ -300,7 +301,7 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
                       ? () => _downloadDocument(context)
                       : null,
                   icon: const Icon(Icons.download_rounded),
-                  label: const Text('Descargar'),
+                  label: Text(context.t('common.download')),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.lightBlueAccent,
                     side: const BorderSide(color: Colors.lightBlueAccent),
@@ -313,7 +314,7 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
                 child: FilledButton.icon(
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.close_rounded),
-                  label: const Text('Cerrar'),
+                  label: Text(context.t('common.close')),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
@@ -329,8 +330,8 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
   Future<void> _downloadDocument(BuildContext context) async {
     if (widget.fileUrl == null || widget.fileUrl!.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No hay archivo disponible para descargar'),
+        SnackBar(
+          content: Text(context.t('documents.noFileDownload')),
         ),
       );
       return;
@@ -365,7 +366,7 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
 
     if (uri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('El enlace del documento no es válido')),
+        SnackBar(content: Text(context.t('documents.invalidLink'))),
       );
       return;
     }
@@ -374,7 +375,7 @@ class _DocumentPreviewModalState extends State<DocumentPreviewModal> {
 
     if (!launched && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo descargar el documento')),
+        SnackBar(content: Text(context.t('documents.downloadError'))),
       );
     }
   }

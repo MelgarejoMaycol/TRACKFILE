@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:trackfile/l10n/app_language.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notificaciones_service.dart';
 
@@ -95,7 +96,7 @@ class _FaqChatbotState extends State<FaqChatbot> {
     setState(() {
       _messages.add(
         _ChatMessage.bot(
-          'Hola. Soy el asistente de TrackFile. Te puedo orientar con tramites, documentos, vencimientos, solicitudes, mantenimientos y recordatorios. Cuentame que necesitas hacer y te guio paso a paso.',
+          context.t('chat.greeting'),
         ),
       );
     });
@@ -163,16 +164,16 @@ class _FaqChatbotState extends State<FaqChatbot> {
               color: _chatPrimary,
             ),
           ),
-          title: const Text(
-            'Limpiar chat',
+          title: Text(
+            context.t('chat.clearTitle'),
             textAlign: TextAlign.center,
             style: TextStyle(
               color: _chatInk,
               fontWeight: FontWeight.w800,
             ),
           ),
-          content: const Text(
-            'Se borrara el historial guardado en este equipo. Esta accion no elimina datos de TrackFile.',
+          content: Text(
+            context.t('chat.clearMessage'),
             textAlign: TextAlign.center,
             style: TextStyle(
               color: _chatMuted,
@@ -186,7 +187,7 @@ class _FaqChatbotState extends State<FaqChatbot> {
                 foregroundColor: _chatMuted,
                 textStyle: const TextStyle(fontWeight: FontWeight.w700),
               ),
-              child: const Text('Cancelar'),
+              child: Text(context.t('common.cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
@@ -195,7 +196,7 @@ class _FaqChatbotState extends State<FaqChatbot> {
                 foregroundColor: Colors.white,
                 textStyle: const TextStyle(fontWeight: FontWeight.w800),
               ),
-              child: const Text('Limpiar'),
+              child: Text(context.t('common.clean')),
             ),
           ],
         );
@@ -2566,7 +2567,11 @@ class _FaqChatbotState extends State<FaqChatbot> {
       foregroundColor: Colors.white,
       elevation: 8,
       icon: Icon(_isOpen ? Icons.close_rounded : Icons.support_agent_rounded),
-      label: Text(_isOpen ? 'Cerrar' : (compact ? 'Ayuda' : 'Asistente')),
+      label: Text(
+        _isOpen
+            ? context.t('chat.close')
+            : (compact ? context.t('chat.help') : context.t('chat.open')),
+      ),
       onPressed: () {
         setState(() {
           _isOpen = !_isOpen;
@@ -2654,11 +2659,11 @@ class _FaqChatbotState extends State<FaqChatbot> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Asistente TrackFile',
+                Text(
+                  context.t('chat.title'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -2694,7 +2699,7 @@ class _FaqChatbotState extends State<FaqChatbot> {
             ),
           ),
           IconButton(
-            tooltip: 'Limpiar historial',
+            tooltip: context.t('chat.clearHistory'),
             color: Colors.white,
             icon: const Icon(Icons.delete_sweep_rounded),
             onPressed: _clearHistory,
@@ -2738,8 +2743,8 @@ class _FaqChatbotState extends State<FaqChatbot> {
               Expanded(
                 child: Text(
                   showFullPanel
-                      ? 'Atajos inteligentes'
-                      : 'Atajos ocultos: abre solo si necesitas ideas',
+                      ? context.t('chat.shortcutsOpen')
+                      : context.t('chat.shortcutsClosed'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -2958,7 +2963,7 @@ class _FaqChatbotState extends State<FaqChatbot> {
                 onTap: () => _composerFocus.requestFocus(),
                 onSubmitted: _sendMessage,
                 decoration: InputDecoration(
-                  hintText: 'Escribe tu pregunta...',
+                  hintText: context.t('chat.placeholder'),
                   hintStyle: const TextStyle(color: _chatMuted, fontSize: 13),
                   isDense: true,
                   filled: true,
@@ -2988,7 +2993,7 @@ class _FaqChatbotState extends State<FaqChatbot> {
               width: 46,
               height: 46,
               child: IconButton.filled(
-                tooltip: 'Enviar',
+                tooltip: context.t('chat.send'),
                 style: IconButton.styleFrom(
                   backgroundColor: _chatPrimary,
                   foregroundColor: Colors.white,

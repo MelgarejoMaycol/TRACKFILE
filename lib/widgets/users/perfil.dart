@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:trackfile/l10n/app_language.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notifications/notificaciones_preferencias_service.dart';
 import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
@@ -114,7 +115,19 @@ class _PerfilWidgetState extends State<PerfilWidget> {
   @override
   void initState() {
     super.initState();
+    AppLanguageController.instance.addListener(_onLanguageChanged);
     _cargarInicial();
+  }
+
+  void _onLanguageChanged() {
+    if (!mounted) return;
+    _cargarPerfil(showLoader: false);
+  }
+
+  @override
+  void dispose() {
+    AppLanguageController.instance.removeListener(_onLanguageChanged);
+    super.dispose();
   }
 
   Future<void> _cargarInicial() async {
@@ -142,6 +155,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
     try {
       final perfilBackend = await ApiService.getMiPerfil();
       final empresaBackend = await ApiService.getMiEmpresa();
+      if (!mounted) return;
 
       if (perfilBackend == null) {
         throw Exception('Perfil vacío');
@@ -154,8 +168,8 @@ class _PerfilWidgetState extends State<PerfilWidget> {
               .trim();
 
       final String empresaNombre = empresa is Map<String, dynamic>
-          ? empresa['nombreEmpresa']?.toString() ?? 'Sin empresa'
-          : 'Sin empresa';
+          ? empresa['nombreEmpresa']?.toString() ?? context.t('common.noCompany')
+          : context.t('common.noCompany');
 
       final _PerfilUsuario perfil = _PerfilUsuario(
         id: perfilBackend['id']?.toString() ?? '0',
@@ -165,33 +179,42 @@ class _PerfilWidgetState extends State<PerfilWidget> {
         telefono: perfilBackend['telefono']?.toString() ?? 'Sin teléfono',
         imagen: '',
         estadisticas: [
-          _PerfilStat(value: widget.role, label: 'Rol\ndel usuario'),
-          _PerfilStat(value: empresaNombre, label: 'Empresa\nasociada'),
-          const _PerfilStat(value: 'Activo', label: 'Estado\ndel perfil'),
+          _PerfilStat(
+            value: widget.role,
+            label: context.t('profile.userRole').replaceAll(' ', '\n'),
+          ),
+          _PerfilStat(
+            value: empresaNombre,
+            label: context.t('profile.companyAssociated').replaceAll(' ', '\n'),
+          ),
+          _PerfilStat(
+            value: context.t('profile.active'),
+            label: context.t('profile.status').replaceAll(' ', '\n'),
+          ),
         ],
         datos: [
           _PerfilDato(
-            label: 'Nombre',
+            label: context.t('profile.name'),
             value: perfilBackend['nombre']?.toString() ?? '-',
           ),
           _PerfilDato(
-            label: 'Apellido',
+            label: context.t('profile.lastName'),
             value: perfilBackend['apellido']?.toString() ?? '-',
           ),
           _PerfilDato(
-            label: 'Correo',
+            label: context.t('profile.email'),
             value: perfilBackend['correo']?.toString() ?? '-',
           ),
           _PerfilDato(
-            label: 'Teléfono',
+            label: context.t('profile.phone'),
             value: perfilBackend['telefono']?.toString() ?? '-',
           ),
           _PerfilDato(
-            label: 'Dirección',
+            label: context.t('profile.address'),
             value: perfilBackend['direccion']?.toString() ?? '-',
           ),
           _PerfilDato(
-            label: 'Rol',
+            label: context.t('profile.role'),
             value: perfilBackend['rol']?.toString() ?? widget.role,
           ),
         ],
@@ -267,6 +290,8 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                       ],
 
                       const SizedBox(height: 24),
+                      _buildPreferenciasCard(isCompact),
+                      const SizedBox(height: 24),
                       _buildAccionesPerfil(isCompact),
                       const SizedBox(height: 30),
                       Align(
@@ -302,7 +327,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
             ),
             const SizedBox(width: 10),
             Text(
-              'Perfil y configuraciones',
+              context.t('profile.title'),
               style: TextStyle(
                 color: Colors.white,
                 fontSize: isCompact ? 19 : 22,
@@ -313,7 +338,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Administra tu información personal, preferencias y credenciales en la plataforma.',
+          context.t('profile.subtitle'),
           style: TextStyle(
             color: Colors.white70,
             fontSize: isCompact ? 12.5 : 13.5,
@@ -447,11 +472,11 @@ class _PerfilWidgetState extends State<PerfilWidget> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: const [
-              Icon(Icons.person, color: _primaryColor, size: 20),
-              SizedBox(width: 10),
+            children: [
+              const Icon(Icons.person, color: _primaryColor, size: 20),
+              const SizedBox(width: 10),
               Text(
-                'Información personal',
+                context.t('profile.personalInfo'),
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
@@ -483,7 +508,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
 
     final datosEmpresa = [
       _PerfilDato(
-        label: 'Nombre de empresa',
+        label: context.t('profile.companyName'),
         value: _empresaValor(
           empresa['nombreEmpresa'] ??
               empresa['nombre_empresa'] ??
@@ -491,15 +516,15 @@ class _PerfilWidgetState extends State<PerfilWidget> {
         ),
       ),
       _PerfilDato(
-        label: 'Correo corporativo',
+        label: context.t('profile.companyEmail'),
         value: _empresaValor(empresa['correo'] ?? empresa['email']),
       ),
       _PerfilDato(
-        label: 'Teléfono',
+        label: context.t('profile.phone'),
         value: _empresaValor(empresa['telefono'] ?? empresa['celular']),
       ),
       _PerfilDato(
-        label: 'Dirección',
+        label: context.t('profile.address'),
         value: _empresaValor(empresa['direccion']),
       ),
     ];
@@ -522,12 +547,12 @@ class _PerfilWidgetState extends State<PerfilWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.business_rounded, color: _primaryColor, size: 20),
-              SizedBox(width: 10),
+              const Icon(Icons.business_rounded, color: _primaryColor, size: 20),
+              const SizedBox(width: 10),
               Text(
-                'Información de la empresa',
+                context.t('profile.companyInfo'),
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
@@ -573,16 +598,16 @@ class _PerfilWidgetState extends State<PerfilWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.manage_accounts_rounded,
                 color: _primaryColor,
                 size: 20,
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Text(
-                'Acciones de la cuenta',
+                context.t('profile.accountActions'),
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
@@ -603,7 +628,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                 child: ElevatedButton.icon(
                   onPressed: _abrirEditarPerfil,
                   icon: const Icon(Icons.edit_rounded, size: 18),
-                  label: const Text('Editar información'),
+                  label: Text(context.t('profile.editInfo')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _chipColor,
                     foregroundColor: Colors.white,
@@ -620,7 +645,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                 child: OutlinedButton.icon(
                   onPressed: _abrirCambiarPassword,
                   icon: const Icon(Icons.lock_reset_rounded, size: 18),
-                  label: const Text('Cambiar contraseña'),
+                  label: Text(context.t('profile.changePassword')),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: _borderColor),
@@ -638,7 +663,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                   child: ElevatedButton.icon(
                     onPressed: _abrirEditarEmpresa,
                     icon: const Icon(Icons.business_rounded, size: 18),
-                    label: const Text('Editar empresa'),
+                    label: Text(context.t('profile.editCompany')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _accentColor,
                       foregroundColor: Colors.white,
@@ -652,58 +677,124 @@ class _PerfilWidgetState extends State<PerfilWidget> {
             ],
           ),
 
-          const SizedBox(height: 22),
+        ],
+      ),
+    );
+  }
 
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: _panelColor,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: _borderColor),
-            ),
-            child: SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _notificacionesActivas,
-              onChanged: (value) async {
-                await NotificacionesPreferenciasService.guardar(value);
-
-                if (value) {
-                  await NotificacionesRealtimeService.start();
-                } else {
-                  NotificacionesRealtimeService.stop();
-                }
-
-                if (!mounted) return;
-
-                setState(() {
-                  _notificacionesActivas = value;
-                });
-              },
-              activeThumbColor: Colors.white,
-              activeTrackColor: _accentColor,
-              inactiveThumbColor: Colors.white70,
-              inactiveTrackColor: Colors.white24,
-              title: const Text(
-                'Notificaciones',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              subtitle: Text(
-                _notificacionesActivas
-                    ? 'Alertas emergentes activadas'
-                    : 'Alertas emergentes desactivadas',
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-              secondary: const Icon(
-                Icons.notifications_active_rounded,
-                color: Colors.white,
-              ),
-            ),
+  Widget _buildPreferenciasCard(bool isCompact) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isCompact ? 18 : 22),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        border: Border.all(color: _softBorderColor.withValues(alpha: 0.45)),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.tune_rounded, color: _primaryColor, size: 20),
+              const SizedBox(width: 10),
+              Text(
+                context.t('profile.preferences'),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 760;
+              final language = _buildLanguageSelector(isCompact);
+              final notifications = _buildNotificationsPreference();
+
+              if (compact) {
+                return Column(
+                  children: [
+                    language,
+                    const SizedBox(height: 14),
+                    notifications,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 3, child: language),
+                  const SizedBox(width: 14),
+                  Expanded(flex: 2, child: notifications),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationsPreference() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _panelColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _softBorderColor.withValues(alpha: 0.55)),
+      ),
+      child: SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        value: _notificacionesActivas,
+        onChanged: (value) async {
+          await NotificacionesPreferenciasService.guardar(value);
+
+          if (value) {
+            await NotificacionesRealtimeService.start();
+          } else {
+            NotificacionesRealtimeService.stop();
+          }
+
+          if (!mounted) return;
+
+          setState(() {
+            _notificacionesActivas = value;
+          });
+        },
+        activeThumbColor: Colors.white,
+        activeTrackColor: _accentColor,
+        inactiveThumbColor: Colors.white70,
+        inactiveTrackColor: Colors.white24,
+        title: Text(
+          context.t('profile.notifications'),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        subtitle: Text(
+          _notificacionesActivas
+              ? context.t('profile.notificationsOn')
+              : context.t('profile.notificationsOff'),
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+        secondary: const Icon(
+          Icons.notifications_active_rounded,
+          color: Colors.white,
+        ),
       ),
     );
   }
@@ -720,6 +811,113 @@ class _PerfilWidgetState extends State<PerfilWidget> {
       radius: 36,
       backgroundColor: _primaryColor.withValues(alpha: 0.10),
       child: const Icon(Icons.person, color: _primaryColor, size: 32),
+    );
+  }
+
+  Widget _buildLanguageSelector(bool isCompact) {
+    final selectedCode = AppLanguageController.instance.value.languageCode;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isCompact ? 14 : 16),
+      decoration: BoxDecoration(
+        color: _panelColor,
+        border: Border.all(color: _softBorderColor.withValues(alpha: 0.55)),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: _accentColor.withValues(alpha: 0.24),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.language_rounded,
+                  color: Colors.white,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.t('language.settings'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14.5,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      context.t('language.subtitle'),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12.5,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: AppLanguageController.supportedLanguages.map((language) {
+              final selected = language.code == selectedCode;
+              return ChoiceChip(
+                avatar: Text(
+                  language.flag,
+                  style: const TextStyle(fontSize: 16),
+                ),
+                label: Text(language.nativeName),
+                selected: selected,
+                showCheckmark: false,
+                selectedColor: _accentColor,
+                backgroundColor: Colors.white.withValues(alpha: 0.06),
+                side: BorderSide(
+                  color: selected ? _borderColor : Colors.white24,
+                ),
+                labelStyle: TextStyle(
+                  color: Colors.white,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  fontSize: 12.5,
+                ),
+                onSelected: (_) async {
+                  await AppLanguageController.instance.setLanguage(
+                    language.code,
+                  );
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(context.t('language.changed'))),
+                  );
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            context.t('language.helper'),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.62),
+              fontSize: 11.5,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -877,10 +1075,13 @@ class _PerfilWidgetState extends State<PerfilWidget> {
   }
 
   void _abrirEditarPerfil() {
-    final nombre = TextEditingController(text: _valorDato('Nombre'));
-    final apellido = TextEditingController(text: _valorDato('Apellido'));
-    final telefono = TextEditingController(text: _valorDato('Teléfono'));
-    final direccion = TextEditingController(text: _valorDato('Dirección'));
+    final nombre = TextEditingController(text: _valorDato(context.t('profile.name')));
+    final apellido =
+        TextEditingController(text: _valorDato(context.t('profile.lastName')));
+    final telefono =
+        TextEditingController(text: _valorDato(context.t('profile.phone')));
+    final direccion =
+        TextEditingController(text: _valorDato(context.t('profile.address')));
 
     showDialog(
       context: context,
@@ -964,7 +1165,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                                             ),
                                           ),
                                         ),
-                                        child: const Text('Cancelar'),
+                                        child: Text(context.t('common.cancel')),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
@@ -1025,8 +1226,8 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                                         ),
                                         child: Text(
                                           guardando
-                                              ? 'Guardando...'
-                                              : 'Guardar',
+                                              ? context.t('common.saving')
+                                              : context.t('common.save'),
                                         ),
                                       ),
                                     ),
@@ -1141,7 +1342,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                                             ),
                                           ),
                                         ),
-                                        child: const Text('Cancelar'),
+                                        child: Text(context.t('common.cancel')),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
@@ -1202,8 +1403,8 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                                         ),
                                         child: Text(
                                           guardando
-                                              ? 'Guardando...'
-                                              : 'Guardar',
+                                              ? context.t('common.saving')
+                                              : context.t('common.save'),
                                         ),
                                       ),
                                     ),
@@ -1310,7 +1511,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                                             ),
                                           ),
                                         ),
-                                        child: const Text('Cancelar'),
+                                        child: Text(context.t('common.cancel')),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
@@ -1393,7 +1594,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                                         ),
                                         child: Text(
                                           guardando
-                                              ? 'Guardando...'
+                                              ? context.t('common.saving')
                                               : 'Cambiar',
                                         ),
                                       ),
@@ -1429,7 +1630,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
 
   String _empresaValor(dynamic value) {
     final text = value?.toString().trim() ?? '';
-    return text.isEmpty ? 'No registrado' : text;
+    return text.isEmpty ? context.t('common.notRegistered') : text;
   }
 
   Widget _inputDialog(
@@ -1515,7 +1716,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                 child: ElevatedButton.icon(
                   onPressed: _cargarPerfil,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Reintentar'),
+                  label: Text(context.t('common.retry')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primaryColor,
                     foregroundColor: Colors.white,

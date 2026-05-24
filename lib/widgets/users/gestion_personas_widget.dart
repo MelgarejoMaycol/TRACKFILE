@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:trackfile/l10n/app_language.dart';
 import 'package:trackfile/utils/api_config.dart';
 
 enum TipoGestionPersona { conductor, propietario }
@@ -132,7 +133,8 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
   bool get _esConductor => _tipoActual == TipoGestionPersona.conductor;
 
-  String get _titulo => _esConductor ? 'Conductores' : 'Propietarios';
+  String get _titulo =>
+      _esConductor ? context.t('users.drivers') : context.t('users.owners');
 
   String get _endpointBase =>
       _esConductor ? '/api/conductores' : '/api/propietarios';
@@ -405,9 +407,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
     final usuarioId = _obtenerUsuarioId(item);
     if (usuarioId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se encontró el usuario de esta persona'),
-        ),
+        SnackBar(content: Text(context.t('users.userNotFound'))),
       );
       return;
     }
@@ -420,11 +420,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Configura la navegación hacia documentos de la persona.',
-          ),
-        ),
+        SnackBar(content: Text(context.t('users.configureDocumentsNav'))),
       );
     }
   }
@@ -434,9 +430,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
     if (usuarioId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se encontró el usuario de esta persona'),
-        ),
+        SnackBar(content: Text(context.t('users.userNotFound'))),
       );
       return;
     }
@@ -449,11 +443,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Configura la navegación hacia mantenimientos de la persona.',
-          ),
-        ),
+        SnackBar(content: Text(context.t('users.configureMaintenanceNav'))),
       );
     }
   }
@@ -463,9 +453,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
     if (usuarioId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se encontró el usuario de esta persona'),
-        ),
+        SnackBar(content: Text(context.t('users.userNotFound'))),
       );
       return;
     }
@@ -478,11 +466,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Configura la navegación hacia vehículos de la persona.',
-          ),
-        ),
+        SnackBar(content: Text(context.t('users.configureVehiclesNav'))),
       );
     }
   }
@@ -492,9 +476,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
     if (usuarioId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se encontró el usuario de esta persona'),
-        ),
+        SnackBar(content: Text(context.t('users.userNotFound'))),
       );
       return;
     }
@@ -507,11 +489,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Configura la navegación hacia certificados de la persona.',
-          ),
-        ),
+        SnackBar(content: Text(context.t('users.configureCertificatesNav'))),
       );
     }
   }
@@ -669,19 +647,19 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
                         _detailSection(
                           icon: Icons.person_rounded,
-                          title: 'Información personal',
+                          title: context.t('profile.personalInfo'),
                           fields: [
-                            ('Nombre', _value(data, ['nombre'])),
-                            ('Apellido', _value(data, ['apellido'])),
+                            (context.t('profile.name'), _value(data, ['nombre'])),
+                            (context.t('profile.lastName'), _value(data, ['apellido'])),
                             (
-                              'Documento',
+                              context.t('vehicles.document'),
                               _value(data, [
                                 'numeroDocumento',
                                 'documentoPropietario',
                               ]),
                             ),
                             (
-                              'Estado',
+                              context.t('vehicles.status'),
                               _value(data, ['estado', 'estadoUsuario']),
                             ),
                           ],
@@ -691,10 +669,10 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
                         _detailSection(
                           icon: Icons.contact_mail_rounded,
-                          title: 'Contacto',
+                            title: context.t('users.contact'),
                           fields: [
-                            ('Correo', _value(data, ['correo'])),
-                            ('Teléfono', _value(data, ['telefono'])),
+                            (context.t('profile.email'), _value(data, ['correo'])),
+                            (context.t('profile.phone'), _value(data, ['telefono'])),
                           ],
                         ),
 
@@ -702,18 +680,18 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                           const SizedBox(height: 14),
                           _detailSection(
                             icon: Icons.drive_eta_rounded,
-                            title: 'Información de conducción',
+                            title: context.t('users.drivingInfo'),
                             fields: [
                               (
-                                'Licencia',
+                                context.t('vehicles.license'),
                                 _value(data, ['licenciaConduccion']),
                               ),
                               (
-                                'Categoría',
+                                context.t('vehicles.category'),
                                 _value(data, ['categoriaLicencia']),
                               ),
                               (
-                                'Vencimiento',
+                                context.t('documents.expires'),
                                 _value(data, ['fechaVencimientoLicencia']),
                               ),
                             ],
@@ -730,7 +708,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                               _showFormModal(persona: data);
                             },
                             icon: const Icon(Icons.edit_rounded),
-                            label: const Text('Editar información'),
+                            label: Text(context.t('users.editInfo')),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _accentColor,
                               foregroundColor: Colors.white,
@@ -1542,8 +1520,8 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                     const SizedBox(height: 3),
                     Text(
                       _esConductor
-                          ? 'Control de conductores'
-                          : 'Control de propietarios',
+                          ? context.t('users.driverControl')
+                          : context.t('users.ownerControl'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -1604,7 +1582,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                 child: ElevatedButton.icon(
                   onPressed: () => _showFormModal(),
                   icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Crear'),
+                  label: Text(context.t('common.create')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _accentColor,
                     foregroundColor: Colors.white,
@@ -1627,7 +1605,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
               child: ElevatedButton.icon(
                 onPressed: () => _showFormModal(),
                 icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('Crear'),
+                label: Text(context.t('common.create')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _accentColor,
                   foregroundColor: Colors.white,
@@ -1663,8 +1641,8 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: _esConductor
-              ? 'Buscar conductor...'
-              : 'Buscar propietario...',
+              ? context.t('users.searchDriver')
+              : context.t('users.searchOwner'),
           hintStyle: const TextStyle(color: Colors.white54),
           prefixIcon: const Icon(Icons.search_rounded, color: Colors.white54),
           border: InputBorder.none,
@@ -1731,7 +1709,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Text(
-                      activo ? 'Activo' : 'Inactivo',
+                      activo ? context.t('common.active') : context.t('common.inactive'),
                       style: TextStyle(
                         color: activo
                             ? const Color(0xFF16C79A)
@@ -1752,16 +1730,16 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                     itemBuilder: (context) => [
-                      _menuItem(1, Icons.visibility_rounded, 'Ver información'),
-                      _menuItem(2, Icons.edit_rounded, 'Editar información'),
-                      _menuItem(3, Icons.folder_copy_rounded, 'Ver documentos'),
-                      _menuItem(4, Icons.build_rounded, 'Ver mantenimientos'),
+                      _menuItem(1, Icons.visibility_rounded, context.t('users.viewInfo')),
+                      _menuItem(2, Icons.edit_rounded, context.t('users.editInfo')),
+                      _menuItem(3, Icons.folder_copy_rounded, context.t('vehicles.viewDocuments')),
+                      _menuItem(4, Icons.build_rounded, context.t('vehicles.viewMaintenance')),
                       _menuItem(
                         5,
                         Icons.directions_car_rounded,
-                        'Ver vehículos',
+                        context.t('users.viewVehicles'),
                       ),
-                      _menuItem(6, Icons.verified_rounded, 'Ver certificados'),
+                      _menuItem(6, Icons.verified_rounded, context.t('users.viewCertificates')),
                     ],
                     onSelected: (value) {
                       switch (value) {
@@ -1921,9 +1899,9 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                 size: 46,
               ),
               const SizedBox(height: 12),
-              const Text(
-                'No se pudo cargar la información',
-                style: TextStyle(
+              Text(
+                context.t('users.loadError'),
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1938,7 +1916,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
               ElevatedButton.icon(
                 onPressed: _loadPersonas,
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Reintentar'),
+                label: Text(context.t('common.retry')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _accentColor,
                   foregroundColor: Colors.white,
@@ -1964,7 +1942,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
           Icon(_iconoPrincipal, color: Colors.white38, size: 48),
           const SizedBox(height: 12),
           Text(
-            'No hay $_titulo registrados',
+            _esConductor ? context.t('users.emptyDrivers') : context.t('users.emptyOwners'),
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -1974,8 +1952,8 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
           const SizedBox(height: 6),
           Text(
             _esConductor
-                ? 'Cuando registres conductores aparecerán en esta sección.'
-                : 'Cuando registres propietarios aparecerán en esta sección.',
+                ? context.t('users.emptyDriversHelp')
+                : context.t('users.emptyOwnersHelp'),
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white70, fontSize: 13),
           ),

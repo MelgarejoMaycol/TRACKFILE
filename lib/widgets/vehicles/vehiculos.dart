@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:trackfile/l10n/app_language.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/utils/api_config.dart';
 import 'package:trackfile/widgets/utils/shimmer_skeleton.dart';
@@ -850,7 +851,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Gestiona la flota, propietarios y conductores asignados.',
+                    context.t('vehicles.manageHelp'),
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: isCompact ? 11 : 13,
@@ -862,7 +863,9 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                   onPressed: _showCreateVehicleModal,
                   icon: const Icon(Icons.add_rounded, size: 18),
                   label: Text(
-                    isCompact ? 'Crear' : 'Crear vehículo',
+                    isCompact
+                        ? context.t('common.create')
+                        : context.t('vehicles.create'),
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -981,22 +984,22 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                                 ),
                               ),
                               const SizedBox(width: 14),
-                              const Expanded(
+                              Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Crear vehículo',
-                                      style: TextStyle(
+                                      context.t('vehicles.create'),
+                                      style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 20,
                                         fontWeight: FontWeight.w800,
                                       ),
                                     ),
-                                    SizedBox(height: 4),
+                                    const SizedBox(height: 4),
                                     Text(
-                                      'Registra un vehículo nuevo para la flota.',
-                                      style: TextStyle(
+                                      context.t('vehicles.createSubtitle'),
+                                      style: const TextStyle(
                                         color: Colors.white70,
                                         fontSize: 12,
                                       ),
@@ -1090,18 +1093,18 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                                     color: _accentColor.withValues(alpha: 0.25),
                                   ),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   children: [
-                                    Icon(
+                                    const Icon(
                                       Icons.info_outline_rounded,
                                       color: Colors.white70,
                                       size: 18,
                                     ),
-                                    SizedBox(width: 10),
+                                    const SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
-                                        'Después podrás asignar conductor, ver documentos y mantenimientos del vehículo.',
-                                        style: TextStyle(
+                                        context.t('vehicles.afterCreateHelp'),
+                                        style: const TextStyle(
                                           color: Colors.white70,
                                           fontSize: 12,
                                         ),
@@ -1134,13 +1137,19 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                                           ),
                                         ),
                                       ),
-                                      child: const Text('Cancelar'),
+                                      child: Text(context.t('common.cancel')),
                                     ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: ElevatedButton.icon(
                                       onPressed: () async {
+                                        final createdText = context.t(
+                                          'vehicles.created',
+                                        );
+                                        final createErrorText = context.t(
+                                          'vehicles.createError',
+                                        );
                                         final navigator = Navigator.of(context);
                                         final messenger = ScaffoldMessenger.of(
                                           context,
@@ -1177,14 +1186,14 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                                           SnackBar(
                                             content: Text(
                                               creado != null
-                                                  ? 'Vehículo creado correctamente'
-                                                  : 'No se pudo crear el vehículo',
+                                                  ? createdText
+                                                  : createErrorText,
                                             ),
                                           ),
                                         );
                                       },
                                       icon: const Icon(Icons.check_rounded),
-                                      label: const Text('Guardar'),
+                                      label: Text(context.t('common.save')),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: _accentColor,
                                         foregroundColor: Colors.white,
@@ -1268,9 +1277,9 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildVehicleModalHeroHeader(
-                      title: 'Editar vehículo',
+                      title: context.t('vehicles.edit'),
                       subtitle:
-                          'Actualiza los datos principales de ${vehicle.placa}.',
+                          '${context.t('vehicles.editSubtitle')} ${vehicle.placa}.',
                       icon: Icons.edit_road_rounded,
                     ),
                     Padding(
@@ -1337,13 +1346,19 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                                       borderRadius: BorderRadius.circular(16),
                                     ),
                                   ),
-                                  child: const Text('Cancelar'),
+                                  child: Text(context.t('common.cancel')),
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: ElevatedButton.icon(
                                   onPressed: () async {
+                                    final updatedText = context.t(
+                                      'vehicles.updated',
+                                    );
+                                    final updateErrorText = context.t(
+                                      'vehicles.updateError',
+                                    );
                                     final navigator = Navigator.of(context);
                                     final messenger = ScaffoldMessenger.of(
                                       context,
@@ -1374,14 +1389,14 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                                       SnackBar(
                                         content: Text(
                                           actualizado != null
-                                              ? 'Vehículo actualizado correctamente'
-                                              : 'No se pudo actualizar el vehículo',
+                                              ? updatedText
+                                              : updateErrorText,
                                         ),
                                       ),
                                     );
                                   },
                                   icon: const Icon(Icons.save_rounded),
-                                  label: const Text('Guardar'),
+                                  label: Text(context.t('common.save')),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: _accentColor,
                                     foregroundColor: Colors.white,
@@ -1454,9 +1469,9 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _buildVehicleModalHeroHeader(
-                        title: 'Asignar conductor',
+                        title: context.t('vehicles.assignDriver'),
                         subtitle:
-                            'Selecciona el conductor para ${vehicle.placa}.',
+                            '${context.t('vehicles.assignDriverSubtitle')} ${vehicle.placa}.',
                         icon: Icons.person_add_alt_1_rounded,
                       ),
                       Padding(
@@ -1486,13 +1501,19 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                     ),
-                                    child: const Text('Cancelar'),
+                                    child: Text(context.t('common.cancel')),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: ElevatedButton.icon(
                                     onPressed: () async {
+                                      final assignedText = context.t(
+                                        'vehicles.driverAssigned',
+                                      );
+                                      final assignErrorText = context.t(
+                                        'vehicles.driverAssignError',
+                                      );
                                       final navigator = Navigator.of(context);
                                       final messenger = ScaffoldMessenger.of(
                                         context,
@@ -1517,14 +1538,14 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                                         SnackBar(
                                           content: Text(
                                             actualizado != null
-                                                ? 'Conductor asignado correctamente'
-                                                : 'No se pudo asignar el conductor',
+                                                ? assignedText
+                                                : assignErrorText,
                                           ),
                                         ),
                                       );
                                     },
                                     icon: const Icon(Icons.check_rounded),
-                                    label: const Text('Asignar'),
+                                    label: Text(context.t('common.assign')),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: _accentColor,
                                       foregroundColor: Colors.white,
@@ -1833,13 +1854,23 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
   }
 
   String _statusLabel(String status) {
-    if (status.isEmpty) {
-      return 'Desconocido';
+    final normalized = status.toUpperCase().trim();
+    if (normalized.isEmpty) return context.t('common.unknown');
+    if (normalized == 'ACTIVO') return context.t('common.active');
+    if (normalized == 'INACTIVO') return context.t('common.inactive');
+    if (normalized == 'MANTENIMIENTO' ||
+        normalized == 'MANTENIMIENTO PROGRAMADO') {
+      return context.t('section.maintenance');
     }
+    if (normalized == 'FUERA DE SERVICIO') return status;
     return status[0].toUpperCase() + status.substring(1).toLowerCase();
   }
 
   Future<void> _desasignarConductor(_Vehicle vehicle) async {
+    final unassignedText = context.t('vehicles.driverUnassigned');
+    final unassignErrorText = context.t('vehicles.driverUnassignError');
+    final messenger = ScaffoldMessenger.of(context);
+
     final actualizado = await ApiService.desasignarConductorVehiculo(
       vehiculoId: vehicle.idVehiculo,
     );
@@ -1848,13 +1879,9 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
-        content: Text(
-          actualizado != null
-              ? 'Conductor desasignado correctamente'
-              : 'No se pudo desasignar el conductor',
-        ),
+        content: Text(actualizado != null ? unassignedText : unassignErrorText),
       ),
     );
   }
@@ -1874,9 +1901,9 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                 size: 48,
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Error al cargar vehiculos',
-                style: TextStyle(
+              Text(
+                context.t('vehicles.loadError'),
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -1892,7 +1919,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
               ElevatedButton.icon(
                 onPressed: () => _loadVehicles(),
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Reintentar'),
+                label: Text(context.t('common.retry')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4F4CE8),
                 ),
@@ -1925,8 +1952,8 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
             children: [
               Text(
                 _viendoPersona
-                    ? 'Vehículos de ${widget.personaNombre ?? 'la persona'}'
-                    : 'Vehículos registrados',
+                    ? '${context.t('vehicles.personTitle')} ${widget.personaNombre ?? 'la persona'}'
+                    : context.t('vehicles.title'),
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: isCompact ? 18 : 20,
@@ -1935,7 +1962,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Consulta la flota disponible y su estado operativo.',
+                context.t('vehicles.subtitle'),
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: isCompact ? 12 : 12,
@@ -1978,7 +2005,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
           ),
           icon: Icon(Icons.clear_all, size: isCompact ? 16 : 16),
           label: Text(
-            'Limpiar',
+            context.t('common.clean'),
             style: TextStyle(fontSize: isCompact ? 11 : 11),
           ),
         ),
@@ -1993,7 +2020,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       }),
       style: TextStyle(color: Colors.white, fontSize: isCompact ? 12 : 13),
       decoration: InputDecoration(
-        hintText: 'Buscar por placa, marca, modelo, conductor o propietario',
+        hintText: context.t('vehicles.searchHint'),
         hintStyle: const TextStyle(color: Colors.white54, fontSize: 11),
         prefixIcon: Icon(
           Icons.search,
@@ -2094,10 +2121,12 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
   Widget _buildActiveFiltersBanner(bool isCompact) {
     final List<String> badges = <String>[];
     if (_statusFilter != null) {
-      badges.add('Estado: ${_statusLabel(_statusFilter!)}');
+      badges.add(
+        '${context.t('vehicles.statusFilter')}: ${_statusLabel(_statusFilter!)}',
+      );
     }
     if (_searchTerm.isNotEmpty) {
-      badges.add('Busqueda: $_searchTerm');
+      badges.add('${context.t('vehicles.searchFilter')}: $_searchTerm');
     }
 
     return Container(
@@ -2149,7 +2178,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
           TextButton(
             onPressed: _clearFilters,
             style: TextButton.styleFrom(foregroundColor: Colors.white),
-            child: const Text('Limpiar'),
+            child: Text(context.t('common.clean')),
           ),
         ],
       ),
@@ -2236,9 +2265,9 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'No hay vehiculos con los filtros actuales',
-            style: TextStyle(
+          Text(
+            context.t('vehicles.noFiltered'),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -2246,7 +2275,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Prueba con otro estado, ajusta la busqueda o limpia los filtros.',
+            context.t('vehicles.noFilteredHelp'),
             style: TextStyle(
               color: Colors.white70,
               fontSize: isCompact ? 12 : 13,
@@ -2364,7 +2393,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
             if (vehicle.anio != null) ...[
               const SizedBox(height: 4),
               Text(
-                'Año ${vehicle.anio}',
+                '${context.t('vehicles.year')} ${vehicle.anio}',
                 style: TextStyle(
                   color: Colors.white60,
                   fontSize: isCompact ? 11 : 12,
@@ -2493,9 +2522,9 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Información del Vehículo',
-                            style: TextStyle(
+                          Text(
+                            context.t('vehicles.info'),
+                            style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 12,
                             ),
@@ -2540,17 +2569,17 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.info,
                               color: Color(0xFF4F4CE8),
                               size: 18,
                             ),
-                            SizedBox(width: 10),
+                            const SizedBox(width: 10),
                             Text(
-                              'Detalles Principales',
-                              style: TextStyle(
+                              context.t('vehicles.mainDetails'),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
@@ -2559,15 +2588,30 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        _buildInfoRow('Placa', vehicle.placa),
-                        _buildInfoRow('Marca', vehicle.marca),
-                        _buildInfoRow('Modelo', vehicle.modelo),
-                        if (vehicle.anio != null)
-                          _buildInfoRow('Año', vehicle.anio.toString()),
-                        if (vehicle.color != null)
-                          _buildInfoRow('Color', vehicle.color!),
                         _buildInfoRow(
-                          'Estado',
+                          context.t('vehicles.plate'),
+                          vehicle.placa,
+                        ),
+                        _buildInfoRow(
+                          context.t('vehicles.brand'),
+                          vehicle.marca,
+                        ),
+                        _buildInfoRow(
+                          context.t('vehicles.model'),
+                          vehicle.modelo,
+                        ),
+                        if (vehicle.anio != null)
+                          _buildInfoRow(
+                            context.t('vehicles.year'),
+                            vehicle.anio.toString(),
+                          ),
+                        if (vehicle.color != null)
+                          _buildInfoRow(
+                            context.t('vehicles.color'),
+                            vehicle.color!,
+                          ),
+                        _buildInfoRow(
+                          context.t('vehicles.status'),
                           _statusLabel(vehicle.estadoVehiculo),
                         ),
                       ],
@@ -2588,17 +2632,17 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.speed,
                               color: Color(0xFF4F4CE8),
                               size: 18,
                             ),
-                            SizedBox(width: 10),
+                            const SizedBox(width: 10),
                             Text(
-                              'Información Operativa',
-                              style: TextStyle(
+                              context.t('vehicles.operationalInfo'),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
@@ -2608,14 +2652,14 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                         ),
                         const SizedBox(height: 12),
                         _buildInfoRow(
-                          'Kilometraje',
+                          context.t('vehicles.mileage'),
                           '${vehicle.kilometrajeActual} km',
                         ),
                         if (vehicle.vin != null)
                           _buildInfoRow('VIN', vehicle.vin!),
                         if (vehicle.fechaCreacion != null)
                           _buildInfoRow(
-                            'Registrado',
+                            context.t('vehicles.registered'),
                             _dateFormat.format(vehicle.fechaCreacion!),
                           ),
                       ],
@@ -2640,9 +2684,10 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                         }
 
                         _showPersonaInfoModal(
-                          tipo: 'Información del propietario',
+                          tipo: context.t('vehicles.ownerInfo'),
                           nombre:
-                              vehicle.nombrePropietario ?? 'Sin propietario',
+                              vehicle.nombrePropietario ??
+                              context.t('vehicles.owner'),
                           telefono: vehicle.telefonoPropietario,
                           correo: vehicle.emailPropietario,
                           documento: vehicle.documentoPropietario,
@@ -2663,17 +2708,17 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.person,
                                   color: Colors.green,
                                   size: 18,
                                 ),
-                                SizedBox(width: 10),
+                                const SizedBox(width: 10),
                                 Text(
-                                  'Propietario',
-                                  style: TextStyle(
+                                  context.t('vehicles.owner'),
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
@@ -2682,11 +2727,14 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            _buildInfoRow('Nombre', vehicle.nombrePropietario!),
+                            _buildInfoRow(
+                              context.t('vehicles.name'),
+                              vehicle.nombrePropietario!,
+                            ),
                             if (vehicle.documentoPropietario != null &&
                                 vehicle.documentoPropietario!.isNotEmpty)
                               _buildInfoRow(
-                                'Documento',
+                                context.t('vehicles.document'),
                                 vehicle.documentoPropietario!,
                               ),
                           ],
@@ -2712,8 +2760,10 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                         }
 
                         _showPersonaInfoModal(
-                          tipo: 'Información del conductor',
-                          nombre: vehicle.nombreConductor ?? 'Sin conductor',
+                          tipo: context.t('vehicles.driverInfo'),
+                          nombre:
+                              vehicle.nombreConductor ??
+                              context.t('vehicles.driver'),
                           telefono: vehicle.telefonoConductor,
                           correo: vehicle.emailConductor,
                           documento: vehicle.documentoConductor,
@@ -2737,17 +2787,17 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.directions_car,
                                   color: Colors.blue,
                                   size: 18,
                                 ),
-                                SizedBox(width: 10),
+                                const SizedBox(width: 10),
                                 Text(
-                                  'Conductor Asignado',
-                                  style: TextStyle(
+                                  context.t('vehicles.assignedDriver'),
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
@@ -2756,11 +2806,14 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            _buildInfoRow('Nombre', vehicle.nombreConductor!),
+                            _buildInfoRow(
+                              context.t('vehicles.name'),
+                              vehicle.nombreConductor!,
+                            ),
                             if (vehicle.documentoConductor != null &&
                                 vehicle.documentoConductor!.isNotEmpty)
                               _buildInfoRow(
-                                'Documento',
+                                context.t('vehicles.document'),
                                 vehicle.documentoConductor!,
                               ),
                           ],
@@ -2814,23 +2867,29 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                 ),
                 const SizedBox(height: 18),
 
-                _buildPersonInfoRow('Nombre', nombre),
-                _buildPersonInfoRow('Apellido', apellido),
-                _buildPersonInfoRow('Tipo documento', tipoDocumento),
-                _buildPersonInfoRow('Dirección', direccion),
-                _buildPersonInfoRow('Teléfono', telefono),
-                _buildPersonInfoRow('Correo', correo),
-                _buildPersonInfoRow('Documento', documento),
+                _buildPersonInfoRow(context.t('vehicles.name'), nombre),
+                _buildPersonInfoRow(context.t('vehicles.lastName'), apellido),
+                _buildPersonInfoRow(
+                  context.t('vehicles.documentType'),
+                  tipoDocumento,
+                ),
+                _buildPersonInfoRow(context.t('vehicles.address'), direccion),
+                _buildPersonInfoRow(context.t('vehicles.phone'), telefono),
+                _buildPersonInfoRow(context.t('vehicles.email'), correo),
+                _buildPersonInfoRow(context.t('vehicles.document'), documento),
 
                 if (licencia != null && licencia.trim().isNotEmpty)
-                  _buildPersonInfoRow('Licencia', licencia),
+                  _buildPersonInfoRow(context.t('vehicles.license'), licencia),
 
                 if (categoria != null && categoria.trim().isNotEmpty)
-                  _buildPersonInfoRow('Categoría', categoria),
+                  _buildPersonInfoRow(
+                    context.t('vehicles.category'),
+                    categoria,
+                  ),
 
                 if (vencimientoLicencia != null)
                   _buildPersonInfoRow(
-                    'Vencimiento licencia',
+                    context.t('vehicles.licenseExpiry'),
                     _dateFormat.format(vencimientoLicencia),
                   ),
 
@@ -2847,7 +2906,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: const Text('Cerrar'),
+                    child: Text(context.t('common.close')),
                   ),
                 ),
               ],
@@ -2915,7 +2974,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                   }
                 },
                 icon: const Icon(Icons.description_rounded),
-                label: const Text('Ver documentos'),
+                label: Text(context.t('vehicles.viewDocuments')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _accentColor,
                   foregroundColor: Colors.white,
@@ -2940,7 +2999,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
                   }
                 },
                 icon: const Icon(Icons.build_rounded),
-                label: const Text('Ver mantenimientos'),
+                label: Text(context.t('vehicles.viewMaintenance')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _successColor,
                   foregroundColor: Colors.white,
@@ -3007,29 +3066,29 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       },
       itemBuilder: (context) => [
         if (_canEditVehicleInfo)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'editar',
             child: Text(
-              'Editar vehículo',
-              style: TextStyle(color: Colors.white),
+              context.t('vehicles.editVehicle'),
+              style: const TextStyle(color: Colors.white),
             ),
           ),
 
         if (_canManageDriverAssignment && !hasDriver)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'asignar',
             child: Text(
-              'Asignar conductor',
-              style: TextStyle(color: Colors.white),
+              context.t('vehicles.assignDriver'),
+              style: const TextStyle(color: Colors.white),
             ),
           ),
 
         if (_canManageDriverAssignment && hasDriver)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'desasignar',
             child: Text(
-              'Desasignar conductor',
-              style: TextStyle(color: Colors.white),
+              context.t('vehicles.unassignDriver'),
+              style: const TextStyle(color: Colors.white),
             ),
           ),
       ],

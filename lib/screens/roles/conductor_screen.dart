@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:trackfile/l10n/app_language.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notificaciones_service.dart';
 import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
@@ -367,7 +368,10 @@ class _ConductorScreenState extends State<ConductorScreen> {
           size: 13,
           color: selected ? Colors.white : Colors.white70,
         ),
-        label: Text(option.label, style: const TextStyle(fontSize: 11)),
+        label: Text(
+          context.sectionLabel(option.section),
+          style: const TextStyle(fontSize: 11),
+        ),
         selected: selected,
         onSelected: (_) => _onTopMenuTap(index),
         selectedColor: _accentColor,
@@ -456,7 +460,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
                       ),
                       child: _buildPageSearchField(
                         hintText:
-                            'Buscar página: documentos, vehículo, mantenimientos...',
+                            context.t('dashboard.searchHint'),
                       ),
                     ),
                   ),
@@ -513,7 +517,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 32, 24, 20),
             child: Text(
-              'Menú',
+              context.t('dashboard.menu'),
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 14,
@@ -583,7 +587,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    option.label,
+                    context.sectionLabel(option.section),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -652,7 +656,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
             Icon(icon, size: isCompact ? 22 : 24, color: Colors.white),
             const SizedBox(height: 4),
             Text(
-              label,
+              context.sectionLabel(label),
               style: TextStyle(
                 fontSize: isCompact ? 10 : 11,
                 color: Colors.white,
@@ -773,7 +777,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
               Transform.translate(
                 offset: const Offset(-8, 0),
                 child: Text(
-                  'Bienvenido',
+                  context.t('dashboard.welcome'),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: isCompact ? 18 : 20,
@@ -784,7 +788,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
               SizedBox(height: isCompact ? 8 : 10),
               _buildPageSearchField(
                 hintText:
-                    'Buscar página: documentos, vehículo, mantenimientos...',
+                    context.t('dashboard.searchHint'),
               ),
             ],
           ),
@@ -806,7 +810,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
             final _MenuOption option = _upperMenuOptions[index];
             final bool selected = _selectedUpperIndex == index;
             return ChoiceChip(
-              label: Text(option.label),
+              label: Text(context.sectionLabel(option.section)),
               selected: selected,
               onSelected: (_) {
                 _onUpperMenuTap(index);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:trackfile/l10n/app_language.dart';
 import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
 import 'package:trackfile/services/notificaciones_service.dart';
 
@@ -11,8 +12,10 @@ class LogoutButton extends StatelessWidget {
     NotificacionesRealtimeService.stop();
     NotificacionesService.limpiarCacheToken();
     final prefs = await SharedPreferences.getInstance();
+    final languageCode = AppLanguageController.instance.value.languageCode;
 
     await prefs.clear();
+    await prefs.setString('trackfile_language', languageCode);
 
     if (!context.mounted) return;
 
@@ -24,7 +27,7 @@ class LogoutButton extends StatelessWidget {
     return ElevatedButton.icon(
       onPressed: () => _logout(context),
       icon: const Icon(Icons.logout_rounded),
-      label: const Text('Cerrar sesión'),
+      label: Text(context.t('common.logout')),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFFBFC7F5),
         foregroundColor: const Color(0xFF1F255E),
