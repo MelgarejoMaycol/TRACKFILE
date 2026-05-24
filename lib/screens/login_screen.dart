@@ -584,20 +584,10 @@ class _LoginScreenState extends State<LoginScreen>
             );
             return;
           }
-
-          await prefs.remove('auth_token');
-          await prefs.remove('token');
-          await prefs.remove('rol');
-          await prefs.remove('role');
-          await prefs.remove('user_id');
-          await prefs.remove('usuario_id');
-          await prefs.remove('empresa_id');
-          await prefs.remove('conductor_id');
-          await prefs.remove('propietario_id');
-
           await prefs.setString('token', tokenSesion);
           await prefs.setString('auth_token', tokenSesion);
           ApiService.setTokenCache(tokenSesion);
+          ApiService.startAutoRefreshToken();
 
           await prefs.setString('rol', rolRuta);
           await prefs.setString('role', rolRuta);

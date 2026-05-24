@@ -10,6 +10,7 @@ import '../screens/roles/empresa_screen.dart';
 import '../screens/roles/propietario_screen.dart';
 import '../screens/roles/secretaria_screen.dart';
 import '../services/api_link.dart';
+import '../services/api_service.dart';
 
 Widget? screenForRole(Map<String, dynamic> userData) {
   final String role = (userData['rol'] as String? ?? '').toUpperCase();
@@ -103,12 +104,14 @@ Future<void> persistSession(Map<String, dynamic> userData) async {
   }
 
   // Obtener el JWT token (que viene en el campo 'token' de la respuesta del backend)
-  final tokenValue = userData['token'];
+  final tokenValue = userData['token']?.toString();
   if (tokenValue != null && tokenValue.isNotEmpty) {
     await prefs.setString('auth_token', tokenValue);
+    await prefs.setString('token', tokenValue);
+    ApiService.setTokenCache(tokenValue);
+    ApiService.startAutoRefreshToken();
   } else {
     debugPrint('⚠️ No se encontró token en userData');
-    await prefs.setString('auth_token', 'session_active');
   }
 }
 
@@ -193,24 +196,46 @@ Future<String?> _findPropietarioIdByUserId(String userId, dynamic token) async {
 Future<Map<String, dynamic>?> loadSession() async {
   final prefs = await SharedPreferences.getInstance();
   final raw = prefs.getString('auth_user');
+
   if (raw == null || raw.isEmpty) return null;
+
   try {
     final decoded = jsonDecode(raw);
+
     if (decoded is Map<String, dynamic>) {
+      await ApiService.refreshSessionToken();
+      ApiService.startAutoRefreshToken();
+
+      final updatedRaw = prefs.getString('auth_user');
+      if (updatedRaw != null && updatedRaw.isNotEmpty) {
+        final updatedDecoded = jsonDecode(updatedRaw);
+        if (updatedDecoded is Map<String, dynamic>) {
+          return updatedDecoded;
+        }
+      }
+
       return decoded;
     }
   } catch (_) {
     return null;
   }
+
   return null;
 }
 
 Future<void> clearSession() async {
   final prefs = await SharedPreferences.getInstance();
+
+  ApiService.clearTokenCache();
+
   await prefs.remove('auth_user');
   await prefs.remove('auth_token');
+  await prefs.remove('token');
   await prefs.remove('user_id');
+  await prefs.remove('usuario_id');
   await prefs.remove('role');
+  await prefs.remove('rol');
+  await prefs.remove('empresa_id');
   await prefs.remove('conductor_id');
   await prefs.remove('propietario_id');
 }

@@ -11,8 +11,102 @@ import './api_link.dart';
 class ApiService {
   static final http.Client _client = http.Client();
   static String? _tokenCache;
+
+  static Timer? _refreshTimer;
+  static bool _isRefreshingToken = false;
+
+  static Future<bool> refreshSessionToken() async {
+    if (_isRefreshingToken) {
+      return false;
+    }
+
+    _isRefreshingToken = true;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final currentToken =
+          _tokenCache ??
+          prefs.getString('auth_token') ??
+          prefs.getString('token');
+
+      if (currentToken == null || currentToken.isEmpty) {
+        return false;
+      }
+
+      final response = await _client
+          .get(
+            Uri.parse('$_baseUrl/api/auth/refresh'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $currentToken',
+            },
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+
+        final String? newToken = decoded is Map
+            ? decoded['token']?.toString()
+            : null;
+
+        if (newToken == null || newToken.isEmpty) {
+          return false;
+        }
+
+        _tokenCache = newToken;
+
+        await prefs.setString('auth_token', newToken);
+        await prefs.setString('token', newToken);
+
+        final rawUser = prefs.getString('auth_user');
+        if (rawUser != null && rawUser.isNotEmpty) {
+          final userDecoded = jsonDecode(rawUser);
+          if (userDecoded is Map) {
+            final updatedUser = Map<String, dynamic>.from(userDecoded);
+            updatedUser['token'] = newToken;
+            await prefs.setString('auth_user', jsonEncode(updatedUser));
+          }
+        }
+
+        debugPrint('✅ Token actualizado correctamente');
+        return true;
+      }
+
+      if (response.statusCode == 401) {
+        debugPrint('⚠️ Token expirado o inválido. Requiere login.');
+        return false;
+      }
+
+      debugPrint(
+        '⚠️ Error refresh token ${response.statusCode}: ${response.body}',
+      );
+    } catch (e) {
+      debugPrint('⚠️ Error refrescando token: $e');
+    } finally {
+      _isRefreshingToken = false;
+    }
+
+    return false;
+  }
+
+  static void startAutoRefreshToken() {
+    _refreshTimer?.cancel();
+
+    _refreshTimer = Timer.periodic(const Duration(minutes: 15), (_) async {
+      await refreshSessionToken();
+    });
+  }
+
+  static void stopAutoRefreshToken() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+  }
+
   static void clearTokenCache() {
     _tokenCache = null;
+    stopAutoRefreshToken();
   }
 
   static void setTokenCache(String token) {
@@ -29,13 +123,25 @@ class ApiService {
     }
 
     final prefs = await SharedPreferences.getInstance();
-    _tokenCache = prefs.getString('auth_token');
+
+    _tokenCache = prefs.getString('auth_token') ?? prefs.getString('token');
+
     return _tokenCache;
   }
 
   /// Construye headers con autenticación
   static Future<Map<String, String>> _buildHeaders({String? token}) async {
-    final authToken = token ?? await _getToken();
+    String? authToken = token ?? await _getToken();
+
+    // Si no hay token intentar refrescar
+    if (authToken == null || authToken.isEmpty) {
+      final refreshed = await refreshSessionToken();
+
+      if (refreshed) {
+        authToken = await _getToken();
+      }
+    }
+
     return {
       'Content-Type': 'application/json',
       if (authToken != null) 'Authorization': 'Bearer $authToken',
