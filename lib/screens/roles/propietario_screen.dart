@@ -63,8 +63,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
   String? _userEmail;
   String? _userPhone;
   String? _userAddress;
-  String? _userDocument;
-  String? _propietarioId; // ID del propietario obtenido del backend
+  String? _userDocument;// ID del propietario obtenido del backend
   String? _selectedDocumentsVehicleId;
   String? _selectedDocumentsVehiclePlate;
 
@@ -223,9 +222,6 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         _userPhone = perfilBackend['telefono']?.toString();
         _userAddress = perfilBackend['direccion']?.toString();
         _userDocument = perfilBackend['numeroDocumento']?.toString();
-        _propietarioId =
-            perfilBackend['idPropietario']?.toString() ??
-            perfilBackend['id']?.toString();
         _userProfileImage = null;
       });
 

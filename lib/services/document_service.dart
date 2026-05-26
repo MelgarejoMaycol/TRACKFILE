@@ -7,12 +7,50 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import './api_link.dart';
+import './frontend_cache.dart';
+import './frontend_error_store.dart';
 
 class DocumentService {
   static final http.Client _client = http.Client();
   static String? _tokenCache;
   // URL base - siempre usa Onrender
   static String get _baseUrl => getApiLink();
+
+  static String _cacheKey(Uri uri, Map<String, String>? headers) {
+    final auth = headers?['Authorization'] ?? '';
+    return 'documents:${uri.toString()}:${auth.hashCode}';
+  }
+
+  static Future<http.Response> _cachedGet(
+    Uri uri, {
+    Map<String, String>? headers,
+  }) async {
+    final response = await FrontendCache.httpGet(
+      key: _cacheKey(uri, headers),
+      request: () => _client.get(uri, headers: headers),
+    );
+
+    if (response.statusCode >= 400) {
+      _recordError(
+        'GET ${uri.path}',
+        'HTTP ${response.statusCode}: ${response.body}',
+      );
+    }
+
+    return response;
+  }
+
+  static void _invalidateReadCache() {
+    FrontendCache.invalidateAll();
+  }
+
+  static void _recordError(
+    String source,
+    Object error, [
+    StackTrace? stackTrace,
+  ]) {
+    FrontendErrorStore.record('DocumentService.$source', error, stackTrace);
+  }
 
   /// Obtiene los documentos del usuario desde el backend
   static Future<List<Map<String, dynamic>>> getDocuments({
@@ -22,8 +60,7 @@ class DocumentService {
     try {
       final headers = _buildHeaders(token);
 
-      final response = await _client
-          .get(
+      final response = await _cachedGet(
             Uri.parse('$_baseUrl/api/documentos?idUsuario=$userId'),
             headers: headers,
           )
@@ -50,7 +87,8 @@ class DocumentService {
       } else if (response.statusCode == 401) {
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -80,8 +118,7 @@ class DocumentService {
         url += '?${queryParams.join('&')}';
       }
 
-      final response = await _client
-          .get(Uri.parse(url), headers: headers)
+      final response = await _cachedGet(Uri.parse(url), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -110,7 +147,8 @@ class DocumentService {
       } else if (response.statusCode == 401) {
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -122,8 +160,7 @@ class DocumentService {
     try {
       final headers = _buildHeaders(token);
 
-      final response = await _client
-          .get(
+      final response = await _cachedGet(
             Uri.parse('$_baseUrl/api/documentos/$documentoId/detalle'),
             headers: headers,
           )
@@ -134,7 +171,8 @@ class DocumentService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return null;
@@ -152,7 +190,8 @@ class DocumentService {
   }) async {
     try {
       return await getCompanyDocuments(token: token);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('getDocumentsByRole', error, stackTrace);
       return [];
     }
   }
@@ -173,6 +212,7 @@ class DocumentService {
     String? token,
     List<int>? fileBytes, // Bytes del archivo (para web)
   }) async {
+    _invalidateReadCache();
     try {
       // En web usar bytes directamente, en nativo intentar leer del filesystem
       final file = fileBytes ?? await _readFile(filePath);
@@ -248,7 +288,8 @@ class DocumentService {
       } else if (response.statusCode == 500) {
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return null;
   }
@@ -285,8 +326,7 @@ class DocumentService {
     try {
       final headers = _buildHeaders(token);
       final url = Uri.parse('$_baseUrl/api/conductores');
-      final response = await _client
-          .get(url, headers: headers)
+      final response = await _cachedGet(url, headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -343,8 +383,7 @@ class DocumentService {
     try {
       final headers = _buildHeaders(token);
       final url = Uri.parse('$_baseUrl/api/propietarios');
-      final response = await _client
-          .get(url, headers: headers)
+      final response = await _cachedGet(url, headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -399,8 +438,7 @@ class DocumentService {
     try {
       final headers = _buildHeaders(token);
       final url = Uri.parse('$_baseUrl/api/usuarios');
-      final response = await _client
-          .get(url, headers: headers)
+      final response = await _cachedGet(url, headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -425,7 +463,8 @@ class DocumentService {
         }
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -438,8 +477,7 @@ class DocumentService {
   }) async {
     try {
       final headers = _buildHeaders(token);
-      final response = await _client
-          .get(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
+      final response = await _cachedGet(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -477,15 +515,17 @@ class DocumentService {
               if (match) {
                 vehiculosFiltrados.add(item);
               }
-            } catch (_) {
-            }
+            } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
+    }
           }
 
           return vehiculosFiltrados;
         }
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -498,8 +538,7 @@ class DocumentService {
   }) async {
     try {
       final headers = _buildHeaders(token);
-      final response = await _client
-          .get(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
+      final response = await _cachedGet(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -537,15 +576,17 @@ class DocumentService {
               if (match) {
                 vehiculosFiltrados.add(item);
               }
-            } catch (_) {
-            }
+            } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
+    }
           }
 
           return vehiculosFiltrados;
         }
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -557,8 +598,7 @@ class DocumentService {
   }) async {
     try {
       final headers = _buildHeaders(token);
-      final response = await _client
-          .get(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
+      final response = await _cachedGet(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -573,7 +613,8 @@ class DocumentService {
         }
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -605,7 +646,8 @@ class DocumentService {
       if (file != null) {
         return await file.readAsBytes();
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return null;
   }
@@ -621,6 +663,7 @@ class DocumentService {
     int? responsableUsuarioId, // ID del usuario responsable (quien edita)
     int? idUsuario, // ID del usuario propietario para documentos de usuario
   }) async {
+    _invalidateReadCache();
     try {
       final token = await getToken();
       if (token == null || token.isEmpty) {
@@ -664,7 +707,8 @@ class DocumentService {
       } else {
         throw Exception('Error ${response.statusCode}: ${response.body}');
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('updateDocument', error, stackTrace);
       rethrow;
     }
   }
@@ -676,8 +720,7 @@ class DocumentService {
     try {
       final headers = _buildHeaders(token);
       final url = Uri.parse('$_baseUrl/api/vehiculos');
-      final response = await _client
-          .get(url, headers: headers)
+      final response = await _cachedGet(url, headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -702,7 +745,8 @@ class DocumentService {
       } else if (response.statusCode == 500) {
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -718,8 +762,7 @@ class DocumentService {
         '$_baseUrl/api/documentos/tabla?diasMaximos=$diasMaximos',
       );
 
-      final response = await _client
-          .get(url, headers: headers)
+      final response = await _cachedGet(url, headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -743,7 +786,8 @@ class DocumentService {
         }
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -760,7 +804,8 @@ class DocumentService {
         // En mobile/desktop platforms, usamos dart:io File
         return File(filePath);
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('file', error, stackTrace);
       return null;
     }
   }
@@ -772,6 +817,7 @@ class DocumentService {
     required bool estado,
     String? token,
   }) async {
+    _invalidateReadCache();
     try {
       final headers = _buildHeaders(token);
       headers['Content-Type'] = 'application/json';
@@ -795,7 +841,8 @@ class DocumentService {
       } else {
         throw Exception('Error ${response.statusCode}: ${response.body}');
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('updateDocumentStatus', error, stackTrace);
       rethrow;
     }
   }

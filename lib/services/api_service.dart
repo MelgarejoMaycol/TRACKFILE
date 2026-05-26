@@ -2,11 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import './api_link.dart';
+import './frontend_error_store.dart';
+import './frontend_cache.dart';
 
 class ApiService {
   static final http.Client _client = http.Client();
@@ -34,8 +35,7 @@ class ApiService {
         return false;
       }
 
-      final response = await _client
-          .get(
+      final response = await _cachedGet(
             Uri.parse('$_baseUrl/api/auth/refresh'),
             headers: {
               'Content-Type': 'application/json',
@@ -77,7 +77,8 @@ class ApiService {
         return false;
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     } finally {
       _isRefreshingToken = false;
     }
@@ -101,10 +102,12 @@ class ApiService {
   static void clearTokenCache() {
     _tokenCache = null;
     stopAutoRefreshToken();
+    FrontendCache.invalidateAll();
   }
 
   static void setTokenCache(String token) {
     _tokenCache = token;
+    FrontendCache.invalidateAll();
   }
 
   // URL base del servidor - siempre usa Onrender
@@ -140,6 +143,46 @@ class ApiService {
       'Content-Type': 'application/json',
       if (authToken != null) 'Authorization': 'Bearer $authToken',
     };
+  }
+
+  static String _cacheKey(Uri uri, Map<String, String>? headers) {
+    final auth = headers?['Authorization'] ?? '';
+    return 'api:${uri.toString()}:${auth.hashCode}';
+  }
+
+  static Future<http.Response> _cachedGet(
+    Uri uri, {
+    Map<String, String>? headers,
+  }) async {
+    if (uri.path.contains('/api/auth/refresh')) {
+      return _client.get(uri, headers: headers);
+    }
+
+    final response = await FrontendCache.httpGet(
+      key: _cacheKey(uri, headers),
+      request: () => _client.get(uri, headers: headers),
+    );
+
+    if (response.statusCode >= 400) {
+      _recordError(
+        'GET ${uri.path}',
+        'HTTP ${response.statusCode}: ${response.body}',
+      );
+    }
+
+    return response;
+  }
+
+  static void _invalidateReadCache() {
+    FrontendCache.invalidateAll();
+  }
+
+  static void _recordError(
+    String source,
+    Object error, [
+    StackTrace? stackTrace,
+  ]) {
+    FrontendErrorStore.record('ApiService.$source', error, stackTrace);
   }
 
   static List<Map<String, dynamic>> _asMapList(dynamic decoded) {
@@ -181,8 +224,7 @@ class ApiService {
         return null;
       }
 
-      final response = await _client
-          .get(
+      final response = await _cachedGet(
             Uri.parse('$_baseUrl/api/empresas/$empresaId/detalle'),
             headers: headers,
           )
@@ -194,7 +236,8 @@ class ApiService {
       } else if (response.statusCode == 401) {
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return null;
   }
@@ -207,8 +250,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await _client
-          .get(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
+      final response = await _cachedGet(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -217,7 +259,8 @@ class ApiService {
       } else if (response.statusCode == 401) {
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -285,8 +328,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await _client
-          .get(
+      final response = await _cachedGet(
             Uri.parse('$_baseUrl/api/vehiculos/$vehiculoId/detalle'),
             headers: headers,
           )
@@ -298,7 +340,8 @@ class ApiService {
       } else if (response.statusCode == 401) {
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return null;
   }
@@ -313,6 +356,7 @@ class ApiService {
     required String color,
     required int kilometrajeActual,
   }) async {
+    _invalidateReadCache();
     try {
       final headers = await _buildHeaders();
 
@@ -340,7 +384,8 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return null;
@@ -356,6 +401,7 @@ class ApiService {
     String? color,
     int? kilometrajeActual,
   }) async {
+    _invalidateReadCache();
     try {
       final headers = await _buildHeaders();
 
@@ -383,7 +429,8 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return null;
@@ -393,6 +440,7 @@ class ApiService {
     required int vehiculoId,
     required int idConductor,
   }) async {
+    _invalidateReadCache();
     try {
       final headers = await _buildHeaders();
 
@@ -409,7 +457,8 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return null;
@@ -418,6 +467,7 @@ class ApiService {
   static Future<Map<String, dynamic>?> desasignarConductorVehiculo({
     required int vehiculoId,
   }) async {
+    _invalidateReadCache();
     try {
       final headers = await _buildHeaders();
 
@@ -435,7 +485,8 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return null;
@@ -452,8 +503,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders(token: token);
 
-      final response = await _client
-          .get(
+      final response = await _cachedGet(
             Uri.parse('$_baseUrl/api/documentos?idUsuario=$userId'),
             headers: headers,
           )
@@ -481,7 +531,8 @@ class ApiService {
       } else if (response.statusCode == 401) {
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -509,8 +560,7 @@ class ApiService {
         url += '?${queryParams.join('&')}';
       }
 
-      final response = await _client
-          .get(Uri.parse(url), headers: headers)
+      final response = await _cachedGet(Uri.parse(url), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -535,7 +585,8 @@ class ApiService {
       } else if (response.statusCode == 401) {
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -619,8 +670,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await _client
-          .get(
+      final response = await _cachedGet(
             Uri.parse('$_baseUrl/api/vehiculos/$vehiculoId/documentos'),
             headers: headers,
           )
@@ -646,7 +696,8 @@ class ApiService {
           );
         }
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -659,8 +710,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await _client
-          .get(Uri.parse('$_baseUrl/api/conductores'), headers: headers)
+      final response = await _cachedGet(Uri.parse('$_baseUrl/api/conductores'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -685,7 +735,8 @@ class ApiService {
       } else if (response.statusCode == 401) {
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -698,8 +749,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await _client
-          .get(Uri.parse('$_baseUrl/api/propietarios'), headers: headers)
+      final response = await _cachedGet(Uri.parse('$_baseUrl/api/propietarios'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -724,7 +774,8 @@ class ApiService {
       } else if (response.statusCode == 401) {
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -737,8 +788,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await _client
-          .get(Uri.parse('$_baseUrl/api/usuarios'), headers: headers)
+      final response = await _cachedGet(Uri.parse('$_baseUrl/api/usuarios'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -763,7 +813,8 @@ class ApiService {
       } else if (response.statusCode == 401) {
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -773,8 +824,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await _client
-          .get(Uri.parse('$_baseUrl/api/usuarios/actual'), headers: headers)
+      final response = await _cachedGet(Uri.parse('$_baseUrl/api/usuarios/actual'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -782,7 +832,8 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       } else if (response.statusCode == 401) {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return null;
   }
@@ -795,8 +846,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await _client
-          .get(Uri.parse('$_baseUrl/api/usuarios/me'), headers: headers)
+      final response = await _cachedGet(Uri.parse('$_baseUrl/api/usuarios/me'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -804,7 +854,8 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return null;
@@ -818,6 +869,7 @@ class ApiService {
     required String telefono,
     required String direccion,
   }) async {
+    _invalidateReadCache();
     try {
       final headers = await _buildHeaders();
 
@@ -840,7 +892,8 @@ class ApiService {
         return true;
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return false;
@@ -852,6 +905,7 @@ class ApiService {
     required String passwordActual,
     required String passwordNueva,
   }) async {
+    _invalidateReadCache();
     try {
       final headers = await _buildHeaders();
 
@@ -882,7 +936,8 @@ class ApiService {
         'ok': false,
         'error': decoded['error'] ?? 'No se pudo cambiar la contraseña',
       };
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('cambiarMiPassword', error, stackTrace);
       return {'ok': false, 'error': 'Error de conexión'};
     }
   }
@@ -893,8 +948,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await _client
-          .get(Uri.parse('$_baseUrl/api/empresas/me'), headers: headers)
+      final response = await _cachedGet(Uri.parse('$_baseUrl/api/empresas/me'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -902,7 +956,8 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return null;
@@ -915,6 +970,7 @@ class ApiService {
     required String telefono,
     required String direccion,
   }) async {
+    _invalidateReadCache();
     try {
       final headers = await _buildHeaders();
 
@@ -936,7 +992,8 @@ class ApiService {
         return true;
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return false;
@@ -948,8 +1005,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await _client
-          .get(Uri.parse('$_baseUrl/api/tipos-solicitud'), headers: headers)
+      final response = await _cachedGet(Uri.parse('$_baseUrl/api/tipos-solicitud'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -965,7 +1021,8 @@ class ApiService {
         }
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return [];
@@ -975,8 +1032,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await _client
-          .get(Uri.parse('$_baseUrl/api/solicitudes'), headers: headers)
+      final response = await _cachedGet(Uri.parse('$_baseUrl/api/solicitudes'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -992,7 +1048,8 @@ class ApiService {
         }
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return [];
@@ -1004,8 +1061,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders();
 
-      final response = await _client
-          .get(
+      final response = await _cachedGet(
             Uri.parse('$_baseUrl/api/solicitudes/$solicitudId/historial'),
             headers: headers,
           )
@@ -1024,7 +1080,8 @@ class ApiService {
         }
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return [];
@@ -1036,6 +1093,7 @@ class ApiService {
     int? vehiculoId,
     int? documentoId,
   }) async {
+    _invalidateReadCache();
     try {
       final token = await _getToken();
 
@@ -1074,7 +1132,8 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return null;
@@ -1086,6 +1145,7 @@ class ApiService {
     required PlatformFile archivo,
     int? tipoSolicitudId,
   }) async {
+    _invalidateReadCache();
     try {
       final token = await _getToken();
 
@@ -1127,7 +1187,8 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return null;
@@ -1139,6 +1200,7 @@ class ApiService {
     required String observaciones,
     PlatformFile? archivo,
   }) async {
+    _invalidateReadCache();
     try {
       final token = await _getToken();
 
@@ -1175,7 +1237,8 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return null;
@@ -1186,6 +1249,7 @@ class ApiService {
     required String estado,
     required String observaciones,
   }) async {
+    _invalidateReadCache();
     try {
       final headers = await _buildHeaders();
       headers['Content-Type'] = 'application/json';
@@ -1205,7 +1269,8 @@ class ApiService {
         return true;
       }
 
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return false;
@@ -1225,8 +1290,7 @@ class ApiService {
       final headers = await _buildHeaders(token: token);
       final String url = '$_baseUrl/api/mantenimientos';
 
-      final response = await _client
-          .get(Uri.parse(url), headers: headers)
+      final response = await _cachedGet(Uri.parse(url), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -1254,7 +1318,8 @@ class ApiService {
         );
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return [];
   }
@@ -1276,6 +1341,7 @@ class ApiService {
     List<String>? documentos,
     String? token,
   }) async {
+    _invalidateReadCache();
     try {
       final headers = await _buildHeaders(token: token);
       headers['Content-Type'] = 'application/json';
@@ -1315,7 +1381,8 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return null;
   }
@@ -1334,6 +1401,7 @@ class ApiService {
     String? userId,
     String? token,
   }) async {
+    _invalidateReadCache();
     try {
       final headers = await _buildHeaders(token: token);
       headers['Content-Type'] = 'application/json';
@@ -1359,7 +1427,8 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return null;
   }
@@ -1380,6 +1449,7 @@ class ApiService {
     String? userId,
     String? token,
   }) async {
+    _invalidateReadCache();
     try {
       final headers = await _buildHeaders(token: token);
       headers['Content-Type'] = 'application/json';
@@ -1414,7 +1484,8 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
     return null;
   }
@@ -1428,8 +1499,7 @@ class ApiService {
       final headers = await _buildHeaders(token: token);
       final url = Uri.parse('$_baseUrl/api/tipos-mantenimiento');
 
-      final response = await _client
-          .get(url, headers: headers)
+      final response = await _cachedGet(url, headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
@@ -1454,7 +1524,8 @@ class ApiService {
         }
       } else {
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return [];
@@ -1471,8 +1542,7 @@ class ApiService {
     try {
       final headers = await _buildHeaders(token: token);
 
-      final response = await _client
-          .get(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
+      final response = await _cachedGet(Uri.parse('$_baseUrl/api/vehiculos'), headers: headers)
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode != 200) {
@@ -1531,7 +1601,8 @@ class ApiService {
 
         return false;
       }).toList();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _recordError('request', error, stackTrace);
     }
 
     return [];

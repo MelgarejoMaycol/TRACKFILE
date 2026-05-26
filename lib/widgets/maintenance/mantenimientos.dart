@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trackfile/l10n/app_language.dart';
 
 import '../../services/api_service.dart';
+import '../../services/frontend_cache.dart';
 import '../utils/shimmer_skeleton.dart';
 
 class MantenimientosWidget extends StatefulWidget {
@@ -268,7 +269,19 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
   void initState() {
     super.initState();
     maintenanceSearch = widget.initialSearch?.trim().toLowerCase() ?? '';
+    FrontendCache.revision.addListener(_reloadFromCacheUpdate);
     _loadData();
+  }
+
+  void _reloadFromCacheUpdate() {
+    if (!mounted) return;
+    _loadData(showLoader: false);
+  }
+
+  @override
+  void dispose() {
+    FrontendCache.revision.removeListener(_reloadFromCacheUpdate);
+    super.dispose();
   }
 
   @override
@@ -3100,7 +3113,13 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
             style: TextStyle(color: Colors.white, fontSize: 16),
           ),
           const SizedBox(height: 8),
-          TextButton(onPressed: _loadData, child: Text(context.t('common.retry'))),
+          TextButton(
+            onPressed: () {
+              FrontendCache.invalidateAll();
+              _loadData();
+            },
+            child: Text(context.t('common.retry')),
+          ),
         ],
       ),
     );

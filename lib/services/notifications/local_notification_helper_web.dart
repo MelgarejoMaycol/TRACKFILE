@@ -1,6 +1,5 @@
 // ignore: deprecated_member_use, avoid_web_libraries_in_flutter
 import 'dart:html' as html;
-import 'package:flutter/material.dart';
 
 class LocalNotificationHelper {
   static Future<void> init() async {

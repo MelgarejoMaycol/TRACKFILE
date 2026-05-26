@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:trackfile/l10n/app_language.dart';
 import 'package:trackfile/services/api_service.dart';
+import 'package:trackfile/services/frontend_cache.dart';
 import 'package:trackfile/services/notifications/notificaciones_preferencias_service.dart';
 import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
 import 'package:trackfile/widgets/utils/logout_button.dart';
@@ -116,6 +117,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
   void initState() {
     super.initState();
     AppLanguageController.instance.addListener(_onLanguageChanged);
+    FrontendCache.revision.addListener(_reloadFromCacheUpdate);
     _cargarInicial();
   }
 
@@ -124,9 +126,15 @@ class _PerfilWidgetState extends State<PerfilWidget> {
     _cargarPerfil(showLoader: false);
   }
 
+  void _reloadFromCacheUpdate() {
+    if (!mounted) return;
+    _cargarPerfil(showLoader: false);
+  }
+
   @override
   void dispose() {
     AppLanguageController.instance.removeListener(_onLanguageChanged);
+    FrontendCache.revision.removeListener(_reloadFromCacheUpdate);
     super.dispose();
   }
 
@@ -1713,7 +1721,10 @@ class _PerfilWidgetState extends State<PerfilWidget> {
               SizedBox(
                 width: 220,
                 child: ElevatedButton.icon(
-                  onPressed: _cargarPerfil,
+                  onPressed: () {
+                    FrontendCache.invalidateAll();
+                    _cargarPerfil();
+                  },
                   icon: const Icon(Icons.refresh),
                   label: Text(context.t('common.retry')),
                   style: ElevatedButton.styleFrom(

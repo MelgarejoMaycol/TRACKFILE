@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../l10n/app_language.dart';
 import '../../services/document_service.dart';
+import '../../services/frontend_cache.dart';
 import '../utils/shimmer_skeleton.dart';
 
 class UploadDocumentModal {
@@ -897,7 +898,10 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     ElevatedButton.icon(
-                      onPressed: _loadPersonas,
+                      onPressed: () {
+                        FrontendCache.invalidateAll();
+                        _loadPersonas();
+                      },
                       icon: const Icon(Icons.refresh, size: 18),
                       label: Text(context.t('common.retry')),
                       style: ElevatedButton.styleFrom(

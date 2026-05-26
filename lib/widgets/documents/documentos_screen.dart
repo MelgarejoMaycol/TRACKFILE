@@ -6,6 +6,7 @@ import 'package:trackfile/l10n/app_language.dart';
 import 'package:trackfile/services/api_link.dart';
 import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/document_service.dart';
+import 'package:trackfile/services/frontend_cache.dart';
 import 'package:trackfile/widgets/documents/document_preview_modal.dart';
 import 'package:trackfile/widgets/documents/edit_document_modal.dart';
 import 'package:trackfile/widgets/documents/upload_document_modal.dart';
@@ -79,7 +80,13 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
     super.initState();
     _persons = [];
     _vehicles = [];
+    FrontendCache.revision.addListener(_reloadFromCacheUpdate);
     _loadExplorerData();
+  }
+
+  void _reloadFromCacheUpdate() {
+    if (!mounted) return;
+    _loadExplorerData(showLoader: false);
   }
 
   Future<void> _loadExplorerData({bool showLoader = true}) async {
@@ -577,6 +584,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
 
   @override
   void dispose() {
+    FrontendCache.revision.removeListener(_reloadFromCacheUpdate);
     _searchDebounce?.cancel();
     super.dispose();
   }
@@ -726,7 +734,10 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
           IconButton(
             constraints: const BoxConstraints(),
             padding: const EdgeInsets.only(left: 8),
-            onPressed: _loadExplorerData,
+            onPressed: () {
+              FrontendCache.invalidateAll();
+              _loadExplorerData();
+            },
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             tooltip: 'Actualizar datos',
           ),

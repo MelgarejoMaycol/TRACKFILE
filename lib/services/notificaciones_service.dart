@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import './api_link.dart';
+import './frontend_cache.dart';
 
 class NotificacionesService {
   static final http.Client _client = http.Client();
@@ -40,9 +41,12 @@ class NotificacionesService {
   }
 
   static Future<http.Response> _get(String url) async {
-    return _client
-        .get(Uri.parse(url), headers: await _headers())
-        .timeout(const Duration(seconds: 20));
+    final headers = await _headers();
+    return FrontendCache.httpGet(
+      key: 'notifications:$url:${(headers['Authorization'] ?? '').hashCode}',
+      request: () => _client.get(Uri.parse(url), headers: headers),
+      ttl: const Duration(seconds: 3),
+    ).timeout(const Duration(seconds: 20));
   }
 
   static Future<http.Response> _patch(String url) async {
@@ -121,6 +125,7 @@ class NotificacionesService {
   }
 
   static Future<Map<String, dynamic>?> marcarComoLeida(String id) async {
+    FrontendCache.invalidateAll();
     final response = await _patch('$baseUrl/notificaciones/$id/leer');
 
     if (response.statusCode == 200) {
@@ -134,6 +139,7 @@ class NotificacionesService {
   }
 
   static Future<void> marcarTodasComoLeidas() async {
+    FrontendCache.invalidateAll();
     final response = await _patch('$baseUrl/notificaciones/leer-todas');
 
     if (response.statusCode == 200 || response.statusCode == 204) return;
@@ -143,5 +149,6 @@ class NotificacionesService {
 
   static void limpiarCacheToken() {
     _tokenCache = null;
+    FrontendCache.invalidateAll();
   }
 }

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:trackfile/l10n/app_language.dart';
+import 'package:trackfile/services/frontend_cache.dart';
 import 'package:trackfile/utils/api_config.dart';
 
 enum TipoGestionPersona { conductor, propietario }
@@ -110,7 +111,13 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
     super.initState();
     _tipoActual = widget.tipoInicial;
     _search = widget.initialSearch?.trim() ?? '';
+    FrontendCache.revision.addListener(_reloadFromCacheUpdate);
     _init();
+  }
+
+  void _reloadFromCacheUpdate() {
+    if (!mounted) return;
+    _loadPersonas();
   }
 
   @override
@@ -170,20 +177,19 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
       final usuariosUri = ApiConfig.resolve(_baseUrl, '/api/usuarios');
       final personasUri = ApiConfig.resolve(_baseUrl, _endpointBase);
 
+      final headers = {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      };
+
       final responses = await Future.wait([
-        _client.get(
-          usuariosUri,
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
+        FrontendCache.httpGet(
+          key: 'personas-widget:$usuariosUri:${token.hashCode}',
+          request: () => _client.get(usuariosUri, headers: headers),
         ),
-        _client.get(
-          personasUri,
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
+        FrontendCache.httpGet(
+          key: 'personas-widget:$personasUri:${token.hashCode}',
+          request: () => _client.get(personasUri, headers: headers),
         ),
       ]);
 
@@ -264,13 +270,13 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
       final token = await _token();
       final uri = ApiConfig.resolve(_baseUrl, '$_endpointBase/$id/detalle');
 
-      final response = await _client
-          .get(
-            uri,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
+      final headers = {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      };
+      final response = await FrontendCache.httpGet(
+            key: 'personas-widget:$uri:${token.hashCode}',
+            request: () => _client.get(uri, headers: headers),
           )
           .timeout(const Duration(seconds: 12));
 
@@ -285,6 +291,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
   }
 
   Future<void> _crearPersona(Map<String, dynamic> body) async {
+    FrontendCache.invalidateAll();
     final token = await _token();
     final uri = ApiConfig.resolve(_baseUrl, _endpointBase);
 
@@ -305,6 +312,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
   }
 
   Future<void> _editarPersona(int id, Map<String, dynamic> body) async {
+    FrontendCache.invalidateAll();
     final token = await _token();
     final uri = ApiConfig.resolve(_baseUrl, '$_endpointBase/$id');
 
@@ -325,6 +333,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
   }
 
   Future<int> _crearUsuario(Map<String, dynamic> body) async {
+    FrontendCache.invalidateAll();
     final token = await _token();
     final uri = ApiConfig.resolve(_baseUrl, '/api/usuarios');
 
@@ -1914,7 +1923,10 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
-                onPressed: _loadPersonas,
+                onPressed: () {
+                  FrontendCache.invalidateAll();
+                  _loadPersonas();
+                },
                 icon: const Icon(Icons.refresh_rounded),
                 label: Text(context.t('common.retry')),
                 style: ElevatedButton.styleFrom(
@@ -1964,6 +1976,7 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
   @override
   void dispose() {
+    FrontendCache.revision.removeListener(_reloadFromCacheUpdate);
     _searchDebounce?.cancel();
     _client.close();
     super.dispose();
@@ -1985,7 +1998,10 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
       child: Container(
         color: _bgColor,
         child: RefreshIndicator(
-          onRefresh: _loadPersonas,
+          onRefresh: () async {
+            FrontendCache.invalidateAll();
+            await _loadPersonas();
+          },
           color: _accentColor,
           child: ListView(
             padding: EdgeInsets.all(

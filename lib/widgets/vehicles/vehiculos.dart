@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trackfile/l10n/app_language.dart';
 import 'package:trackfile/services/api_service.dart';
+import 'package:trackfile/services/frontend_cache.dart';
 import 'package:trackfile/utils/api_config.dart';
 import 'package:trackfile/widgets/utils/shimmer_skeleton.dart';
 
@@ -156,7 +157,19 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
   void initState() {
     super.initState();
     _searchTerm = widget.initialSearch?.trim() ?? '';
+    FrontendCache.revision.addListener(_reloadFromCacheUpdate);
     _initialize();
+  }
+
+  void _reloadFromCacheUpdate() {
+    if (!mounted) return;
+    _loadAllData(showLoader: false);
+  }
+
+  @override
+  void dispose() {
+    FrontendCache.revision.removeListener(_reloadFromCacheUpdate);
+    super.dispose();
   }
 
   @override
@@ -194,13 +207,13 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       if (token == null) return;
 
       final uri = ApiConfig.resolve(_baseUrl, '/api/propietarios');
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
+      final headers = {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      };
+      final response = await FrontendCache.httpGet(
+            key: 'vehicles-widget:$uri:${token.hashCode}',
+            request: () => http.get(uri, headers: headers),
           )
           .timeout(const Duration(seconds: 10));
 
@@ -229,13 +242,13 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       if (token == null) return;
 
       final uri = ApiConfig.resolve(_baseUrl, '/api/conductores');
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
+      final headers = {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      };
+      final response = await FrontendCache.httpGet(
+            key: 'vehicles-widget:$uri:${token.hashCode}',
+            request: () => http.get(uri, headers: headers),
           )
           .timeout(const Duration(seconds: 10));
 
@@ -276,13 +289,13 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
 
       final uri = ApiConfig.resolve(_baseUrl, '/api/vehiculos');
 
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
+      final headers = {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      };
+      final response = await FrontendCache.httpGet(
+            key: 'vehicles-widget:$uri:${token.hashCode}',
+            request: () => http.get(uri, headers: headers),
           )
           .timeout(const Duration(seconds: 15));
 
@@ -330,13 +343,13 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
         '/api/vehiculos/${vehicle.idVehiculo}/detalle',
       );
 
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Content-Type': 'application/json',
-            },
+      final headers = {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      };
+      final response = await FrontendCache.httpGet(
+            key: 'vehicles-widget:$uri:${token.hashCode}',
+            request: () => http.get(uri, headers: headers),
           )
           .timeout(const Duration(seconds: 10));
 
@@ -1907,7 +1920,10 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
               ),
               const SizedBox(height: 20),
               ElevatedButton.icon(
-                onPressed: () => _loadVehicles(),
+                onPressed: () {
+                  FrontendCache.invalidateAll();
+                  _loadAllData();
+                },
                 icon: const Icon(Icons.refresh_rounded),
                 label: Text(context.t('common.retry')),
                 style: ElevatedButton.styleFrom(

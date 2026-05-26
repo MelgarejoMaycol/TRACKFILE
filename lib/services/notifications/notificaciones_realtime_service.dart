@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../notificaciones_service.dart';
 import 'local_notification_helper.dart';
 import 'notificaciones_preferencias_service.dart';
-import 'package:flutter/material.dart';
 
 class NotificacionesRealtimeService {
   static Timer? _timer;

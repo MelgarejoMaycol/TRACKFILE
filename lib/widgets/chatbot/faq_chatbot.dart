@@ -40,9 +40,9 @@ class _FaqChatbotState extends State<FaqChatbot> {
   bool _isOpen = false;
   bool _isTyping = false;
   bool _showShortcuts = false;
-  double _mobileLauncherRight = 12;
+  double _mobileLauncherLeft = 12;
   double _mobileLauncherBottom = 92;
-  double _desktopLauncherRight = 22;
+  double _desktopLauncherLeft = 22;
   double _desktopLauncherBottom = 22;
   late String _selectedSectionTitle;
   String? _lastTopic;
@@ -2510,14 +2510,14 @@ class _FaqChatbotState extends State<FaqChatbot> {
 
     setState(() {
       if (compact) {
-        _mobileLauncherRight = (_mobileLauncherRight - details.delta.dx).clamp(
+        _mobileLauncherLeft = (_mobileLauncherLeft + details.delta.dx).clamp(
           8.0,
           math.max(8.0, size.width - launcherWidth - 8),
         );
         _mobileLauncherBottom = (_mobileLauncherBottom - details.delta.dy)
             .clamp(24.0, math.max(24.0, size.height - launcherHeight - 24));
       } else {
-        _desktopLauncherRight = (_desktopLauncherRight - details.delta.dx)
+        _desktopLauncherLeft = (_desktopLauncherLeft + details.delta.dx)
             .clamp(12.0, math.max(12.0, size.width - launcherWidth - 12));
         _desktopLauncherBottom = (_desktopLauncherBottom - details.delta.dy)
             .clamp(12.0, math.max(12.0, size.height - launcherHeight - 12));
@@ -2532,17 +2532,17 @@ class _FaqChatbotState extends State<FaqChatbot> {
     final draggableLauncher = !_isOpen;
 
     return Positioned(
-      left: compact && _isOpen ? 12 : null,
-      right: compact
-          ? (draggableLauncher ? _mobileLauncherRight : 12)
-          : (draggableLauncher ? _desktopLauncherRight : 22),
+      left: compact
+          ? (draggableLauncher ? _mobileLauncherLeft : 12)
+          : (draggableLauncher ? _desktopLauncherLeft : 22),
+      right: compact && _isOpen ? 12 : null,
       bottom: compact
           ? (draggableLauncher ? _mobileLauncherBottom : 12)
           : (draggableLauncher ? _desktopLauncherBottom : 22),
       child: SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),

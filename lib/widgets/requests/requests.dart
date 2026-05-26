@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:trackfile/l10n/app_language.dart';
 
 import '../../services/api_service.dart';
+import '../../services/frontend_cache.dart';
 import '../documents/document_preview_modal.dart';
 import '../utils/shimmer_skeleton.dart';
 
@@ -262,7 +263,13 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
     _roleNormalized = widget.role.toLowerCase();
     _searchQuery = widget.initialSearch?.trim() ?? '';
     _searchController.text = _searchQuery;
+    FrontendCache.revision.addListener(_reloadFromCacheUpdate);
     _loadData();
+  }
+
+  void _reloadFromCacheUpdate() {
+    if (!mounted) return;
+    _loadData(showLoader: false);
   }
 
   @override
@@ -279,6 +286,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
 
   @override
   void dispose() {
+    FrontendCache.revision.removeListener(_reloadFromCacheUpdate);
     _searchController.dispose();
     super.dispose();
   }
@@ -1924,7 +1932,10 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
           ),
           const SizedBox(height: 8),
           TextButton(
-            onPressed: _loadData,
+            onPressed: () {
+              FrontendCache.invalidateAll();
+              _loadData();
+            },
             child: Text(context.t('requests.retry')),
           ),
         ],
