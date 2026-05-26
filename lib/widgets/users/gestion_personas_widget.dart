@@ -117,7 +117,10 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
   void _reloadFromCacheUpdate() {
     if (!mounted) return;
-    _loadPersonas();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadPersonas();
+    });
   }
 
   @override
@@ -714,7 +717,10 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
                           child: ElevatedButton.icon(
                             onPressed: () {
                               Navigator.pop(context);
-                              _showFormModal(persona: data);
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (!mounted) return;
+                                _showFormModal(persona: data);
+                              });
                             },
                             icon: const Icon(Icons.edit_rounded),
                             label: Text(context.t('users.editInfo')),
@@ -968,8 +974,10 @@ class _GestionPersonasWidgetState extends State<GestionPersonasWidget> {
 
                           if (!context.mounted) return;
                           Navigator.pop(context);
+                          await WidgetsBinding.instance.endOfFrame;
+                          if (!mounted) return;
 
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(this.context).showSnackBar(
                             SnackBar(
                               content: Text(
                                 editando

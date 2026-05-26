@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:http/http.dart' as http;
 
 class FrontendCache {
@@ -12,6 +13,7 @@ class FrontendCache {
   static final Map<String, Future<http.Response>> _httpPending = {};
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
   static int _version = 0;
+  static bool _revisionNotifyScheduled = false;
 
   static Future<http.Response> httpGet({
     required String key,
@@ -92,7 +94,7 @@ class FrontendCache {
       if (previous == null || !previous.samePayload(next)) {
         _httpEntries[key] = next;
         _pruneIfNeeded();
-        revision.value++;
+        _notifyRevisionChanged();
       } else {
         _httpEntries[key] = next;
       }
@@ -105,6 +107,16 @@ class FrontendCache {
     });
 
     _httpPending[key] = future;
+  }
+
+  static void _notifyRevisionChanged() {
+    if (_revisionNotifyScheduled) return;
+    _revisionNotifyScheduled = true;
+
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _revisionNotifyScheduled = false;
+      revision.value++;
+    });
   }
 }
 

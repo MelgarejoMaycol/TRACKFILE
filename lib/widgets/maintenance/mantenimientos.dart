@@ -275,7 +275,10 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
 
   void _reloadFromCacheUpdate() {
     if (!mounted) return;
-    _loadData(showLoader: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadData(showLoader: false);
+    });
   }
 
   @override

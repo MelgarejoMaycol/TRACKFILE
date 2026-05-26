@@ -249,6 +249,10 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   int? _expandedSolicitudId;
+  int _loadSequence = 0;
+  bool _cacheReloadScheduled = false;
+  bool _isResponderModalOpen = false;
+  bool _pendingCacheReload = false;
   bool get _viendoPersona =>
       widget.personaUserId != null && widget.personaUserId!.trim().isNotEmpty;
 
@@ -269,7 +273,17 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
 
   void _reloadFromCacheUpdate() {
     if (!mounted) return;
-    _loadData(showLoader: false);
+    if (_isResponderModalOpen) {
+      _pendingCacheReload = true;
+      return;
+    }
+    if (_cacheReloadScheduled) return;
+    _cacheReloadScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _cacheReloadScheduled = false;
+      if (!mounted) return;
+      _loadData(showLoader: false);
+    });
   }
 
   @override
@@ -293,6 +307,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
 
   Future<void> _loadData({bool showLoader = true}) async {
     if (!mounted) return;
+    final int loadId = ++_loadSequence;
 
     if (showLoader) {
       setState(() {
@@ -340,7 +355,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
       final List<_SolicitudDetalle> detallesSeleccionados =
           _selectDetallesForRole(detallesSinHistorial);
 
-      if (!mounted) return;
+      if (!mounted || loadId != _loadSequence) return;
 
       setState(() {
         _tiposSolicitud = tipos;
@@ -350,7 +365,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
       });
     } catch (_) {
 
-      if (!mounted) return;
+      if (!mounted || loadId != _loadSequence) return;
 
       setState(() {
         _isLoading = false;
@@ -1714,6 +1729,8 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
     BuildContext ctx,
   ) async {
     Navigator.pop(ctx);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
 
     final int? tipoSolicitudId = int.tryParse(tipoId);
     final int? vehiculoSolicitudId = vehiculoId == null
@@ -2027,15 +2044,19 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
     String estadoSeleccionado = 'ACEPTADA';
     PlatformFile? archivoSeleccionado;
     bool subiendoArchivo = false;
+    String? estadoRespondido;
 
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
+    _isResponderModalOpen = true;
+
+    try {
+      estadoRespondido = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) {
+          return StatefulBuilder(
+            builder: (context, setModalState) {
             final bool aceptada = estadoSeleccionado == 'ACEPTADA';
             final Color actionColor = aceptada ? _successColor : _dangerColor;
 
@@ -2075,51 +2096,41 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
                             ),
                             const SizedBox(height: 10),
 
-                            DropdownButtonFormField<String>(
-                              initialValue: estadoSeleccionado,
-                              dropdownColor: const Color(0xFF151B47),
-                              style: const TextStyle(color: Colors.white),
-                              iconEnabledColor: Colors.white70,
-                              decoration: InputDecoration(
-                                filled: true,
-                                fillColor: Colors.white.withValues(alpha: 0.08),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  borderSide: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.10),
-                                  ),
-                                ),
-                                focusedBorder: const OutlineInputBorder(
-                                  borderRadius: BorderRadius.all(
-                                    Radius.circular(16),
-                                  ),
-                                  borderSide: BorderSide(color: _accentColor),
-                                ),
-                              ),
-                              items: [
-                                DropdownMenuItem(
-                                  value: 'ACEPTADA',
-                                  child: Text(context.t('requests.accept')),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'RECHAZADA',
-                                  child: Text(context.t('requests.reject')),
-                                ),
-                              ],
-                              onChanged: subiendoArchivo
-                                  ? null
-                                  : (value) {
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildResponseStateButton(
+                                    label: context.t('requests.accept'),
+                                    icon: Icons.check_rounded,
+                                    selected:
+                                        estadoSeleccionado == 'ACEPTADA',
+                                    color: _successColor,
+                                    enabled: !subiendoArchivo,
+                                    onTap: () {
                                       setModalState(() {
-                                        estadoSeleccionado =
-                                            value ?? 'ACEPTADA';
-                                        if (estadoSeleccionado == 'RECHAZADA') {
-                                          archivoSeleccionado = null;
-                                        }
+                                        estadoSeleccionado = 'ACEPTADA';
                                       });
                                     },
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _buildResponseStateButton(
+                                    label: context.t('requests.reject'),
+                                    icon: Icons.close_rounded,
+                                    selected:
+                                        estadoSeleccionado == 'RECHAZADA',
+                                    color: _dangerColor,
+                                    enabled: !subiendoArchivo,
+                                    onTap: () {
+                                      setModalState(() {
+                                        estadoSeleccionado = 'RECHAZADA';
+                                        archivoSeleccionado = null;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
 
                             if (aceptada) ...[
@@ -2353,36 +2364,11 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
                                             }
 
                                             if (ctx.mounted) {
-                                              Navigator.pop(ctx);
+                                              Navigator.pop(
+                                                ctx,
+                                                estadoSeleccionado,
+                                              );
                                             }
-
-                                            await _loadData(showLoader: false);
-
-                                            if (!mounted) return;
-
-                                            setState(() {
-                                              _expandedSolicitudId = null;
-                                              _searchQuery = '';
-                                              _searchController.clear();
-                                            });
-
-                                            ScaffoldMessenger.of(
-                                              this.context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  estadoSeleccionado ==
-                                                          'ACEPTADA'
-                                                      ? 'Solicitud aceptada correctamente.'
-                                                      : 'Solicitud rechazada correctamente.',
-                                                ),
-                                                backgroundColor:
-                                                    estadoSeleccionado ==
-                                                        'ACEPTADA'
-                                                    ? _successColor
-                                                    : _dangerColor,
-                                              ),
-                                            );
                                           },
                                     icon: subiendoArchivo
                                         ? const SizedBox(
@@ -2428,12 +2414,82 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
                 ),
               ),
             );
-          },
-        );
-      },
-    );
+            },
+          );
+        },
+      );
+    } finally {
+      _isResponderModalOpen = false;
+      observacionesController.dispose();
+    }
 
-    observacionesController.dispose();
+    if (!mounted || estadoRespondido == null) {
+      if (_pendingCacheReload && mounted) {
+        _pendingCacheReload = false;
+        _reloadFromCacheUpdate();
+      }
+      return;
+    }
+
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+
+    await _loadData(showLoader: false);
+    if (!mounted) return;
+
+    setState(() {
+      _expandedSolicitudId = null;
+      _searchQuery = '';
+      _searchController.clear();
+    });
+
+    _pendingCacheReload = false;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          estadoRespondido == 'ACEPTADA'
+              ? 'Solicitud aceptada correctamente.'
+              : 'Solicitud rechazada correctamente.',
+        ),
+        backgroundColor: estadoRespondido == 'ACEPTADA'
+            ? _successColor
+            : _dangerColor,
+      ),
+    );
+  }
+
+  Widget _buildResponseStateButton({
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required Color color,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: enabled ? onTap : null,
+      icon: Icon(icon, size: 18),
+      label: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: selected ? Colors.white : Colors.white70,
+        disabledForegroundColor: Colors.white38,
+        backgroundColor: selected
+            ? color.withValues(alpha: 0.22)
+            : Colors.white.withValues(alpha: 0.06),
+        side: BorderSide(
+          color: selected ? color : Colors.white.withValues(alpha: 0.14),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
   }
 
   String _formatOnlyDateColombia(DateTime? value) {

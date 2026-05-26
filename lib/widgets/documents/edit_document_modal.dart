@@ -70,6 +70,7 @@ class _EditDocumentDateDialogState extends State<_EditDocumentDateDialog> {
   Future<void> _guardar() async {
     if (_guardando) return;
     setState(() => _guardando = true);
+    var closingAfterSuccess = false;
 
     try {
       await DocumentService.updateDocument(
@@ -85,15 +86,21 @@ class _EditDocumentDateDialogState extends State<_EditDocumentDateDialog> {
 
       if (!mounted) return;
 
-      Navigator.pop(context);
-      widget.onSuccess();
+      final messenger = ScaffoldMessenger.of(context);
+      final successMessage = context.t('documents.dateUpdated');
+      final onSuccess = widget.onSuccess;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.t('documents.dateUpdated')),
-          backgroundColor: Colors.green,
-        ),
-      );
+      closingAfterSuccess = true;
+      Navigator.pop(context);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onSuccess();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(successMessage),
+            backgroundColor: Colors.green,
+          ),
+        );
+      });
     } catch (e) {
       if (!mounted) return;
 
@@ -104,7 +111,7 @@ class _EditDocumentDateDialogState extends State<_EditDocumentDateDialog> {
         ),
       );
     } finally {
-      if (mounted) {
+      if (mounted && !closingAfterSuccess) {
         setState(() => _guardando = false);
       }
     }

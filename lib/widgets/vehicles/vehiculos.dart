@@ -163,7 +163,10 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
 
   void _reloadFromCacheUpdate() {
     if (!mounted) return;
-    _loadAllData(showLoader: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadAllData(showLoader: false);
+    });
   }
 
   @override

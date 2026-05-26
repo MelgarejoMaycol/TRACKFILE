@@ -86,7 +86,10 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
 
   void _reloadFromCacheUpdate() {
     if (!mounted) return;
-    _loadExplorerData(showLoader: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadExplorerData(showLoader: false);
+    });
   }
 
   Future<void> _loadExplorerData({bool showLoader = true}) async {

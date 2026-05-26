@@ -128,7 +128,10 @@ class _PerfilWidgetState extends State<PerfilWidget> {
 
   void _reloadFromCacheUpdate() {
     if (!mounted) return;
-    _cargarPerfil(showLoader: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _cargarPerfil(showLoader: false);
+    });
   }
 
   @override

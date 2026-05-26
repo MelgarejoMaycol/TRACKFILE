@@ -1541,7 +1541,7 @@ class _LoginScreenState extends State<LoginScreen>
     return Column(
       children: [
         const Text(
-          'Acceso rápido por rol',
+          'Aplicación demo',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -1600,7 +1600,7 @@ class _LoginScreenState extends State<LoginScreen>
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      icon: const Icon(Icons.arrow_forward_ios, size: 16),
+      icon: const Icon(Icons.play_circle_outline_rounded, size: 18),
       label: Text(label, overflow: TextOverflow.ellipsis),
     );
   }
@@ -1620,7 +1620,7 @@ class _LoginScreenState extends State<LoginScreen>
     // Use real test accounts when available
     switch (roleKey) {
       case 'ROLE_EMPRESA':
-        _doDirectLogin('mfmelgarejo04@gmail.com', 'Juan12345678');
+        _doDirectLogin('empresademo@test.com', 'Juan12345678');
         return;
       case 'ROLE_PROPIETARIO':
         _doDirectLogin('propietario@test.com', 'Juan12345678');
