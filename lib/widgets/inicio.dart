@@ -143,7 +143,6 @@ class _InicioWidgetState extends State<InicioWidget> {
             });
           }
 
-          // debugPrint(
           //   '✅ EMPRESA: ${backendDocs.length} documentos, ${vehiculos.length} vehículos, ${propietarios.length} propietarios',
           // );
           break;
@@ -160,8 +159,7 @@ class _InicioWidgetState extends State<InicioWidget> {
             if (vehiculos.isNotEmpty) {
               fleet = _processVehiculos(vehiculos);
             }
-          } catch (e) {
-            debugPrint('⚠️ Error al cargar vehículos del conductor: $e');
+          } catch (_) {
           }
 
           // Calcular resumen
@@ -221,7 +219,6 @@ class _InicioWidgetState extends State<InicioWidget> {
             'maintenanceSuggested': sugeridosCond,
           };
 
-          // debugPrint(
           //   '✅ CONDUCTOR: ${backendDocs.length} documentos, ${fleet.length} vehículos',
           // );
           break;
@@ -237,8 +234,7 @@ class _InicioWidgetState extends State<InicioWidget> {
             if (vehiculos.isNotEmpty) {
               fleet = _processVehiculos(vehiculos);
             }
-          } catch (e) {
-            debugPrint('⚠️ Error al cargar vehículos del propietario: $e');
+          } catch (_) {
           }
 
           // Calcular resumen
@@ -298,7 +294,6 @@ class _InicioWidgetState extends State<InicioWidget> {
             'maintenanceSuggested': sugeridosProp,
           };
 
-          // debugPrint(
           //   '✅ PROPIETARIO: ${backendDocsP.length} documentos, ${fleet.length} vehículos',
           // );
           break;
@@ -307,7 +302,6 @@ class _InicioWidgetState extends State<InicioWidget> {
           // Secretaria: documentos de la empresa (ya están filtrados por empresa en backend)
           final backendDocsS = await ApiService.getDocumentosEmpresa();
           _processDocuments(backendDocsS, docs, docDetails);
-          // debugPrint(
           //   '✅ SECRETARIA: ${backendDocsS.length} documentos cargados',
           // );
           break;
@@ -324,15 +318,12 @@ class _InicioWidgetState extends State<InicioWidget> {
             'totalVehicles': vehiculos.length,
             'documentsExpired': vencidos.length,
           };
-          //debugPrint('✅ ADMIN: ${backendDocs.length} documentos cargados');
           break;
 
         default:
-          debugPrint('⚠️ Rol no reconocido: $_role');
           break;
       }
-    } catch (e) {
-      debugPrint('⚠️ Error al cargar documentos: $e');
+    } catch (_) {
     }
 
     if (!mounted) return;
@@ -527,8 +518,7 @@ class _InicioWidgetState extends State<InicioWidget> {
       }
 
       return;
-    } catch (e) {
-      debugPrint('⚠️ No se pudo cargar perfil backend en inicio: $e');
+    } catch (_) {
     }
 
     if (widget.userProfilePath == null || widget.userProfilePath!.isEmpty) {
@@ -570,7 +560,6 @@ class _InicioWidgetState extends State<InicioWidget> {
           profileImageCandidate = rawImage;
         }
         // } else {
-        //   debugPrint('Imagen de perfil no encontrada: $rawImage');
         // }
       }
 
@@ -602,8 +591,7 @@ class _InicioWidgetState extends State<InicioWidget> {
             : _userCompany;
         _userProfileImage = profileImageCandidate;
       });
-    } catch (e) {
-      debugPrint('Error cargando perfil desde ${widget.userProfilePath}: $e');
+    } catch (_) {
     }
   }
 
@@ -640,7 +628,7 @@ class _InicioWidgetState extends State<InicioWidget> {
     try {
       await rootBundle.load(path);
       return true;
-    } catch (e) {
+    } catch (_) {
       return false;
     }
   }
@@ -869,7 +857,6 @@ class _InicioWidgetState extends State<InicioWidget> {
     );
 
     // Debug
-    // debugPrint(
     //   '📊 CONDUCTOR PANEL: Documents=${_documents.length}, Vehicles=${_fleetVehicles.length}, Summary=$_summaryMetrics',
     // );
 

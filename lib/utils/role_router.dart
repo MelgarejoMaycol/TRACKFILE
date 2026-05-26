@@ -84,7 +84,6 @@ Future<void> persistSession(Map<String, dynamic> userData) async {
     final foundId = await _findConductorIdByUserId(userId, userData['token']);
     if (foundId != null) {
       await prefs.setString('conductor_id', foundId);
-      debugPrint('🚗 Conductor ID encontrado y guardado: $foundId');
     }
   }
 
@@ -99,7 +98,6 @@ Future<void> persistSession(Map<String, dynamic> userData) async {
     final foundId = await _findPropietarioIdByUserId(userId, userData['token']);
     if (foundId != null) {
       await prefs.setString('propietario_id', foundId);
-      debugPrint('👨‍💼 Propietario ID encontrado y guardado: $foundId');
     }
   }
 
@@ -111,7 +109,6 @@ Future<void> persistSession(Map<String, dynamic> userData) async {
     ApiService.setTokenCache(tokenValue);
     ApiService.startAutoRefreshToken();
   } else {
-    debugPrint('⚠️ No se encontró token en userData');
   }
 }
 
@@ -140,16 +137,12 @@ Future<String?> _findConductorIdByUserId(String userId, dynamic token) async {
               conductor['id']?.toString() ??
               conductor['id_conductor']?.toString();
           if (conductorId != null) {
-            debugPrint(
-              '✅ Conductor encontrado: usuario=$userId, conductor=$conductorId',
-            );
             return conductorId;
           }
         }
       }
     }
-  } catch (e) {
-    debugPrint('⚠️ Error buscando conductor: $e');
+  } catch (_) {
   }
   return null;
 }
@@ -179,16 +172,12 @@ Future<String?> _findPropietarioIdByUserId(String userId, dynamic token) async {
               propietario['id']?.toString() ??
               propietario['id_propietario']?.toString();
           if (propietarioId != null) {
-            debugPrint(
-              '✅ Propietario encontrado: usuario=$userId, propietario=$propietarioId',
-            );
             return propietarioId;
           }
         }
       }
     }
-  } catch (e) {
-    debugPrint('⚠️ Error buscando propietario: $e');
+  } catch (_) {
   }
   return null;
 }

@@ -13,11 +13,35 @@ import '../screens/roles/propietario_screen.dart';
 import '../screens/roles/secretaria_screen.dart';
 import '../utils/role_router.dart';
 
-class DashboardSessionLoader extends StatelessWidget {
+class DashboardSessionLoader extends StatefulWidget {
   final String role;
   final String? section;
 
   const DashboardSessionLoader({super.key, required this.role, this.section});
+
+  @override
+  State<DashboardSessionLoader> createState() => _DashboardSessionLoaderState();
+}
+
+class _DashboardSessionLoaderState extends State<DashboardSessionLoader> {
+  Future<Map<String, dynamic>?>? _sessionFuture;
+  Map<String, dynamic>? _session;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessionFuture = _loadSessionOnce();
+  }
+
+  Future<Map<String, dynamic>?> _loadSessionOnce() async {
+    if (_session != null) return _session;
+
+    final session = await loadSession();
+    if (mounted) {
+      _session = session;
+    }
+    return session;
+  }
 
   String _text(dynamic value) {
     if (value == null) return '';
@@ -35,7 +59,7 @@ class DashboardSessionLoader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>?>(
-      future: loadSession(),
+      future: _sessionFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -44,7 +68,7 @@ class DashboardSessionLoader extends StatelessWidget {
           );
         }
 
-        final session = snapshot.data;
+        final session = snapshot.data ?? _session;
 
         if (session == null) {
           return const LoginScreen();
@@ -68,12 +92,12 @@ class DashboardSessionLoader extends StatelessWidget {
             ? _text(empresa?['nombreEmpresa'])
             : _text(empresa?['nombre']);
 
-        switch (role.toLowerCase()) {
+        switch (widget.role.toLowerCase()) {
           case 'empresa':
             return EmpresaScreen(
               usuario: session,
               empresa: empresa,
-              initialSection: section,
+              initialSection: widget.section,
             );
 
           case 'propietario':
@@ -81,7 +105,7 @@ class DashboardSessionLoader extends StatelessWidget {
               userId: userId,
               personName: nombreCompleto,
               companyName: nombreEmpresa,
-              initialSection: section,
+              initialSection: widget.section,
             );
 
           case 'conductor':
@@ -89,7 +113,7 @@ class DashboardSessionLoader extends StatelessWidget {
               userId: userId,
               personName: nombreCompleto,
               companyName: nombreEmpresa,
-              initialSection: section,
+              initialSection: widget.section,
             );
 
           case 'admin':
@@ -196,38 +220,56 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: ':role',
           name: 'dashboard_role',
-          builder: (context, state) {
+          pageBuilder: (context, state) {
             final role = state.pathParameters['role'] ?? 'empresa';
 
             if (role == 'admin') {
-              return const AdminScreen();
+              return const NoTransitionPage(
+                key: ValueKey('dashboard-admin'),
+                child: AdminScreen(),
+              );
             }
 
             if (role == 'secretaria') {
-              return const SecretariaScreen();
+              return const NoTransitionPage(
+                key: ValueKey('dashboard-secretaria'),
+                child: SecretariaScreen(),
+              );
             }
 
-            return DashboardSessionLoader(role: role, section: 'Inicio');
+            return NoTransitionPage(
+              key: ValueKey('dashboard-$role'),
+              child: DashboardSessionLoader(role: role, section: 'Inicio'),
+            );
           },
         ),
 
         GoRoute(
           path: ':role/:section',
           name: 'dashboard_section',
-          builder: (context, state) {
+          pageBuilder: (context, state) {
             final role = state.pathParameters['role'] ?? 'empresa';
             final sectionUrl = state.pathParameters['section'] ?? 'inicio';
             final section = _sectionFromUrl(sectionUrl);
 
             if (role == 'admin') {
-              return const AdminScreen();
+              return const NoTransitionPage(
+                key: ValueKey('dashboard-admin'),
+                child: AdminScreen(),
+              );
             }
 
             if (role == 'secretaria') {
-              return const SecretariaScreen();
+              return const NoTransitionPage(
+                key: ValueKey('dashboard-secretaria'),
+                child: SecretariaScreen(),
+              );
             }
 
-            return DashboardSessionLoader(role: role, section: section);
+            return NoTransitionPage(
+              key: ValueKey('dashboard-$role'),
+              child: DashboardSessionLoader(role: role, section: section),
+            );
           },
         ),
       ],

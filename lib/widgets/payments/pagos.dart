@@ -112,8 +112,7 @@ class _PagosWidgetState extends State<PagosWidget> {
     try {
       final String raw = await rootBundle.loadString(assetPath);
       parsed = _parsePayments(raw);
-    } catch (e) {
-      debugPrint('Error cargando pagos: $e');
+    } catch (_) {
     }
 
     if (parsed.isEmpty) {
@@ -170,8 +169,7 @@ class _PagosWidgetState extends State<PagosWidget> {
           roleDestino: map['rol_destino']?.toString().toLowerCase() ?? 'conductor',
         );
       }).whereType<_Payment>().toList();
-    } catch (e) {
-      debugPrint('Error parseando pagos: $e');
+    } catch (_) {
       return [];
     }
   }
@@ -758,7 +756,7 @@ class _PagosWidgetState extends State<PagosWidget> {
                 if (payment.idVehiculo != null && payment.urlRecibo != null) const SizedBox(width: 16),
                 if (payment.urlRecibo != null)
                   InkWell(
-                    onTap: () => debugPrint('Abrir recibo ${payment.urlRecibo}'),
+                    onTap: null,
                     borderRadius: BorderRadius.circular(12),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

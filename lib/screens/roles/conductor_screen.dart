@@ -127,8 +127,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
           _isLoading = false;
         });
       }
-    } catch (e) {
-      debugPrint('Error cargando datos de conductor: $e');
+    } catch (_) {
       // Usar datos del constructor como fallback (son datos reales del login)
       setState(() {
         _userName = widget.personName;
@@ -151,8 +150,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
       setState(() {
         _notificationsCount = count;
       });
-    } catch (e) {
-      debugPrint('Error cargando contador de notificaciones conductor: $e');
+    } catch (_) {
     }
   }
 
@@ -200,11 +198,7 @@ class _ConductorScreenState extends State<ConductorScreen> {
         _isLoading = false;
       });
 
-      debugPrint(
-        '✅ Perfil actualizado en panel superior conductor: $_userName | $_userCompany',
-      );
-    } catch (e) {
-      debugPrint('⚠️ Error actualizando panel superior conductor: $e');
+    } catch (_) {
 
       if (!mounted) return;
 

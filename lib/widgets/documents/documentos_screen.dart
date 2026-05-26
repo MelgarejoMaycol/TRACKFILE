@@ -201,8 +201,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
           _selectedPerson = _persons.first;
         }
       }
-    } catch (error) {
-      debugPrint('❌ Error cargando datos de documentos: $error');
+    } catch (_) {
       _errorMessage =
           'No se pudieron cargar los datos de documentos. Intenta nuevamente.';
     }

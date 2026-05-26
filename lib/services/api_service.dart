@@ -70,20 +70,14 @@ class ApiService {
           }
         }
 
-        debugPrint('✅ Token actualizado correctamente');
         return true;
       }
 
       if (response.statusCode == 401) {
-        debugPrint('⚠️ Token expirado o inválido. Requiere login.');
         return false;
       }
 
-      debugPrint(
-        '⚠️ Error refresh token ${response.statusCode}: ${response.body}',
-      );
-    } catch (e) {
-      debugPrint('⚠️ Error refrescando token: $e');
+    } catch (_) {
     } finally {
       _isRefreshingToken = false;
     }
@@ -184,7 +178,6 @@ class ApiService {
       final empresaId = prefs.getString('empresa_id');
 
       if (empresaId == null) {
-        debugPrint('❌ No hay empresa_id en preferencias');
         return null;
       }
 
@@ -199,12 +192,9 @@ class ApiService {
         final decoded = jsonDecode(response.body);
         return decoded is Map<String, dynamic> ? decoded : null;
       } else if (response.statusCode == 401) {
-        debugPrint('❌ No autorizado para obtener empresa');
       } else {
-        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
       }
-    } catch (e) {
-      debugPrint('❌ Error al obtener empresa: $e');
+    } catch (_) {
     }
     return null;
   }
@@ -225,12 +215,9 @@ class ApiService {
         final decoded = jsonDecode(response.body);
         return _asMapList(decoded);
       } else if (response.statusCode == 401) {
-        debugPrint('❌ No autorizado para obtener vehículos');
       } else {
-        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
       }
-    } catch (e) {
-      debugPrint('❌ Error al obtener vehículos: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -242,7 +229,6 @@ class ApiService {
     final userId = prefs.getString('user_id');
 
     if (userId == null || userId.isEmpty) {
-      debugPrint('❌ No hay user_id guardado');
       return [];
     }
 
@@ -310,12 +296,9 @@ class ApiService {
         final decoded = jsonDecode(response.body);
         return decoded is Map<String, dynamic> ? decoded : null;
       } else if (response.statusCode == 401) {
-        debugPrint('❌ No autorizado');
       } else {
-        debugPrint('❌ Error ${response.statusCode}');
       }
-    } catch (e) {
-      debugPrint('❌ Error al obtener detalle de vehículo: $e');
+    } catch (_) {
     }
     return null;
   }
@@ -357,11 +340,7 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-      debugPrint(
-        '❌ Error creando vehículo ${response.statusCode}: ${response.body}',
-      );
-    } catch (e) {
-      debugPrint('❌ Error creando vehículo: $e');
+    } catch (_) {
     }
 
     return null;
@@ -404,11 +383,7 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-      debugPrint(
-        '❌ Error editando vehículo ${response.statusCode}: ${response.body}',
-      );
-    } catch (e) {
-      debugPrint('❌ Error editando vehículo: $e');
+    } catch (_) {
     }
 
     return null;
@@ -434,11 +409,7 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-      debugPrint(
-        '❌ Error asignando conductor ${response.statusCode}: ${response.body}',
-      );
-    } catch (e) {
-      debugPrint('❌ Error asignando conductor: $e');
+    } catch (_) {
     }
 
     return null;
@@ -464,11 +435,7 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-      debugPrint(
-        '❌ Error desasignando conductor ${response.statusCode}: ${response.body}',
-      );
-    } catch (e) {
-      debugPrint('❌ Error desasignando conductor: $e');
+    } catch (_) {
     }
 
     return null;
@@ -512,12 +479,9 @@ class ApiService {
           );
         }
       } else if (response.statusCode == 401) {
-        debugPrint('❌ No autorizado');
       } else {
-        debugPrint('❌ Error ${response.statusCode}');
       }
-    } catch (e) {
-      debugPrint('❌ Error al obtener documentos: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -569,12 +533,9 @@ class ApiService {
           );
         }
       } else if (response.statusCode == 401) {
-        debugPrint('❌ No autorizado para obtener documentos');
       } else {
-        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
       }
-    } catch (e) {
-      debugPrint('❌ Error al obtener documentos: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -586,7 +547,6 @@ class ApiService {
     final role = prefs.getString('role') ?? '';
 
     if (userId == null || userId.isEmpty) {
-      debugPrint('❌ No hay user_id guardado');
       return [];
     }
 
@@ -686,8 +646,7 @@ class ApiService {
           );
         }
       }
-    } catch (e) {
-      debugPrint('❌ Error al obtener documentos del vehículo: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -724,12 +683,9 @@ class ApiService {
           );
         }
       } else if (response.statusCode == 401) {
-        debugPrint('❌ No autorizado para obtener conductores');
       } else {
-        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
       }
-    } catch (e) {
-      debugPrint('❌ Error al obtener conductores: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -766,12 +722,9 @@ class ApiService {
           );
         }
       } else if (response.statusCode == 401) {
-        debugPrint('❌ No autorizado para obtener propietarios');
       } else {
-        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
       }
-    } catch (e) {
-      debugPrint('❌ Error al obtener propietarios: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -808,12 +761,9 @@ class ApiService {
           );
         }
       } else if (response.statusCode == 401) {
-        debugPrint('❌ No autorizado para obtener usuarios');
       } else {
-        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
       }
-    } catch (e) {
-      debugPrint('❌ Error al obtener usuarios: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -831,10 +781,8 @@ class ApiService {
         final decoded = jsonDecode(response.body);
         return decoded is Map<String, dynamic> ? decoded : null;
       } else if (response.statusCode == 401) {
-        debugPrint('❌ No autorizado');
       }
-    } catch (e) {
-      debugPrint('❌ Error al obtener usuario actual: $e');
+    } catch (_) {
     }
     return null;
   }
@@ -855,10 +803,8 @@ class ApiService {
         final decoded = jsonDecode(response.body);
         return decoded is Map<String, dynamic> ? decoded : null;
       } else {
-        debugPrint('❌ Error perfil ${response.statusCode}: ${response.body}');
       }
-    } catch (e) {
-      debugPrint('❌ Error al obtener perfil: $e');
+    } catch (_) {
     }
 
     return null;
@@ -894,11 +840,7 @@ class ApiService {
         return true;
       }
 
-      debugPrint(
-        '❌ Error actualizando perfil ${response.statusCode}: ${response.body}',
-      );
-    } catch (e) {
-      debugPrint('❌ Error al actualizar perfil: $e');
+    } catch (_) {
     }
 
     return false;
@@ -940,8 +882,7 @@ class ApiService {
         'ok': false,
         'error': decoded['error'] ?? 'No se pudo cambiar la contraseña',
       };
-    } catch (e) {
-      debugPrint('❌ Error al cambiar contraseña: $e');
+    } catch (_) {
       return {'ok': false, 'error': 'Error de conexión'};
     }
   }
@@ -961,9 +902,7 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-      debugPrint('❌ Error empresa ${response.statusCode}: ${response.body}');
-    } catch (e) {
-      debugPrint('❌ Error al obtener empresa actual: $e');
+    } catch (_) {
     }
 
     return null;
@@ -997,11 +936,7 @@ class ApiService {
         return true;
       }
 
-      debugPrint(
-        '❌ Error actualizando empresa ${response.statusCode}: ${response.body}',
-      );
-    } catch (e) {
-      debugPrint('❌ Error al actualizar empresa: $e');
+    } catch (_) {
     }
 
     return false;
@@ -1030,11 +965,7 @@ class ApiService {
         }
       }
 
-      debugPrint(
-        '❌ Error tipos solicitud ${response.statusCode}: ${response.body}',
-      );
-    } catch (e) {
-      debugPrint('❌ Error getTiposSolicitud: $e');
+    } catch (_) {
     }
 
     return [];
@@ -1061,11 +992,7 @@ class ApiService {
         }
       }
 
-      debugPrint(
-        '❌ Error solicitudes ${response.statusCode}: ${response.body}',
-      );
-    } catch (e) {
-      debugPrint('❌ Error getSolicitudes: $e');
+    } catch (_) {
     }
 
     return [];
@@ -1097,9 +1024,7 @@ class ApiService {
         }
       }
 
-      debugPrint('❌ Error historial ${response.statusCode}: ${response.body}');
-    } catch (e) {
-      debugPrint('❌ Error getHistorialSolicitud: $e');
+    } catch (_) {
     }
 
     return [];
@@ -1149,11 +1074,7 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-      debugPrint(
-        '❌ Error crearSolicitud ${streamedResponse.statusCode}: $responseBody',
-      );
-    } catch (e) {
-      debugPrint('❌ Error crearSolicitud: $e');
+    } catch (_) {
     }
 
     return null;
@@ -1184,7 +1105,6 @@ class ApiService {
       }
 
       if (archivo.bytes == null) {
-        debugPrint('❌ El archivo no tiene bytes');
         return null;
       }
 
@@ -1207,11 +1127,7 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-      debugPrint(
-        '❌ Error subirArchivoSolicitud ${streamedResponse.statusCode}: $responseBody',
-      );
-    } catch (e) {
-      debugPrint('❌ Error subirArchivoSolicitud: $e');
+    } catch (_) {
     }
 
     return null;
@@ -1259,11 +1175,7 @@ class ApiService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-      debugPrint(
-        '❌ Error responderSolicitudConArchivo ${streamedResponse.statusCode}: $responseBody',
-      );
-    } catch (e) {
-      debugPrint('❌ Error responderSolicitudConArchivo: $e');
+    } catch (_) {
     }
 
     return null;
@@ -1293,11 +1205,7 @@ class ApiService {
         return true;
       }
 
-      debugPrint(
-        '❌ Error cambiarEstadoSolicitud ${response.statusCode}: ${response.body}',
-      );
-    } catch (e) {
-      debugPrint('❌ Error cambiarEstadoSolicitud: $e');
+    } catch (_) {
     }
 
     return false;
@@ -1345,12 +1253,8 @@ class ApiService {
           ),
         );
       } else {
-        debugPrint(
-          '❌ [getMantenimientos] Error ${response.statusCode}: ${response.body}',
-        );
       }
-    } catch (e) {
-      debugPrint('❌ [getMantenimientos] Excepción: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -1410,12 +1314,8 @@ class ApiService {
         final decoded = jsonDecode(response.body);
         return decoded is Map<String, dynamic> ? decoded : null;
       } else {
-        debugPrint(
-          '❌ [createMantenimiento] Error ${response.statusCode}: ${response.body}',
-        );
       }
-    } catch (e) {
-      debugPrint('❌ [createMantenimiento] Excepción: $e');
+    } catch (_) {
     }
     return null;
   }
@@ -1458,12 +1358,8 @@ class ApiService {
         final decoded = jsonDecode(response.body);
         return decoded is Map<String, dynamic> ? decoded : null;
       } else {
-        debugPrint(
-          '❌ [updateMantenimiento] Error ${response.statusCode}: ${response.body}',
-        );
       }
-    } catch (e) {
-      debugPrint('❌ [updateMantenimiento] Excepción: $e');
+    } catch (_) {
     }
     return null;
   }
@@ -1517,12 +1413,8 @@ class ApiService {
         final decoded = jsonDecode(response.body);
         return decoded is Map<String, dynamic> ? decoded : null;
       } else {
-        debugPrint(
-          '❌ [editMantenimiento] Error ${response.statusCode}: ${response.body}',
-        );
       }
-    } catch (e) {
-      debugPrint('❌ [editMantenimiento] Excepción: $e');
+    } catch (_) {
     }
     return null;
   }
@@ -1561,12 +1453,8 @@ class ApiService {
               .toList();
         }
       } else {
-        debugPrint(
-          '❌ [getTiposMantenimiento] Error ${response.statusCode}: ${response.body}',
-        );
       }
-    } catch (e) {
-      debugPrint('❌ [getTiposMantenimiento] Excepción: $e');
+    } catch (_) {
     }
 
     return [];
@@ -1588,9 +1476,6 @@ class ApiService {
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode != 200) {
-        debugPrint(
-          '❌ [getVehiculosPorRol] Error ${response.statusCode}: ${response.body}',
-        );
         return [];
       }
 
@@ -1646,8 +1531,7 @@ class ApiService {
 
         return false;
       }).toList();
-    } catch (e) {
-      debugPrint('❌ [getVehiculosPorRol] Excepción: $e');
+    } catch (_) {
     }
 
     return [];

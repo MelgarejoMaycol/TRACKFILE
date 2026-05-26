@@ -12,11 +12,8 @@ Widget buildPdfPreview(String url) {
       enableDoubleTapZooming: true,
       pageSpacing: 4,
       onDocumentLoaded: (_) {
-        debugPrint('✅ PDF cargado correctamente');
       },
       onDocumentLoadFailed: (details) {
-        debugPrint('❌ ERROR PDF');
-        debugPrint(details.description);
       },
     ),
   );

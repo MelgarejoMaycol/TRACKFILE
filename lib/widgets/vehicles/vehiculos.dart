@@ -218,8 +218,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
           }
         }
       }
-    } catch (e) {
-      debugPrint('❌ Error cargando propietarios: $e');
+    } catch (_) {
     }
   }
 
@@ -254,8 +253,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
           }
         }
       }
-    } catch (e) {
-      debugPrint('❌ Error cargando conductores: $e');
+    } catch (_) {
     }
   }
 
@@ -316,7 +314,6 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
         );
       }
     } catch (e) {
-      debugPrint('❌ Error cargando vehículos: $e');
       if (!mounted) return;
       setState(() {
         _isLoading = false;
@@ -349,14 +346,8 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
 
         return _enrichVehicleFromDetalle(vehicle, data);
       } else {
-        debugPrint(
-          '⚠️ Error ${response.statusCode} cargando detalle ${vehicle.idVehiculo}: ${response.body}',
-        );
       }
-    } catch (e) {
-      debugPrint(
-        '❌ Error cargando detalle de vehículo ${vehicle.idVehiculo}: $e',
-      );
+    } catch (_) {
     }
     return vehicle;
   }
@@ -384,8 +375,7 @@ class _VehiculosWidgetState extends State<VehiculosWidget> {
       });
 
       return detailedVehicle;
-    } catch (e) {
-      debugPrint('❌ Error cargando detalle bajo demanda: $e');
+    } catch (_) {
       return vehicle;
     }
   }

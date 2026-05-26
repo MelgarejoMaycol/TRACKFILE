@@ -230,8 +230,7 @@ class _PerfilWidgetState extends State<PerfilWidget> {
         _isLoading = false;
         _hasError = false;
       });
-    } catch (e) {
-      debugPrint('Error cargando perfil desde backend: $e');
+    } catch (_) {
 
       if (!mounted) return;
 

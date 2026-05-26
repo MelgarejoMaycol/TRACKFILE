@@ -356,8 +356,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           _isLoading = false;
         });
       }
-    } catch (e) {
-      debugPrint('❌ Error cargando datos del backend: $e');
+    } catch (_) {
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -475,7 +474,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     }
 
     if (vehiculosData.isEmpty) {
-      //debugPrint('⚠️ No hay vehículos asignados al usuario.');
       return [];
     }
 
@@ -490,7 +488,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           0;
     }).toSet();
 
-    //debugPrint('🚗 Vehículos asignados: $vehiculoIds');
 
     return todos.where((detalle) {
       return vehiculoIds.contains(detalle.mantenimiento.vehiculoId);

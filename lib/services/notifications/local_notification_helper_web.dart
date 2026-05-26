@@ -17,7 +17,6 @@ class LocalNotificationHelper {
       final permission = await html.Notification.requestPermission();
 
       if (permission != 'granted') {
-        debugPrint('Permiso de notificaciones no concedido: $permission');
         return;
       }
     }

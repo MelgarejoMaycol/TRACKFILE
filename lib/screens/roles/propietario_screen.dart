@@ -145,8 +145,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
       setState(() {
         _notificationsCount = count;
       });
-    } catch (e) {
-      debugPrint('Error cargando contador de notificaciones propietario: $e');
+    } catch (_) {
     }
   }
 
@@ -168,8 +167,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           _userDocument = null;
         });
       }
-    } catch (e) {
-      debugPrint('Error cargando datos de propietario: $e');
+    } catch (_) {
       // Usar datos del constructor como fallback (datos reales del login)
       if (!mounted) return;
       setState(() {
@@ -231,11 +229,7 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
         _userProfileImage = null;
       });
 
-      debugPrint(
-        '✅ Perfil actualizado en panel superior: $_userName | $_userCompany',
-      );
-    } catch (e) {
-      debugPrint('⚠️ Error actualizando panel superior propietario: $e');
+    } catch (_) {
 
       if (!mounted) return;
 
@@ -908,9 +902,6 @@ class _PropietarioScreenState extends State<PropietarioScreen> {
           onNotificationsChanged: _loadNotificationsCount,
         );
       case 'Vehículo':
-        debugPrint(
-          '📍 PropietarioScreen.Vehículo - userId: ${widget.userId}, propietarioId: $_propietarioId',
-        );
 
         return VehiculosWidget(
           role: 'Propietario',

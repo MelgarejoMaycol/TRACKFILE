@@ -55,7 +55,6 @@ class _LoginScreenState extends State<LoginScreen>
     });
     // Usar directamente getApiLink() en lugar de cargar desde SharedPreferences
     _baseUrl = getApiLink();
-    //debugPrint('🌐 [LoginScreen] Base URL: $_baseUrl');
     // Listen to inputs to update button states
     _nameCtrl.addListener(_validateForms);
     _nitCtrl.addListener(_validateForms);
@@ -524,7 +523,6 @@ class _LoginScreenState extends State<LoginScreen>
           }
 
           final String? token = _stringValue(loginData['token']);
-          //debugPrint('🔐 Token recibido: $token');
           final Map<String, dynamic>? profile = await _fetchUserDetails(
             usuarioId,
             token: token,
@@ -712,9 +710,7 @@ class _LoginScreenState extends State<LoginScreen>
     final String? token = _stringValue(loginData['token']);
     if (token != null && token.isNotEmpty) {
       session['token'] = token;
-      //debugPrint('✅ Token JWT copiado a sesión (${token.length} chars)');
     } else {
-      //debugPrint('⚠️ Advertencia: No se encontró token en loginData');
     }
 
     final int? empresaId =

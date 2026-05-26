@@ -72,7 +72,7 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
         _empresa = _mapEmpresa(data);
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
@@ -80,7 +80,6 @@ class _EmpresaWidgetState extends State<EmpresaWidget> {
         _isLoading = false;
       });
 
-      debugPrint('Error cargando empresa desde backend: $e');
     }
   }
 

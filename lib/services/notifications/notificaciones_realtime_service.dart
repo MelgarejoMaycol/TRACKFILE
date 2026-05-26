@@ -107,9 +107,8 @@ class NotificacionesRealtimeService {
               .toString(),
         );
       }
-    } catch (e) {
+    } catch (_) {
       // Solo mientras pruebas
-      debugPrint('Error realtime notificaciones: $e');
     }
   }
 

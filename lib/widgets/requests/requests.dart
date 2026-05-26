@@ -340,8 +340,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
         _isLoading = false;
         _hasError = false;
       });
-    } catch (e) {
-      debugPrint('❌ Error cargando certificaciones desde API: $e');
+    } catch (_) {
 
       if (!mounted) return;
 
@@ -377,8 +376,7 @@ class _SolicitudesWidgetState extends State<SolicitudesWidget> {
 
         _conteoEstados = _recalcularConteo(_detalles);
       });
-    } catch (e) {
-      debugPrint('❌ Error cargando historial de solicitud: $e');
+    } catch (_) {
     }
   }
 

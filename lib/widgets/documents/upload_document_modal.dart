@@ -382,7 +382,6 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
         isLoadingPersonas = false;
       });
     } catch (e) {
-      debugPrint('❌ [Modal] Error cargando personas: $e');
 
       if (!mounted) return;
 
@@ -407,8 +406,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
           isLoadingDocumentTypes = false;
         });
       }
-    } catch (e) {
-      debugPrint('❌ [Modal] Error cargando tipos de documento: $e');
+    } catch (_) {
       if (mounted) {
         setState(() {
           isLoadingDocumentTypes = false;
@@ -1696,9 +1694,9 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
 
     // Opciones de área con sus etiquetas amigables
     final areaOptions = {
-      'TECNICA': ('🔧 Técnica', Icons.build),
-      'LEGAL': ('⚖️ Legal', Icons.balance),
-      'ADMINISTRATIVO': ('📋 Administrativo', Icons.description),
+      'TECNICA': ('Técnica', Icons.build),
+      'LEGAL': ('Legal', Icons.balance),
+      'ADMINISTRATIVO': ('Administrativo', Icons.description),
     };
 
     return Column(

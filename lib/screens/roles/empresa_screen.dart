@@ -239,8 +239,7 @@ class _EmpresaScreenState extends State<EmpresaScreen> {
       setState(() {
         _notifications = count;
       });
-    } catch (e) {
-      debugPrint('Error cargando contador de notificaciones empresa: $e');
+    } catch (_) {
     }
   }
 

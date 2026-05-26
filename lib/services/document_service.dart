@@ -48,12 +48,9 @@ class DocumentService {
           );
         }
       } else if (response.statusCode == 401) {
-        debugPrint('❌ No autorizado para obtener documentos');
       } else {
-        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
       }
-    } catch (e) {
-      debugPrint('❌ Error al obtener documentos: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -111,12 +108,9 @@ class DocumentService {
           return docs;
         }
       } else if (response.statusCode == 401) {
-        debugPrint('❌ No autorizado para obtener documentos de empresa');
       } else {
-        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
       }
-    } catch (e) {
-      debugPrint('❌ Error al obtener documentos de empresa: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -140,11 +134,7 @@ class DocumentService {
         return decoded is Map<String, dynamic> ? decoded : null;
       }
 
-      debugPrint(
-        '❌ Error detalle documento ${response.statusCode}: ${response.body}',
-      );
-    } catch (e) {
-      debugPrint('❌ Error getDocumentDetail: $e');
+    } catch (_) {
     }
 
     return null;
@@ -162,8 +152,7 @@ class DocumentService {
   }) async {
     try {
       return await getCompanyDocuments(token: token);
-    } catch (e) {
-      debugPrint('❌ Error obteniendo documentos por rol: $e');
+    } catch (_) {
       return [];
     }
   }
@@ -188,7 +177,6 @@ class DocumentService {
       // En web usar bytes directamente, en nativo intentar leer del filesystem
       final file = fileBytes ?? await _readFile(filePath);
       if (file == null) {
-        debugPrint('❌ No se pudo leer el archivo: $filePath');
         return null;
       }
 
@@ -224,9 +212,6 @@ class DocumentService {
           // Fallback: si no tenemos idUsuario, enviar el id
           request.fields['idUsuario'] = personaId.toString();
         } else {
-          debugPrint(
-            '   ⚠️ idUsuario NO enviado (no hay persona seleccionada)',
-          );
         }
       } 
 
@@ -259,19 +244,11 @@ class DocumentService {
           return decoded;
         }
       } else if (response.statusCode == 401) {
-        debugPrint('❌ Error 401: No autorizado (token inválido o ausente)');
       } else if (response.statusCode == 400) {
-        debugPrint('❌ Error 400: Validación fallida');
-        debugPrint('   Detalles: ${response.body}');
       } else if (response.statusCode == 500) {
-        debugPrint('❌ Error 500: Error del servidor');
-        debugPrint('   Detalles: ${response.body}');
       } else {
-        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
       }
-    } catch (e) {
-      debugPrint('❌ Excepción: $e');
-      debugPrint('   Stack trace: ${StackTrace.current}');
+    } catch (_) {
     }
     return null;
   }
@@ -332,37 +309,19 @@ class DocumentService {
           );
           return result;
         } else {
-          debugPrint(
-            '⚠️ [getConductores] Response no es List ni Map.data, es: ${decoded.runtimeType}',
-          );
-          debugPrint('   Contenido: $decoded');
         }
       } else if (response.statusCode == 500) {
-        debugPrint(
-          '🔴 [getConductores] ERROR 500 en servidor - Probable causa: Usuario no tiene empresa asociada',
-        );
-        debugPrint(
-          '   ⚠️ Verifica que iniciaste sesión como EMPRESA, no como PROPIETARIO o CONDUCTOR',
-        );
         throw Exception(
           'Error del servidor (500): No se pudo obtener los conductores. Verifica que la empresa esté correctamente configurada.',
         );
       } else {
-        debugPrint(
-          '❌ [getConductores] Error ${response.statusCode}: ${response.body}',
-        );
         throw Exception('Error ${response.statusCode}: ${response.body}');
       }
     } on TimeoutException {
-      debugPrint(
-        '❌ [getConductores] Timeout: No se pudo conectar con el servidor',
-      );
       throw Exception(
         'Tiempo de espera agotado: No se pudo conectar con el servidor.',
       );
-    } catch (e, stackTrace) {
-      debugPrint('❌ [getConductores] Excepción: $e');
-      debugPrint('❌ [getConductores] Stack trace: $stackTrace');
+    } catch (e) {
 
       // Si es un error de conexión o similar
       if (e.toString().contains('Failed to fetch') ||
@@ -408,26 +367,17 @@ class DocumentService {
           return result;
         }
       } else if (response.statusCode == 500) {
-        debugPrint('🔴 [getPropietarios] ERROR 500 en servidor');
         throw Exception(
           'Error del servidor (500): No se pudo obtener los propietarios.',
         );
       } else {
-        debugPrint(
-          '❌ [getPropietarios] Error ${response.statusCode}: ${response.body}',
-        );
         throw Exception('Error ${response.statusCode}: ${response.body}');
       }
     } on TimeoutException {
-      debugPrint(
-        '❌ [getPropietarios] Timeout: No se pudo conectar con el servidor',
-      );
       throw Exception(
         'Tiempo de espera agotado: No se pudo conectar con el servidor.',
       );
-    } catch (e, stackTrace) {
-      debugPrint('❌ [getPropietarios] Excepción: $e');
-      debugPrint('❌ [getPropietarios] Stack trace: $stackTrace');
+    } catch (e) {
 
       // Si es un error de conexión o similar
       if (e.toString().contains('Failed to fetch') ||
@@ -474,12 +424,8 @@ class DocumentService {
           return result;
         }
       } else {
-        debugPrint(
-          '❌ [getUsuariosEmpresa] Error ${response.statusCode}: ${response.body}',
-        );
       }
-    } catch (e) {
-      debugPrint('❌ [getUsuariosEmpresa] Error: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -504,25 +450,21 @@ class DocumentService {
 
           for (final item in decoded) {
             if (item is! Map<String, dynamic>) {
-              debugPrint('   ⚠️ Skip: item no es Map');
               continue;
             }
 
             if (item['conductor'] == null) {
-              debugPrint('      ❌ Sin conductor');
               continue;
             }
 
             final conductorObj = item['conductor'];
             if (conductorObj is! Map) {
-              debugPrint('      ❌ Conductor no es Map');
               continue;
             }
 
             final idCond = conductorObj['id'];
 
             if (idCond == null) {
-              debugPrint('      ❌ Conductor ID es null');
               continue;
             }
 
@@ -535,20 +477,15 @@ class DocumentService {
               if (match) {
                 vehiculosFiltrados.add(item);
               }
-            } catch (e) {
-              debugPrint('      ❌ Error parseando ID: $e');
+            } catch (_) {
             }
           }
 
           return vehiculosFiltrados;
         }
       } else {
-        debugPrint(
-          '❌ [getVehiculosPorConductor] Error ${response.statusCode}: ${response.body}',
-        );
       }
-    } catch (e) {
-      debugPrint('❌ [getVehiculosPorConductor] Excepción: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -573,25 +510,21 @@ class DocumentService {
 
           for (final item in decoded) {
             if (item is! Map<String, dynamic>) {
-              debugPrint('   ⚠️ Skip: item no es Map');
               continue;
             }
 
             if (item['propietario'] == null) {
-              debugPrint('      ❌ Sin propietario');
               continue;
             }
 
             final propietarioObj = item['propietario'];
             if (propietarioObj is! Map) {
-              debugPrint('      ❌ Propietario no es Map');
               continue;
             }
 
             final idProp = propietarioObj['id'];
 
             if (idProp == null) {
-              debugPrint('      ❌ Propietario ID es null');
               continue;
             }
 
@@ -604,20 +537,15 @@ class DocumentService {
               if (match) {
                 vehiculosFiltrados.add(item);
               }
-            } catch (e) {
-              debugPrint('      ❌ Error parseando ID: $e');
+            } catch (_) {
             }
           }
 
           return vehiculosFiltrados;
         }
       } else {
-        debugPrint(
-          '❌ [getVehiculosPorPropietario] Error ${response.statusCode}: ${response.body}',
-        );
       }
-    } catch (e) {
-      debugPrint('❌ [getVehiculosPorPropietario] Excepción: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -644,10 +572,8 @@ class DocumentService {
           );
         }
       } else {
-        debugPrint('❌ [getAllVehicles] Error ${response.statusCode}');
       }
-    } catch (e) {
-      debugPrint('❌ [getAllVehicles] Excepción: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -679,8 +605,7 @@ class DocumentService {
       if (file != null) {
         return await file.readAsBytes();
       }
-    } catch (e) {
-      debugPrint('❌ Error leyendo archivo: $e');
+    } catch (_) {
     }
     return null;
   }
@@ -731,20 +656,15 @@ class DocumentService {
 
       if (response.statusCode == 200 || response.statusCode == 204) {
       } else if (response.statusCode == 401) {
-        debugPrint('❌ 401: No autorizado - Token inválido');
         throw Exception('No autorizado - Token inválido');
       } else if (response.statusCode == 403) {
-        debugPrint('❌ 403: Permiso denegado. Response: ${response.body}');
         throw Exception('Permiso denegado');
       } else if (response.statusCode == 404) {
-        debugPrint('❌ 404: Documento no encontrado');
         throw Exception('Documento no encontrado');
       } else {
-        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
         throw Exception('Error ${response.statusCode}: ${response.body}');
       }
-    } catch (e) {
-      debugPrint('❌ Error editando documento: $e');
+    } catch (_) {
       rethrow;
     }
   }
@@ -780,14 +700,9 @@ class DocumentService {
           return result;
         }
       } else if (response.statusCode == 500) {
-        debugPrint('🔴 [getVehiculos] ERROR 500');
       } else {
-        debugPrint(
-          '❌ [getVehiculos] Error ${response.statusCode}: ${response.body}',
-        );
       }
-    } catch (e) {
-      debugPrint('❌ [getVehiculos] Excepción: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -827,12 +742,8 @@ class DocumentService {
           return result;
         }
       } else {
-        debugPrint(
-          '❌ [getDocumentosProximosAVencer] Error ${response.statusCode}: ${response.body}',
-        );
       }
-    } catch (e) {
-      debugPrint('❌ [getDocumentosProximosAVencer] Excepción: $e');
+    } catch (_) {
     }
     return [];
   }
@@ -849,8 +760,7 @@ class DocumentService {
         // En mobile/desktop platforms, usamos dart:io File
         return File(filePath);
       }
-    } catch (e) {
-      debugPrint('❌ Error inicializando File: $e');
+    } catch (_) {
       return null;
     }
   }
@@ -879,17 +789,13 @@ class DocumentService {
 
       if (response.statusCode == 200 || response.statusCode == 204) {
       } else if (response.statusCode == 401) {
-        debugPrint('❌ 401: No autorizado - Token inválido');
         throw Exception('No autorizado - Token inválido');
       } else if (response.statusCode == 404) {
-        debugPrint('❌ 404: Documento no encontrado');
         throw Exception('Documento no encontrado');
       } else {
-        debugPrint('❌ Error ${response.statusCode}: ${response.body}');
         throw Exception('Error ${response.statusCode}: ${response.body}');
       }
-    } catch (e) {
-      debugPrint('❌ Error actualizando estado del documento: $e');
+    } catch (_) {
       rethrow;
     }
   }
