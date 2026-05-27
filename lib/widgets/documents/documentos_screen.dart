@@ -73,6 +73,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
   String? _authToken;
   bool _showHistory = false;
   bool _openedFromUserPanel = false;
+  int _documentDisplayLimit = 200;
   Timer? _searchDebounce;
 
   @override
@@ -209,6 +210,24 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
 
         if (_persons.isNotEmpty) {
           _selectedPerson = _persons.first;
+        }
+      }
+
+      final currentSelectedPersonId = _selectedPerson?.id;
+      if (currentSelectedPersonId != null) {
+        final matches = _persons.where((p) => p.id == currentSelectedPersonId);
+        if (matches.isNotEmpty) {
+          _selectedPerson = matches.first;
+        }
+      }
+
+      final selectedVehicleIdForRefresh = _selectedVehicle?.id;
+      if (selectedVehicleIdForRefresh != null) {
+        final matches = _vehicles.where(
+          (v) => v.id == selectedVehicleIdForRefresh,
+        );
+        if (matches.isNotEmpty) {
+          _selectedVehicle = matches.first;
         }
       }
     } catch (_) {
@@ -432,6 +451,9 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
             vehiclePlates: [],
             documents: [],
           );
+      if (person.roles.isEmpty) {
+        person.roles.add('Conductores');
+      }
       person.documents.add(document);
       persons[ownerId] = person;
     }
@@ -886,18 +908,24 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
   }
 
   List<_DocumentEntry> get _upcomingDocuments {
-    final allDocuments = [
-      ..._persons.expand((p) => p.documents),
-      ..._vehicles.expand((v) => v.documents),
-    ];
-
     final uniqueDocs = <String, _DocumentEntry>{};
 
-    for (final doc in allDocuments) {
-      if (!doc.estadoDocumento) continue;
-      if (doc.expiryDate == null) continue;
+    for (final person in _persons) {
+      for (final doc in person.documents) {
+        if (!doc.estadoDocumento) continue;
+        if (doc.expiryDate == null) continue;
 
-      uniqueDocs[doc.id] = doc;
+        uniqueDocs[doc.id] = doc;
+      }
+    }
+
+    for (final vehicle in _vehicles) {
+      for (final doc in vehicle.documents) {
+        if (!doc.estadoDocumento) continue;
+        if (doc.expiryDate == null) continue;
+
+        uniqueDocs[doc.id] = doc;
+      }
     }
 
     final docs = uniqueDocs.values.toList();
@@ -908,7 +936,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
       return a.daysRemaining.compareTo(b.daysRemaining);
     });
 
-    return docs;
+    return docs.take(24).toList();
   }
 
   void _openPeopleSection() {
@@ -1345,11 +1373,15 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final small = constraints.maxWidth < 360;
+        final activeDocumentsCount = person.documents
+            .where((document) => document.estadoDocumento)
+            .length;
 
         return InkWell(
           onTap: () {
             setState(() {
               _selectedPerson = person;
+              _documentDisplayLimit = 200;
               _view = _DocumentosFlowView.personDetail;
             });
           },
@@ -1435,7 +1467,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Text(
-                      '${person.documents.length} docs',
+                      '$activeDocumentsCount docs',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -1467,6 +1499,10 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
         .where(
           (doc) => _showHistory ? !doc.estadoDocumento : doc.estadoDocumento,
         )
+        .toList();
+    final totalVisibleDocuments = visibleDocuments.length;
+    final visibleDocumentBatch = visibleDocuments
+        .take(_documentDisplayLimit)
         .toList();
 
     return LayoutBuilder(
@@ -1544,6 +1580,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                   onPressed: () {
                     setState(() {
                       _showHistory = !_showHistory;
+                      _documentDisplayLimit = 200;
                     });
                   },
                   icon: Icon(
@@ -1587,7 +1624,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   padding: EdgeInsets.zero,
-                  itemCount: visibleDocuments.length,
+                  itemCount: visibleDocumentBatch.length,
                   gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: maxExtent,
                     mainAxisExtent: cardHeight,
@@ -1595,10 +1632,28 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                     mainAxisSpacing: 10,
                   ),
                   itemBuilder: (context, index) {
-                    final document = visibleDocuments[index];
+                    final document = visibleDocumentBatch[index];
                     return _buildDocumentCard(document);
                   },
                 ),
+
+              if (visibleDocumentBatch.length < totalVisibleDocuments) ...[
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _documentDisplayLimit += 200;
+                      });
+                    },
+                    icon: const Icon(Icons.expand_more_rounded),
+                    label: Text(
+                      'Mostrar más (${visibleDocumentBatch.length}/$totalVisibleDocuments)',
+                    ),
+                  ),
+                ),
+              ],
 
               const SizedBox(height: 90),
             ],
@@ -1652,6 +1707,9 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool small = constraints.maxWidth < 360;
+        final activeDocumentsCount = vehicle.documents
+            .where((document) => document.estadoDocumento)
+            .length;
 
         final double iconBox = small ? 44 : 52;
         final double titleSize = small ? 13 : 15;
@@ -1662,6 +1720,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
           onTap: () {
             setState(() {
               _selectedVehicle = vehicle;
+              _documentDisplayLimit = 200;
               _view = _DocumentosFlowView.vehicleDetail;
             });
           },
@@ -1741,7 +1800,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${vehicle.documents.length} docs',
+                    '$activeDocumentsCount docs',
                     style: TextStyle(
                       fontSize: docsSize,
                       fontWeight: FontWeight.w600,
@@ -1770,6 +1829,10 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
         .where(
           (doc) => _showHistory ? !doc.estadoDocumento : doc.estadoDocumento,
         )
+        .toList();
+    final totalVisibleDocuments = visibleDocuments.length;
+    final visibleDocumentBatch = visibleDocuments
+        .take(_documentDisplayLimit)
         .toList();
 
     return LayoutBuilder(
@@ -1823,6 +1886,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                   onPressed: () {
                     setState(() {
                       _showHistory = !_showHistory;
+                      _documentDisplayLimit = 200;
                     });
                   },
                   icon: Icon(
@@ -1865,7 +1929,7 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   padding: EdgeInsets.zero,
-                  itemCount: visibleDocuments.length,
+                  itemCount: visibleDocumentBatch.length,
                   gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: maxExtent,
                     mainAxisExtent: cardHeight,
@@ -1873,10 +1937,27 @@ class _DocumentosScreenState extends State<DocumentosScreen> {
                     mainAxisSpacing: 10,
                   ),
                   itemBuilder: (context, index) {
-                    final document = visibleDocuments[index];
+                    final document = visibleDocumentBatch[index];
                     return _buildDocumentCard(document);
                   },
                 ),
+              if (visibleDocumentBatch.length < totalVisibleDocuments) ...[
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _documentDisplayLimit += 200;
+                      });
+                    },
+                    icon: const Icon(Icons.expand_more_rounded),
+                    label: Text(
+                      'Mostrar más (${visibleDocumentBatch.length}/$totalVisibleDocuments)',
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 120),
             ],
           ),

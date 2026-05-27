@@ -243,6 +243,8 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
   static const Color _warningColor = Color(0xFFEFB549);
   static const Color _dangerColor = Color(0xFFE66B6B);
   static const Color _infoColor = Color(0xFF3DA9F5);
+  static const Color _inkColor = Color(0xFF0B1026);
+  static const Color _panelColor = Color(0xFF171D3D);
 
   double _pagePadding(double width) {
     if (width < 380) return 12;
@@ -503,7 +505,6 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           ) ??
           0;
     }).toSet();
-
 
     return todos.where((detalle) {
       return vehiculoIds.contains(detalle.mantenimiento.vehiculoId);
@@ -864,50 +865,76 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     final width = MediaQuery.of(context).size.width;
     final padding = _pagePadding(width);
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(padding, 20, padding, isCompact ? 120 : 72),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: isCompact
-                ? 760
-                : isTableCompact
-                ? 900
-                : 1120,
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_inkColor, _surfaceColor],
+        ),
+      ),
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          padding,
+          20,
+          padding,
+          isCompact ? 120 : 72,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isCompact
+                  ? 760
+                  : isTableCompact
+                  ? 900
+                  : 1120,
+            ),
+            child: buildVerticalLayout(isCompact, isTableCompact),
           ),
-          child: buildVerticalLayout(isCompact, isTableCompact),
         ),
       ),
     );
   }
 
   Widget buildMaintenanceSearch() {
-    return TextField(
-      onChanged: (value) {
-        setState(() {
-          maintenanceSearch = value.trim().toLowerCase();
-        });
-      },
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 12,
-        ),
-        hintText: context.t('maintenance.searchHint'),
-        hintStyle: const TextStyle(color: Colors.white54, fontSize: 12),
-        prefixIcon: const Icon(Icons.search, color: Colors.white54, size: 20),
-        prefixIconConstraints: const BoxConstraints(minWidth: 42),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.06),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Colors.white54),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: TextField(
+        onChanged: (value) {
+          setState(() {
+            maintenanceSearch = value.trim().toLowerCase();
+          });
+        },
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 15,
+          ),
+          hintText: context.t('maintenance.searchHint'),
+          hintStyle: const TextStyle(color: Colors.white54, fontSize: 13),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: Colors.white70,
+            size: 21,
+          ),
+          prefixIconConstraints: const BoxConstraints(minWidth: 46),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide.none,
+          ),
         ),
       ),
     );
@@ -1006,76 +1033,199 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     );
   }
 
+  String _maintenanceTitle() {
+    if (_viendoPersona) {
+      return '${context.t('maintenance.personTitle')} ${widget.personaNombre ?? 'la persona'}';
+    }
+    if (widget.vehiculoId != null) {
+      return '${context.t('maintenance.vehicleTitle')} ${widget.vehiculoPlaca ?? 'vehículo'}';
+    }
+    if (_isConductor) return context.t('maintenance.assignedTitle');
+    if (_isPropietario) return context.t('maintenance.myVehiclesTitle');
+    return context.t('maintenance.managementTitle');
+  }
+
+  String _maintenanceSubtitle() {
+    if (_isConductor) {
+      return 'Consulta el plan de mantenimiento que la empresa programó para tus vehículos.';
+    }
+    if (_isPropietario) {
+      return 'Consulta los mantenimientos programados para tus vehículos.';
+    }
+    if (widget.vehiculoId != null) {
+      return 'Consulta solo los mantenimientos asociados a este vehículo.';
+    }
+    return 'Monitorea estados, prioridades y acciones pendientes de la flota.';
+  }
+
+  Widget buildMaintenanceHero(bool isCompact) {
+    final pendientes =
+        (_conteoEstados['SUGERIDO'] ?? 0) + (_conteoEstados['PROGRAMADO'] ?? 0);
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 14 : 18,
+        vertical: isCompact ? 12 : 14,
+      ),
+      decoration: BoxDecoration(
+        color: _panelColor.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 620;
+          final titleRow = Row(
+            children: [
+              Container(
+                width: isCompact ? 38 : 42,
+                height: isCompact ? 38 : 42,
+                decoration: BoxDecoration(
+                  color: _accentColor.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(
+                  Icons.construction_rounded,
+                  color: Colors.white,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _maintenanceTitle(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: isCompact ? 16 : 18,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _maintenanceSubtitle(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white60,
+                        fontSize: isCompact ? 11.5 : 12.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+
+          final statusBlock = Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: _warningColor.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _warningColor.withValues(alpha: 0.30)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.pending_actions_rounded,
+                  color: _warningColor,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  pendientes.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'pendientes',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          );
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [titleRow, const SizedBox(height: 12), statusBlock],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: titleRow),
+              const SizedBox(width: 14),
+              statusBlock,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget buildMaintenanceControlBand(bool isCompact) {
+    final showToggle =
+        _isEmpresa && !_viendoPersona && widget.vehiculoId == null;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 760;
+        if (compact) {
+          return Column(
+            children: [
+              if (showToggle) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: buildVistaEmpresaToggle(isCompact: true),
+                ),
+                const SizedBox(height: 12),
+              ],
+              buildMaintenanceSearch(),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: buildMaintenanceSearch()),
+            if (showToggle) ...[
+              const SizedBox(width: 14),
+              buildVistaEmpresaToggle(),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
   Widget buildVerticalLayout(bool isCompact, bool isTableCompact) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final bool smallHeader = constraints.maxWidth < 760;
-
-            final title = Text(
-              _viendoPersona
-                  ? '${context.t('maintenance.personTitle')} ${widget.personaNombre ?? 'la persona'}'
-                  : widget.vehiculoId != null
-                  ? '${context.t('maintenance.vehicleTitle')} ${widget.vehiculoPlaca ?? 'vehículo'}'
-                  : _isConductor
-                  ? context.t('maintenance.assignedTitle')
-                  : _isPropietario
-                  ? context.t('maintenance.myVehiclesTitle')
-                  : context.t('maintenance.managementTitle'),
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: isCompact ? 18 : 22,
-                fontWeight: FontWeight.w700,
-              ),
-            );
-
-            final toggle =
-                (_isEmpresa && !_viendoPersona && widget.vehiculoId == null)
-                ? buildVistaEmpresaToggle(isCompact: smallHeader)
-                : const SizedBox.shrink();
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                title,
-                if (_isEmpresa &&
-                    !_viendoPersona &&
-                    widget.vehiculoId == null) ...[
-                  const SizedBox(height: 12),
-                  Align(alignment: Alignment.centerLeft, child: toggle),
-                ],
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 6),
-        Text(
-          _isConductor
-              ? 'Consulta el plan de mantenimiento que la empresa programó para tus vehículos.'
-              : _isPropietario
-              ? 'Consulta los mantenimientos programados para tus vehículos.'
-              : widget.vehiculoId != null
-              ? 'Consulta solo los mantenimientos asociados a este vehículo.'
-              : 'Monitorea el estado de los mantenimientos y coordina acciones con los conductores.',
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: isCompact ? 12 : 13,
-          ),
-        ),
+        buildMaintenanceHero(isCompact),
+        const SizedBox(height: 18),
+        buildMaintenanceControlBand(isCompact),
+        const SizedBox(height: 18),
         const SizedBox(height: 20),
         buildSummaryChips(isCompact),
-        const SizedBox(height: 20),
-        buildMaintenanceSearch(),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         if (_isEmpresa && _vistaEmpresa == 'vehiculo') ...[
-          buildActivosDashboard(isCompact),
-          const SizedBox(height: 24),
           buildMantenimientosPorVehiculo(isCompact),
         ] else ...[
-          buildActivosDashboard(isCompact),
-          const SizedBox(height: 24),
           buildHistorialPorTipo(isCompact),
         ],
       ],
@@ -1245,42 +1395,65 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
         final small = constraints.maxWidth < 360;
 
         return InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(22),
           onTap: onTap,
           child: Container(
             width: double.infinity,
-            height: small ? 96 : 108,
-            padding: EdgeInsets.all(small ? 10 : 12),
+            height: small ? 112 : 124,
+            padding: EdgeInsets.all(small ? 14 : 16),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: color.withValues(alpha: 0.45)),
+              color: _panelColor.withValues(alpha: 0.95),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: color.withValues(alpha: 0.42)),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.10),
+                  blurRadius: 22,
+                  offset: const Offset(0, 12),
+                ),
+              ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Icon(icono, color: color, size: small ? 24 : 30),
-                const Spacer(),
-                Text(
-                  titulo,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: small ? 13 : 15,
+                Container(
+                  width: small ? 46 : 54,
+                  height: small ? 46 : 54,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(icono, color: color, size: small ? 24 : 28),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        titulo,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: small ? 14 : 16,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '$cantidad mantenimiento(s)',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white60,
+                          fontSize: small ? 11 : 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '$cantidad mantenimiento(s)',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white60,
-                    fontSize: small ? 11 : 12,
-                  ),
-                ),
+                Icon(Icons.chevron_right_rounded, color: color),
               ],
             ),
           ),
@@ -1424,9 +1597,16 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              color: _panelColor.withValues(alpha: 0.90),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.16),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: Theme(
               data: Theme.of(context).copyWith(
@@ -1511,16 +1691,36 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
       borderRadius: BorderRadius.circular(18),
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          color: _panelColor.withValues(alpha: 0.90),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: _infoColor.withValues(alpha: 0.22)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.14),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(getIconoTipo(tipo), style: const TextStyle(fontSize: 30)),
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: _infoColor.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Center(
+                child: Text(
+                  getIconoTipo(tipo),
+                  style: const TextStyle(fontSize: 22),
+                ),
+              ),
+            ),
             const Spacer(),
             Text(
               tipo,
@@ -1711,63 +1911,138 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     final List<Map<String, dynamic>> chipsData = [
       {
         'label': 'Sugeridos',
+        'modalTitle': 'Sugeridos',
+        'status': 'SUGERIDO',
         'count': _conteoEstados['SUGERIDO'] ?? 0,
         'color': _warningColor,
+        'icon': Icons.lightbulb_rounded,
       },
       {
         'label': 'Programados',
+        'modalTitle': 'Programados',
+        'status': 'PROGRAMADO',
         'count': _conteoEstados['PROGRAMADO'] ?? 0,
-        'color': _warningColor,
+        'color': _accentColor,
+        'icon': Icons.event_available_rounded,
       },
       {
         'label': 'Realizados',
+        'modalTitle': 'Realizados',
+        'status': 'REALIZADO',
         'count': _conteoEstados['REALIZADO'] ?? 0,
         'color': _infoColor,
+        'icon': Icons.task_alt_rounded,
       },
     ];
 
-    return Wrap(
-      spacing: 14,
-      runSpacing: 12,
-      children: chipsData.map((item) {
-        final Color color = item['color'] as Color;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool stack = constraints.maxWidth < 760;
+        final cards = chipsData.map((item) {
+          final Color color = item['color'] as Color;
+          final IconData icon = item['icon'] as IconData;
+          final String status = item['status'].toString();
+          final String modalTitle = item['modalTitle'].toString();
+          final items = filtrarBusqueda(
+            _detalles.where((detalle) {
+              return detalle.estadoActual == status;
+            }).toList(),
+          );
 
-        return Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: isCompact ? 14 : 16,
-            vertical: 10,
-          ),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: color.withValues(alpha: 0.55)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+          return Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: () => abrirListaModal(modalTitle, items),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 104),
+                padding: EdgeInsets.all(isCompact ? 12 : 14),
+                decoration: BoxDecoration(
+                  color: _panelColor.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: color.withValues(alpha: 0.38)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.10),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: isCompact ? 38 : 42,
+                      height: isCompact ? 38 : 42,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(
+                        icon,
+                        color: color,
+                        size: isCompact ? 20 : 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item['label'].toString(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: isCompact ? 10.5 : 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            item['count'].toString(),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: isCompact ? 20 : 24,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: color, size: 22),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList();
+
+        if (stack) {
+          return Column(
             children: [
-              Icon(Icons.circle, size: 10, color: color),
-              const SizedBox(width: 8),
-              Text(
-                item['label'].toString(),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: isCompact ? 12 : 13,
-                  fontWeight: FontWeight.w600,
+              for (var i = 0; i < cards.length; i++)
+                Padding(
+                  padding: EdgeInsets.only(
+                    bottom: i == cards.length - 1 ? 0 : 10,
+                  ),
+                  child: Row(children: [cards[i]]),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                item['count'].toString(),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: isCompact ? 12 : 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
             ],
-          ),
+          );
+        }
+
+        return Row(
+          children: [
+            cards[0],
+            const SizedBox(width: 12),
+            cards[1],
+            const SizedBox(width: 12),
+            cards[2],
+          ],
         );
-      }).toList(),
+      },
     );
   }
 
@@ -1776,142 +2051,194 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     bool closeParentAfterAction = false,
   }) {
     final _Mantenimiento mantenimiento = detalle.mantenimiento;
-    final _TipoMantenimiento? tipo = detalle.tipo;
     final bool finalizado = mantenimiento.estado.toUpperCase() == 'REALIZADO';
     final Color cardColor = finalizado
         ? _infoColor
         : priorityColor(mantenimiento.prioridad);
+    final IconData statusIcon = finalizado
+        ? Icons.task_alt_rounded
+        : mantenimiento.estado.toUpperCase() == 'PROGRAMADO'
+        ? Icons.event_available_rounded
+        : Icons.build_circle_rounded;
 
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(22),
       onTap: () => showMantenimientoDetalleModal(detalle),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: cardColor.withValues(alpha: 0.45)),
+          color: _panelColor.withValues(alpha: 0.90),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
-        padding: EdgeInsets.fromLTRB(
-          MediaQuery.of(context).size.width < 380 ? 12 : 18,
-          16,
-          MediaQuery.of(context).size.width < 380 ? 12 : 18,
-          12,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        getVehiculoDisplayName(
-                          mantenimiento.vehiculoId,
-                          fallback: mantenimiento.vehiculoLabel,
-                        ),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        tipo?.nombre ?? 'Sin tipo',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                width: 6,
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(22),
+                    bottomLeft: Radius.circular(22),
                   ),
                 ),
-                buildEstadoTag(detalle.estadoActual),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 8,
-              children: [
-                if (mantenimiento.fechaSugerida != null)
-                  buildInfoBadge(
-                    Icons.calendar_month,
-                    'Sugerida ${formatShort(mantenimiento.fechaSugerida)}',
+              ),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    MediaQuery.of(context).size.width < 380 ? 12 : 18,
+                    16,
+                    MediaQuery.of(context).size.width < 380 ? 12 : 18,
+                    12,
                   ),
-                if (mantenimiento.fechaProgramada != null)
-                  buildInfoBadge(
-                    Icons.event_available,
-                    'Programada ${formatShort(mantenimiento.fechaProgramada)}',
+                  child: _buildMantenimientoCardContent(
+                    detalle,
+                    cardColor,
+                    statusIcon,
+                    closeParentAfterAction,
                   ),
-                if (mantenimiento.fechaRealizada != null)
-                  buildInfoBadge(
-                    Icons.done_all,
-                    'Realizada ${formatShort(mantenimiento.fechaRealizada)}',
-                  ),
-                if (mantenimiento.costo > 0)
-                  buildInfoBadge(
-                    Icons.attach_money,
-                    NumberFormat.simpleCurrency(
-                      locale: 'es_CO',
-                    ).format(mantenimiento.costo),
-                  ),
-                if (mantenimiento.prioridad.isNotEmpty)
-                  buildInfoBadge(
-                    Icons.flag,
-                    'Prioridad ${priorityLabel(mantenimiento.prioridad)}',
-                    color: priorityColor(mantenimiento.prioridad),
-                  ),
-                if (mantenimiento.taller.trim().isNotEmpty)
-                  buildInfoBadge(
-                    Icons.store_mall_directory,
-                    mantenimiento.taller,
-                  ),
-              ],
-            ),
-            if (mantenimiento.observaciones.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                mantenimiento.observaciones,
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
-
-            const SizedBox(height: 14),
-            if (_isConductor || _isPropietario)
-              Align(
-                alignment: Alignment.centerRight,
-                child:
-                    ((mantenimiento.estado.toUpperCase() == 'SUGERIDO' ||
-                            mantenimiento.estado.toUpperCase() ==
-                                'PROGRAMADO') &&
-                        usuarioTieneAccesoAlVehiculo(mantenimiento.vehiculoId))
-                    ? TextButton(
-                        onPressed: () => showCompletarMantenimientoModal(
-                          detalle,
-                          closeParentAfterAction: closeParentAfterAction,
-                        ),
-                        style: TextButton.styleFrom(
-                          foregroundColor: _successColor,
-                          padding: EdgeInsets.zero,
-                        ),
-                        child: Text(
-                          context.t('maintenance.complete'),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildMantenimientoCardContent(
+    _MantenimientoDetalle detalle,
+    Color cardColor,
+    IconData statusIcon,
+    bool closeParentAfterAction,
+  ) {
+    final _Mantenimiento mantenimiento = detalle.mantenimiento;
+    final _TipoMantenimiento? tipo = detalle.tipo;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: cardColor.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(statusIcon, color: cardColor, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    getVehiculoDisplayName(
+                      mantenimiento.vehiculoId,
+                      fallback: mantenimiento.vehiculoLabel,
+                    ),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    tipo?.nombre ?? 'Sin tipo',
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            buildEstadoTag(detalle.estadoActual),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          children: [
+            if (mantenimiento.fechaSugerida != null)
+              buildInfoBadge(
+                Icons.calendar_month,
+                'Sugerida ${formatShort(mantenimiento.fechaSugerida)}',
+              ),
+            if (mantenimiento.fechaProgramada != null)
+              buildInfoBadge(
+                Icons.event_available,
+                'Programada ${formatShort(mantenimiento.fechaProgramada)}',
+              ),
+            if (mantenimiento.fechaRealizada != null)
+              buildInfoBadge(
+                Icons.done_all,
+                'Realizada ${formatShort(mantenimiento.fechaRealizada)}',
+              ),
+            if (mantenimiento.costo > 0)
+              buildInfoBadge(
+                Icons.attach_money,
+                NumberFormat.simpleCurrency(
+                  locale: 'es_CO',
+                ).format(mantenimiento.costo),
+              ),
+            if (mantenimiento.prioridad.isNotEmpty)
+              buildInfoBadge(
+                Icons.flag,
+                'Prioridad ${priorityLabel(mantenimiento.prioridad)}',
+                color: priorityColor(mantenimiento.prioridad),
+              ),
+            if (mantenimiento.taller.trim().isNotEmpty)
+              buildInfoBadge(Icons.store_mall_directory, mantenimiento.taller),
+          ],
+        ),
+        if (mantenimiento.observaciones.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            mantenimiento.observaciones,
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 14),
+        if (_isConductor || _isPropietario)
+          Align(
+            alignment: Alignment.centerRight,
+            child:
+                ((mantenimiento.estado.toUpperCase() == 'SUGERIDO' ||
+                        mantenimiento.estado.toUpperCase() == 'PROGRAMADO') &&
+                    usuarioTieneAccesoAlVehiculo(mantenimiento.vehiculoId))
+                ? TextButton(
+                    onPressed: () => showCompletarMantenimientoModal(
+                      detalle,
+                      closeParentAfterAction: closeParentAfterAction,
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: _successColor,
+                      padding: EdgeInsets.zero,
+                    ),
+                    child: Text(
+                      context.t('maintenance.complete'),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+      ],
     );
   }
 
@@ -2311,11 +2638,15 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                               items: [
                                 DropdownMenuItem(
                                   value: 'Sugerido',
-                                  child: Text(context.t('maintenance.suggested')),
+                                  child: Text(
+                                    context.t('maintenance.suggested'),
+                                  ),
                                 ),
                                 DropdownMenuItem(
                                   value: 'Programado',
-                                  child: Text(context.t('maintenance.scheduled')),
+                                  child: Text(
+                                    context.t('maintenance.scheduled'),
+                                  ),
                                 ),
                                 DropdownMenuItem(
                                   value: 'Realizado',
@@ -2729,7 +3060,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                                       }
                                     },
                                     icon: const Icon(Icons.check_rounded),
-                                    label: Text(context.t('maintenance.create')),
+                                    label: Text(
+                                      context.t('maintenance.create'),
+                                    ),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: _accentColor,
                                       foregroundColor: Colors.white,
@@ -2866,7 +3199,7 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
                           ),
                         ),
                         const SizedBox(height: 18),
-                         Text(
+                        Text(
                           context.t('maintenance.complete'),
                           style: TextStyle(
                             color: Colors.white,
@@ -3188,7 +3521,9 @@ class _MantenimientosWidgetState extends State<MantenimientosWidget> {
     if (normalized == 'media') return context.t('maintenance.medium');
     if (normalized == 'baja') return context.t('maintenance.low');
 
-    return value.trim().isEmpty ? context.t('maintenance.medium') : value.trim();
+    return value.trim().isEmpty
+        ? context.t('maintenance.medium')
+        : value.trim();
   }
 
   Color priorityColor(String value) {
