@@ -14,6 +14,7 @@ import 'package:trackfile/services/api_service.dart';
 import 'package:trackfile/services/notifications/notificaciones_realtime_service.dart';
 import 'package:trackfile/utils/api_config.dart';
 import 'package:trackfile/utils/role_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LoginScreen extends StatefulWidget {
   static const route = '/login';
@@ -221,6 +222,46 @@ class _LoginScreenState extends State<LoginScreen>
 
     setState(() => _signUpLoading = true);
     try {
+      // Verificar en el front si el NIT ya existe para evitar error de clave única
+      try {
+        final nitValue = _nitCtrl.text.trim();
+        if (nitValue.isNotEmpty) {
+          final empresasResp = await http
+              .get(_endpoint('/api/empresas'))
+              .timeout(const Duration(seconds: 15));
+
+          if (empresasResp.statusCode == 200 && empresasResp.body.isNotEmpty) {
+            final decodedList = jsonDecode(empresasResp.body);
+            if (decodedList is List) {
+              final exists = decodedList.any((item) {
+                try {
+                  if (item is Map) {
+                    final nit = item['nit']?.toString().trim();
+                    return nit != null && nit == nitValue;
+                  }
+                } catch (_) {}
+                return false;
+              });
+
+              if (exists) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'El NIT ingresado ya está registrado. Si perteneces a esta empresa solicita acceso o usa otro NIT.',
+                      ),
+                    ),
+                  );
+                }
+                return;
+              }
+            }
+          }
+        }
+      } catch (_) {
+        // Si falla la verificación previa, continuar con el registro y dejar
+        // que el backend maneje posibles errores. No bloqueamos el flujo.
+      }
       final uri = _endpoint('/api/auth/registro-empresa');
       final request = http.MultipartRequest('POST', uri)
         ..fields.addAll({
@@ -600,6 +641,9 @@ class _LoginScreenState extends State<LoginScreen>
 
           if (!mounted) return;
 
+          await _showAndroidDownloadModalIfNeeded();
+          if (!mounted) return;
+
           context.go(
             '/dashboard/$rolRuta?session=${DateTime.now().millisecondsSinceEpoch}',
           );
@@ -665,6 +709,29 @@ class _LoginScreenState extends State<LoginScreen>
     return str.isEmpty ? null : str;
   }
 
+  bool _shouldShowAndroidDownloadModal() {
+    final platform = defaultTargetPlatform;
+    final isDesktopPlatform =
+        platform == TargetPlatform.windows ||
+        platform == TargetPlatform.macOS ||
+        platform == TargetPlatform.linux;
+
+    if (isDesktopPlatform) return true;
+    if (!kIsWeb) return false;
+
+    final width = MediaQuery.sizeOf(context).width;
+    return width >= 900;
+  }
+
+  Future<void> _showAndroidDownloadModalIfNeeded() async {
+    if (!_shouldShowAndroidDownloadModal()) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => const _AndroidDownloadDialog(),
+    );
+  }
+
   Map<String, dynamic> _safeJsonMap(dynamic value) {
     if (value is Map<String, dynamic>) {
       return Map<String, dynamic>.from(value);
@@ -710,8 +777,7 @@ class _LoginScreenState extends State<LoginScreen>
     final String? token = _stringValue(loginData['token']);
     if (token != null && token.isNotEmpty) {
       session['token'] = token;
-    } else {
-    }
+    } else {}
 
     final int? empresaId =
         _toInt(session['empresaId']) ?? _toInt(loginData['empresaId']);
@@ -1648,5 +1714,229 @@ class _LoginScreenState extends State<LoginScreen>
 
         context.go('/dashboard/$rolRuta');
     }
+  }
+}
+
+class _AndroidDownloadDialog extends StatefulWidget {
+  const _AndroidDownloadDialog();
+
+  static const String _apkPath = 'downloads/trackfile.apk';
+  static const List<String> _screenshots = [
+    'assets/ImagenesAPP/capturas/captura1.png',
+    'assets/ImagenesAPP/capturas/captura2.png',
+    'assets/ImagenesAPP/capturas/captura3.png',
+    'assets/ImagenesAPP/capturas/captura4.png',
+    'assets/ImagenesAPP/capturas/captura5.png',
+  ];
+
+  @override
+  State<_AndroidDownloadDialog> createState() => _AndroidDownloadDialogState();
+}
+
+class _AndroidDownloadDialogState extends State<_AndroidDownloadDialog> {
+  final ScrollController _screenshotsController = ScrollController();
+
+  @override
+  void dispose() {
+    _screenshotsController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _downloadApk(BuildContext context) async {
+    final uri = Uri.base.resolve(_AndroidDownloadDialog._apkPath);
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo abrir la descarga del APK.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screen = MediaQuery.sizeOf(context);
+    final dialogWidth = screen.width < 980 ? screen.width * 0.88 : 860.0;
+    final dialogHeight = screen.height < 760 ? screen.height * 0.9 : 700.0;
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      backgroundColor: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: dialogWidth,
+          maxHeight: dialogHeight,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Material(
+            color: Colors.white,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Stack(
+                    children: [
+                      AspectRatio(
+                        aspectRatio: 1024 / 500,
+                        child: Image.asset(
+                          'assets/ImagenesAPP/banner_1024x500.png',
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        top: 14,
+                        right: 14,
+                        child: IconButton.filled(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: IconButton.styleFrom(
+                            backgroundColor:
+                                Colors.black.withValues(alpha: 0.45),
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.close_rounded),
+                          tooltip: 'Cerrar',
+                        ),
+                      ),
+                      Positioned(
+                        left: 24,
+                        right: 24,
+                        bottom: 20,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 74,
+                              height: 74,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(18),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.22),
+                                    blurRadius: 18,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: Image.asset(
+                                'assets/ImagenesAPP/icono_512x512.png',
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'TrackFile',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Descarga nuestra aplicacion para Android desde el APK.',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Instala TrackFile en tu celular y lleva tus documentos, solicitudes y mantenimientos contigo.',
+                                style: TextStyle(
+                                  color: Colors.grey.shade800,
+                                  fontSize: 16,
+                                  height: 1.35,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 18),
+                            FilledButton.icon(
+                              onPressed: () => _downloadApk(context),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF06135E),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              icon: const Icon(Icons.android_rounded),
+                              label: const Text('Descargar APK'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
+                        SizedBox(
+                          height: 444,
+                          child: Scrollbar(
+                            controller: _screenshotsController,
+                            thumbVisibility: true,
+                            child: ListView.separated(
+                              controller: _screenshotsController,
+                              padding: const EdgeInsets.only(bottom: 18),
+                              scrollDirection: Axis.horizontal,
+                              itemCount:
+                                  _AndroidDownloadDialog._screenshots.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 18),
+                              itemBuilder: (context, index) {
+                                return AspectRatio(
+                                  aspectRatio: 9 / 16,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(22),
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF3F5FA),
+                                        border: Border.all(
+                                          color: const Color(0xFFE2E7F0),
+                                        ),
+                                      ),
+                                      child: Image.asset(
+                                        _AndroidDownloadDialog
+                                            ._screenshots[index],
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
