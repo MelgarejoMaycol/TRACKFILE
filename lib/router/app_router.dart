@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,12 +14,19 @@ import '../screens/roles/empresa_screen.dart';
 import '../screens/roles/propietario_screen.dart';
 import '../screens/roles/secretaria_screen.dart';
 import '../utils/role_router.dart';
+import '../widgets/android_download_prompt.dart';
 
 class DashboardSessionLoader extends StatefulWidget {
   final String role;
   final String? section;
+  final bool showAndroidPrompt;
 
-  const DashboardSessionLoader({super.key, required this.role, this.section});
+  const DashboardSessionLoader({
+    super.key,
+    required this.role,
+    this.section,
+    this.showAndroidPrompt = false,
+  });
 
   @override
   State<DashboardSessionLoader> createState() => _DashboardSessionLoaderState();
@@ -26,6 +35,7 @@ class DashboardSessionLoader extends StatefulWidget {
 class _DashboardSessionLoaderState extends State<DashboardSessionLoader> {
   Future<Map<String, dynamic>?>? _sessionFuture;
   Map<String, dynamic>? _session;
+  bool _downloadPromptScheduled = false;
 
   @override
   void initState() {
@@ -56,6 +66,38 @@ class _DashboardSessionLoaderState extends State<DashboardSessionLoader> {
     return null;
   }
 
+  void _scheduleAndroidDownloadPrompt() {
+    if (_downloadPromptScheduled) return;
+    _downloadPromptScheduled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || !AndroidDownloadPrompt.shouldShowForContext(context)) {
+        return;
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      final shouldShow =
+          widget.showAndroidPrompt ||
+          prefs.getBool(AndroidDownloadPrompt.pendingAfterLoginKey) == true;
+
+      if (!shouldShow || !mounted) return;
+
+      await prefs.remove(AndroidDownloadPrompt.pendingAfterLoginKey);
+
+      if (!mounted) return;
+      unawaited(
+        AndroidDownloadPrompt.precacheImages(context).catchError((_) {}),
+      );
+
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (_) => const AndroidDownloadPrompt(),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>?>(
@@ -73,6 +115,8 @@ class _DashboardSessionLoaderState extends State<DashboardSessionLoader> {
         if (session == null) {
           return const LoginScreen();
         }
+
+        _scheduleAndroidDownloadPrompt();
 
         final empresa = _map(session['empresa']);
 
@@ -239,7 +283,12 @@ final GoRouter appRouter = GoRouter(
 
             return NoTransitionPage(
               key: ValueKey('dashboard-$role'),
-              child: DashboardSessionLoader(role: role, section: 'Inicio'),
+              child: DashboardSessionLoader(
+                role: role,
+                section: 'Inicio',
+                showAndroidPrompt:
+                    state.uri.queryParameters['showApk'] == '1',
+              ),
             );
           },
         ),
@@ -268,7 +317,12 @@ final GoRouter appRouter = GoRouter(
 
             return NoTransitionPage(
               key: ValueKey('dashboard-$role'),
-              child: DashboardSessionLoader(role: role, section: section),
+              child: DashboardSessionLoader(
+                role: role,
+                section: section,
+                showAndroidPrompt:
+                    state.uri.queryParameters['showApk'] == '1',
+              ),
             );
           },
         ),
