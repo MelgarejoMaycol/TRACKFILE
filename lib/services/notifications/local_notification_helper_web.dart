@@ -20,6 +20,6 @@ class LocalNotificationHelper {
       }
     }
 
-    html.Notification(title, body: body, icon: 'assets/logo_circulo.png');
+    html.Notification(title, body: body, icon: 'assets/logoCirculo.png');
   }
 }

@@ -3,9 +3,12 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 class LocalNotificationHelper {
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
+  static bool _initialized = false;
 
   static Future<void> init() async {
-    const android = AndroidInitializationSettings('@drawable/logo_circulo');
+    if (_initialized) return;
+
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
 
     const ios = DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -23,13 +26,17 @@ class LocalNotificationHelper {
 
     await _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.requestNotificationsPermission();
 
     await _plugin
         .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>()
+          IOSFlutterLocalNotificationsPlugin
+        >()
         ?.requestPermissions(alert: true, badge: true, sound: true);
+
+    _initialized = true;
   }
 
   static Future<void> show({
@@ -41,7 +48,7 @@ class LocalNotificationHelper {
       'Notificaciones TrackFile',
       channelDescription: 'Alertas importantes de TrackFile',
       importance: Importance.max,
-      icon: '@drawable/logo_circulo',
+      icon: 'ic_stat_trackfile',
       priority: Priority.high,
       playSound: true,
     );

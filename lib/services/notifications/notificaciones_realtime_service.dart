@@ -48,7 +48,6 @@ class NotificacionesRealtimeService {
           prefs.getStringList('trackfile_notificaciones_vistas') ?? <String>[];
 
       final oldSet = oldIds.toSet();
-
       final data = await NotificacionesService.listar();
 
       final nuevas = data.where((item) {
@@ -56,7 +55,6 @@ class NotificacionesRealtimeService {
         final estado = (item['estado'] ?? item['status'] ?? '')
             .toString()
             .toUpperCase();
-
         final leida = item['leida'] == true;
 
         return id.isNotEmpty &&
@@ -69,17 +67,14 @@ class NotificacionesRealtimeService {
 
       final allIds = data.map(_getId).where((id) => id.isNotEmpty).toSet();
 
-      if (firstLoad) {
-        await prefs.setStringList(
-          'trackfile_notificaciones_vistas',
-          allIds.toList(),
-        );
-
-        await onNotificationsChanged?.call();
-        return;
-      }
-
       if (nuevas.isEmpty) {
+        if (firstLoad) {
+          await prefs.setStringList(
+            'trackfile_notificaciones_vistas',
+            allIds.toList(),
+          );
+        }
+
         await onNotificationsChanged?.call();
         return;
       }
@@ -91,7 +86,11 @@ class NotificacionesRealtimeService {
 
       await onNotificationsChanged?.call();
 
-      nuevas.sort((a, b) {
+      final notificacionesParaMostrar = firstLoad && oldSet.isEmpty
+          ? nuevas.where(_esReciente).toList()
+          : nuevas;
+
+      notificacionesParaMostrar.sort((a, b) {
         final fa = DateTime.tryParse('${a['fechaEnvio'] ?? ''}');
         final fb = DateTime.tryParse('${b['fechaEnvio'] ?? ''}');
 
@@ -99,7 +98,7 @@ class NotificacionesRealtimeService {
         return fa.compareTo(fb);
       });
 
-      for (final item in nuevas) {
+      for (final item in notificacionesParaMostrar) {
         await LocalNotificationHelper.show(
           title: (item['titulo'] ?? 'Nueva notificación').toString(),
           body: (item['mensaje'] ?? 'Tienes una nueva alerta en TrackFile')
@@ -107,7 +106,7 @@ class NotificacionesRealtimeService {
         );
       }
     } catch (_) {
-      // Solo mientras pruebas
+      // Evita romper la sesión si falla una consulta de notificaciones.
     }
   }
 
@@ -117,5 +116,12 @@ class NotificacionesRealtimeService {
             item['id'] ??
             '')
         .toString();
+  }
+
+  static bool _esReciente(Map<String, dynamic> item) {
+    final fecha = DateTime.tryParse('${item['fechaEnvio'] ?? ''}');
+    if (fecha == null) return true;
+
+    return DateTime.now().difference(fecha.toLocal()).inHours <= 24;
   }
 }
