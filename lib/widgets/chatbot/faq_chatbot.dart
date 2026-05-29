@@ -41,7 +41,7 @@ class _FaqChatbotState extends State<FaqChatbot> {
   bool _isTyping = false;
   bool _showShortcuts = false;
   double _mobileLauncherLeft = 16;
-  double _mobileLauncherBottom = 142;
+  double _mobileLauncherBottom = 190;
   double _desktopLauncherLeft = 22;
   double _desktopLauncherBottom = 22;
   late String _selectedSectionTitle;
@@ -2514,8 +2514,8 @@ class _FaqChatbotState extends State<FaqChatbot> {
 
   void _moveLauncher(DragUpdateDetails details) {
     final size = MediaQuery.sizeOf(context);
-    final compact = size.width < 640;
-    final launcherWidth = compact ? 116.0 : 154.0;
+    final compact = size.width < 900;
+    final launcherWidth = compact ? 56.0 : 154.0;
     const launcherHeight = 56.0;
 
     setState(() {
@@ -2540,7 +2540,7 @@ class _FaqChatbotState extends State<FaqChatbot> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final compact = size.width < 640;
+    final compact = size.width < 900;
     final draggableLauncher = !_isOpen;
 
     return Positioned(

@@ -8,7 +8,9 @@ class LocalNotificationHelper {
   static Future<void> init() async {
     if (_initialized) return;
 
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const android = AndroidInitializationSettings(
+      '@drawable/ic_stat_trackfile',
+    );
 
     const ios = DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -44,13 +46,16 @@ class LocalNotificationHelper {
     required String body,
   }) async {
     const androidDetails = AndroidNotificationDetails(
-      'trackfile_notificaciones',
-      'Notificaciones TrackFile',
+      'trackfile_alertas_v2',
+      'Alertas TrackFile',
       channelDescription: 'Alertas importantes de TrackFile',
       importance: Importance.max,
       icon: 'ic_stat_trackfile',
       priority: Priority.high,
       playSound: true,
+      enableVibration: true,
+      category: AndroidNotificationCategory.reminder,
+      visibility: NotificationVisibility.public,
     );
 
     const details = NotificationDetails(

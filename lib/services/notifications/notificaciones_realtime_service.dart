@@ -7,6 +7,8 @@ import 'local_notification_helper.dart';
 import 'notificaciones_preferencias_service.dart';
 
 class NotificacionesRealtimeService {
+  static const String _seenNotificationsKey =
+      'trackfile_notificaciones_vistas_v2';
   static Timer? _timer;
   static bool _running = false;
 
@@ -48,8 +50,7 @@ class NotificacionesRealtimeService {
 
       final prefs = await SharedPreferences.getInstance();
 
-      final oldIds =
-          prefs.getStringList('trackfile_notificaciones_vistas') ?? <String>[];
+      final oldIds = prefs.getStringList(_seenNotificationsKey) ?? <String>[];
 
       final oldSet = oldIds.toSet();
       final data = await NotificacionesService.listar();
@@ -73,25 +74,19 @@ class NotificacionesRealtimeService {
 
       if (nuevas.isEmpty) {
         if (firstLoad) {
-          await prefs.setStringList(
-            'trackfile_notificaciones_vistas',
-            allIds.toList(),
-          );
+          await prefs.setStringList(_seenNotificationsKey, allIds.toList());
         }
 
         await onNotificationsChanged?.call();
         return;
       }
 
-      await prefs.setStringList(
-        'trackfile_notificaciones_vistas',
-        allIds.toList(),
-      );
+      await prefs.setStringList(_seenNotificationsKey, allIds.toList());
 
       await onNotificationsChanged?.call();
 
-      final notificacionesParaMostrar = firstLoad && oldSet.isEmpty
-          ? nuevas.where(_esReciente).toList()
+      final notificacionesParaMostrar = firstLoad
+          ? nuevas.where(_esReciente).take(3).toList()
           : nuevas;
 
       notificacionesParaMostrar.sort((a, b) {
