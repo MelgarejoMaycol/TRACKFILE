@@ -84,13 +84,8 @@ flutter:
     - assets/companies_data.json
     - assets/certificaciones_data.json
     - assets/mantenimientos_data.json
-    - assets/ImagenesAPP/banner_1024x500.png
-    - assets/ImagenesAPP/icono_512x512.png
-    - assets/ImagenesAPP/capturas/captura1.png
-    - assets/ImagenesAPP/capturas/captura2.png
-    - assets/ImagenesAPP/capturas/captura3.png
-    - assets/ImagenesAPP/capturas/captura4.png
-    - assets/ImagenesAPP/capturas/captura5.png
+    - assets/ImagenesAPP/
+    - assets/ImagenesAPP/capturas/
 
 
   # To add assets to your application, add an assets section, like this:
