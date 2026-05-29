@@ -693,7 +693,9 @@ class _LoginScreenState extends State<LoginScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Tiempo de espera agotado. Verifica tu conexión.'),
+            content: Text(
+              'El servidor esta en mantenimiento. Intente nuevamente en 5 minutos.',
+            ),
           ),
         );
       }

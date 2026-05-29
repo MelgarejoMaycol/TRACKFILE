@@ -36,6 +36,8 @@ class _DashboardSessionLoaderState extends State<DashboardSessionLoader> {
   Future<Map<String, dynamic>?>? _sessionFuture;
   Map<String, dynamic>? _session;
   bool _downloadPromptScheduled = false;
+  bool _securityDialogScheduled = false;
+  bool _hadStoredSession = false;
 
   @override
   void initState() {
@@ -46,11 +48,26 @@ class _DashboardSessionLoaderState extends State<DashboardSessionLoader> {
   Future<Map<String, dynamic>?> _loadSessionOnce() async {
     if (_session != null) return _session;
 
-    final session = await loadSession();
-    if (mounted) {
-      _session = session;
+    final prefs = await SharedPreferences.getInstance();
+    final rawSession = prefs.getString('auth_user');
+    final token = prefs.getString('auth_token') ?? prefs.getString('token');
+    _hadStoredSession =
+        (rawSession != null && rawSession.isNotEmpty) ||
+        (token != null && token.isNotEmpty);
+
+    try {
+      final session = await loadSession().timeout(const Duration(seconds: 12));
+      if (mounted) {
+        _session = session;
+      }
+      return session;
+    } on TimeoutException {
+      if (_hadStoredSession) rethrow;
+    } catch (_) {
+      if (_hadStoredSession) rethrow;
     }
-    return session;
+
+    return null;
   }
 
   String _text(dynamic value) {
@@ -98,6 +115,38 @@ class _DashboardSessionLoaderState extends State<DashboardSessionLoader> {
     });
   }
 
+  void _scheduleSecurityLogoutDialog() {
+    if (_securityDialogScheduled) return;
+    _securityDialogScheduled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogCtx) => AlertDialog(
+          title: const Text('Sesion cerrada'),
+          content: const Text(
+            'Cerramos su sesion por su seguridad. Inicie sesion nuevamente para continuar.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () async {
+                await clearSession();
+                if (!dialogCtx.mounted) return;
+                Navigator.of(dialogCtx).pop();
+                if (!mounted) return;
+                context.go('/login');
+              },
+              child: const Text('Aceptar'),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>?>(
@@ -111,6 +160,14 @@ class _DashboardSessionLoaderState extends State<DashboardSessionLoader> {
         }
 
         final session = snapshot.data ?? _session;
+
+        if (snapshot.hasError || (session == null && _hadStoredSession)) {
+          _scheduleSecurityLogoutDialog();
+          return const Scaffold(
+            backgroundColor: Color(0xFF131760),
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
         if (session == null) {
           return const LoginScreen();
@@ -286,8 +343,7 @@ final GoRouter appRouter = GoRouter(
               child: DashboardSessionLoader(
                 role: role,
                 section: 'Inicio',
-                showAndroidPrompt:
-                    state.uri.queryParameters['showApk'] == '1',
+                showAndroidPrompt: state.uri.queryParameters['showApk'] == '1',
               ),
             );
           },
@@ -320,8 +376,7 @@ final GoRouter appRouter = GoRouter(
               child: DashboardSessionLoader(
                 role: role,
                 section: section,
-                showAndroidPrompt:
-                    state.uri.queryParameters['showApk'] == '1',
+                showAndroidPrompt: state.uri.queryParameters['showApk'] == '1',
               ),
             );
           },
