@@ -40,8 +40,8 @@ class _FaqChatbotState extends State<FaqChatbot> {
   bool _isOpen = false;
   bool _isTyping = false;
   bool _showShortcuts = false;
-  double _mobileLauncherLeft = 12;
-  double _mobileLauncherBottom = 92;
+  double _mobileLauncherLeft = 16;
+  double _mobileLauncherBottom = 142;
   double _desktopLauncherLeft = 22;
   double _desktopLauncherBottom = 22;
   late String _selectedSectionTitle;
@@ -94,11 +94,7 @@ class _FaqChatbotState extends State<FaqChatbot> {
 
   void _addGreeting({required bool save}) {
     setState(() {
-      _messages.add(
-        _ChatMessage.bot(
-          context.t('chat.greeting'),
-        ),
-      );
+      _messages.add(_ChatMessage.bot(context.t('chat.greeting')));
     });
 
     if (save) {
@@ -159,26 +155,17 @@ class _FaqChatbotState extends State<FaqChatbot> {
               color: _tone(_chatPrimary, 0.10),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(
-              Icons.delete_sweep_rounded,
-              color: _chatPrimary,
-            ),
+            child: const Icon(Icons.delete_sweep_rounded, color: _chatPrimary),
           ),
           title: Text(
             context.t('chat.clearTitle'),
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: _chatInk,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(color: _chatInk, fontWeight: FontWeight.w800),
           ),
           content: Text(
             context.t('chat.clearMessage'),
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: _chatMuted,
-              height: 1.35,
-            ),
+            style: TextStyle(color: _chatMuted, height: 1.35),
           ),
           actions: [
             TextButton(
@@ -257,8 +244,8 @@ class _FaqChatbotState extends State<FaqChatbot> {
     _activeNormalizedQuestion = normalized;
     _pendingBotActions = const [];
     final detectedTopic = _detectTopic(normalized);
-    final topic = detectedTopic ??
-        (_isContextFollowUp(normalized) ? _lastTopic : null);
+    final topic =
+        detectedTopic ?? (_isContextFollowUp(normalized) ? _lastTopic : null);
     final contextAnswer = _isContextFollowUp(normalized)
         ? _answerContextFollowUp(topic)
         : null;
@@ -359,7 +346,10 @@ class _FaqChatbotState extends State<FaqChatbot> {
       }
 
       if (_lastUserAskedList()) {
-        final preview = _previewItems(memory.items, _labelForTopic(memoryTopic!));
+        final preview = _previewItems(
+          memory.items,
+          _labelForTopic(memoryTopic!),
+        );
         return preview.isEmpty
             ? _locationForTopic(memoryTopic)
             : 'Claro. De lo ultimo que consulte, estos son los primeros: $preview.\n\n${_locationForTopic(memoryTopic)}';
@@ -418,10 +408,7 @@ class _FaqChatbotState extends State<FaqChatbot> {
     ]);
   }
 
-  String? _firstRelevantItem(
-    String topic,
-    List<Map<String, dynamic>> items,
-  ) {
+  String? _firstRelevantItem(String topic, List<Map<String, dynamic>> items) {
     final sorted = [...items];
     if (topic == 'documentos') {
       sorted.sort((a, b) {
@@ -998,7 +985,9 @@ class _FaqChatbotState extends State<FaqChatbot> {
       final pendingRequests = solicitudes.where(_isRequestPending).length;
 
       final mantenimientos = results[4] as List<Map<String, dynamic>>;
-      final pendingMaintenance = mantenimientos.where(_isMaintenancePending).length;
+      final pendingMaintenance = mantenimientos
+          .where(_isMaintenancePending)
+          .length;
       final vehicles = results[5] as List<Map<String, dynamic>>;
 
       _rememberResult(
@@ -1018,11 +1007,7 @@ class _FaqChatbotState extends State<FaqChatbot> {
         solicitudes.where(_isRequestPending).toList(),
         _actionsForTopic('solicitudes'),
       );
-      _rememberResult(
-        'vehiculos',
-        vehicles,
-        _actionsForTopic('vehiculos'),
-      );
+      _rememberResult('vehiculos', vehicles, _actionsForTopic('vehiculos'));
       _rememberResult(
         'notificaciones',
         unreadNotifications,
@@ -1065,7 +1050,11 @@ class _FaqChatbotState extends State<FaqChatbot> {
           item['titulo'] ?? item['title'] ?? item['tipo'] ?? 'Notificacion',
         ),
       );
-      _rememberResult('notificaciones', unread, _actionsForTopic('notificaciones'));
+      _rememberResult(
+        'notificaciones',
+        unread,
+        _actionsForTopic('notificaciones'),
+      );
 
       if (count <= 0) {
         return 'Revise tus notificaciones y por ahora no tienes mensajes sin leer.';
@@ -1383,9 +1372,7 @@ class _FaqChatbotState extends State<FaqChatbot> {
     List<_ChatAction> actions,
   ) {
     final normalizedTopic = topic == 'recordatorios' ? 'documentos' : topic;
-    _memory[normalizedTopic] = _ChatMemory(
-      items: items.take(12).toList(),
-    );
+    _memory[normalizedTopic] = _ChatMemory(items: items.take(12).toList());
     if (normalizedTopic == 'tramites') {
       _memory['solicitudes'] = _memory[normalizedTopic]!;
     }
@@ -1427,9 +1414,7 @@ class _FaqChatbotState extends State<FaqChatbot> {
           _ChatAction(label: 'Abrir Solicitudes', target: 'solicitudes'),
         ];
       case 'notificaciones':
-        return const [
-          _ChatAction(label: 'Abrir Mensajes', target: 'mensajes'),
-        ];
+        return const [_ChatAction(label: 'Abrir Mensajes', target: 'mensajes')];
       default:
         return const [];
     }
@@ -1445,7 +1430,9 @@ class _FaqChatbotState extends State<FaqChatbot> {
         const <Map<String, dynamic>>[];
 
     final expiredDocs = docs.where(_isDocumentExpired).length;
-    final pendingMaintenances = maintenances.where(_isMaintenancePending).length;
+    final pendingMaintenances = maintenances
+        .where(_isMaintenancePending)
+        .length;
     final pendingRequests = requests.where(_isRequestPending).length;
 
     if (expiredDocs > 0) {
@@ -1473,9 +1460,11 @@ class _FaqChatbotState extends State<FaqChatbot> {
       try {
         final decoded = jsonDecode(raw);
         if (decoded is List) {
-          items.addAll(decoded.whereType<Map>().map((item) {
-            return item.map((key, value) => MapEntry(key.toString(), value));
-          }));
+          items.addAll(
+            decoded.whereType<Map>().map((item) {
+              return item.map((key, value) => MapEntry(key.toString(), value));
+            }),
+          );
         }
       } catch (_) {
         items.clear();
@@ -1871,7 +1860,12 @@ class _FaqChatbotState extends State<FaqChatbot> {
   }
 
   String _answerForAccess(String normalized) {
-    if (_containsAny(normalized, ['registro', 'registrarme', 'unirme', 'rut'])) {
+    if (_containsAny(normalized, [
+      'registro',
+      'registrarme',
+      'unirme',
+      'rut',
+    ])) {
       return 'Para registrarte como empresa usa la opcion Unete, completa los datos solicitados y adjunta el RUT en PDF. Despues revisa tu correo para confirmar la verificacion. La validacion de la empresa puede tardar segun el proceso definido.';
     }
 
@@ -1899,7 +1893,11 @@ class _FaqChatbotState extends State<FaqChatbot> {
   }
 
   String _answerForProcedure(String normalized) {
-    if (_containsAny(normalized, ['certificado', 'certificacion', 'constancia'])) {
+    if (_containsAny(normalized, [
+      'certificado',
+      'certificacion',
+      'constancia',
+    ])) {
       return 'Para solicitar un certificado o constancia entra a Solicitudes, elige el tipo de solicitud disponible, completa la descripcion y envia el tramite. Luego revisa el estado en la misma seccion hasta que la empresa responda.';
     }
 
@@ -1911,11 +1909,22 @@ class _FaqChatbotState extends State<FaqChatbot> {
   }
 
   String _answerForReminders(String normalized) {
-    if (_containsAny(normalized, ['documento', 'soat', 'tecnomecanica', 'licencia', 'poliza'])) {
+    if (_containsAny(normalized, [
+      'documento',
+      'soat',
+      'tecnomecanica',
+      'licencia',
+      'poliza',
+    ])) {
       return 'Para recordatorios de documentos, revisa Inicio y Documentos. Alli aparecen documentos vencidos o proximos a vencer. Mantener la fecha de vencimiento actualizada permite que TrackFile genere alertas utiles para el usuario.';
     }
 
-    if (_containsAny(normalized, ['mantenimiento', 'revision', 'taller', 'aceite'])) {
+    if (_containsAny(normalized, [
+      'mantenimiento',
+      'revision',
+      'taller',
+      'aceite',
+    ])) {
       return 'Para recordatorios de mantenimiento, entra a Mantenimientos. Puedes revisar actividades programadas o sugeridas y, si aplica, filtrarlas por vehiculo para anticiparte a revisiones importantes.';
     }
 
@@ -2080,13 +2089,12 @@ class _FaqChatbotState extends State<FaqChatbot> {
       final docDate = _dateOnly(date);
       final days = docDate.difference(today).inDays;
       return days >= 0 && days <= 30;
-    }).toList()
-      ..sort((a, b) {
-        final ad = _documentExpirationDate(a);
-        final bd = _documentExpirationDate(b);
-        if (ad == null || bd == null) return 0;
-        return ad.compareTo(bd);
-      });
+    }).toList()..sort((a, b) {
+      final ad = _documentExpirationDate(a);
+      final bd = _documentExpirationDate(b);
+      if (ad == null || bd == null) return 0;
+      return ad.compareTo(bd);
+    });
   }
 
   bool _isDocumentExpired(Map<String, dynamic> doc) {
@@ -2367,7 +2375,9 @@ class _FaqChatbotState extends State<FaqChatbot> {
 
   String _fullName(Map<String, dynamic> item) {
     final first = _text(item['nombre'] ?? item['name'] ?? item['nombres']);
-    final last = _text(item['apellido'] ?? item['lastName'] ?? item['apellidos']);
+    final last = _text(
+      item['apellido'] ?? item['lastName'] ?? item['apellidos'],
+    );
     return [first, last].where((part) => part.isNotEmpty).join(' ');
   }
 
@@ -2517,8 +2527,10 @@ class _FaqChatbotState extends State<FaqChatbot> {
         _mobileLauncherBottom = (_mobileLauncherBottom - details.delta.dy)
             .clamp(24.0, math.max(24.0, size.height - launcherHeight - 24));
       } else {
-        _desktopLauncherLeft = (_desktopLauncherLeft + details.delta.dx)
-            .clamp(12.0, math.max(12.0, size.width - launcherWidth - 12));
+        _desktopLauncherLeft = (_desktopLauncherLeft + details.delta.dx).clamp(
+          12.0,
+          math.max(12.0, size.width - launcherWidth - 12),
+        );
         _desktopLauncherBottom = (_desktopLauncherBottom - details.delta.dy)
             .clamp(12.0, math.max(12.0, size.height - launcherHeight - 12));
       }
@@ -2561,6 +2573,36 @@ class _FaqChatbotState extends State<FaqChatbot> {
   }
 
   Widget _buildLauncher({required bool compact, bool draggable = false}) {
+    if (compact) {
+      final button = FloatingActionButton(
+        heroTag: 'faq_chatbot_${widget.role}_${widget.userId ?? 'guest'}',
+        backgroundColor: _chatPrimary,
+        foregroundColor: Colors.white,
+        elevation: 8,
+        tooltip: _isOpen ? context.t('chat.close') : context.t('chat.open'),
+        onPressed: () {
+          setState(() {
+            _isOpen = !_isOpen;
+          });
+
+          if (_isOpen) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              _scrollToBottom();
+              _composerFocus.requestFocus();
+            });
+          }
+        },
+        child: Icon(
+          _isOpen ? Icons.close_rounded : Icons.support_agent_rounded,
+        ),
+      );
+
+      if (!draggable) return button;
+
+      return GestureDetector(onPanUpdate: _moveLauncher, child: button);
+    }
+
     final button = FloatingActionButton.extended(
       heroTag: 'faq_chatbot_${widget.role}_${widget.userId ?? 'guest'}',
       backgroundColor: _chatPrimary,
@@ -2589,10 +2631,7 @@ class _FaqChatbotState extends State<FaqChatbot> {
 
     if (!draggable) return button;
 
-    return GestureDetector(
-      onPanUpdate: _moveLauncher,
-      child: button,
-    );
+    return GestureDetector(onPanUpdate: _moveLauncher, child: button);
   }
 
   Widget _buildChatWindow(BuildContext context, {required bool compact}) {
@@ -2722,7 +2761,12 @@ class _FaqChatbotState extends State<FaqChatbot> {
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(12, compact ? 8 : 10, 12, showFullPanel ? 10 : 8),
+      padding: EdgeInsets.fromLTRB(
+        12,
+        compact ? 8 : 10,
+        12,
+        showFullPanel ? 10 : 8,
+      ),
       decoration: const BoxDecoration(
         color: _chatSurface,
         border: Border(bottom: BorderSide(color: _chatLine)),
@@ -2779,73 +2823,73 @@ class _FaqChatbotState extends State<FaqChatbot> {
             const SizedBox.shrink()
           else ...[
             const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: _sections.map((section) {
-                final selected = section.title == selectedSection.title;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    selected: selected,
-                    avatar: Icon(
-                      section.icon,
-                      size: 16,
-                      color: selected ? Colors.white : _chatPrimary,
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _sections.map((section) {
+                  final selected = section.title == selectedSection.title;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      selected: selected,
+                      avatar: Icon(
+                        section.icon,
+                        size: 16,
+                        color: selected ? Colors.white : _chatPrimary,
+                      ),
+                      label: Text(section.title),
+                      labelStyle: TextStyle(
+                        color: selected ? Colors.white : _chatInk,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      selectedColor: _chatPrimary,
+                      backgroundColor: Colors.white,
+                      side: BorderSide(
+                        color: selected ? _chatPrimary : _chatLine,
+                      ),
+                      onSelected: (_) => _selectSection(section.title),
                     ),
-                    label: Text(section.title),
-                    labelStyle: TextStyle(
-                      color: selected ? Colors.white : _chatInk,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    selectedColor: _chatPrimary,
-                    backgroundColor: Colors.white,
-                    side: BorderSide(
-                      color: selected ? _chatPrimary : _chatLine,
-                    ),
-                    onSelected: (_) => _selectSection(section.title),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 9),
+            Text(
+              selectedSection.subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _chatMuted,
+                fontSize: 11.5,
+                height: 1.25,
+              ),
+            ),
+            const SizedBox(height: 9),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: selectedSection.questions.take(compact ? 4 : 5).map((
+                answer,
+              ) {
+                return ActionChip(
+                  avatar: const Icon(
+                    Icons.bolt_rounded,
+                    size: 15,
+                    color: _chatAccent,
                   ),
+                  label: Text(answer.question),
+                  labelStyle: const TextStyle(
+                    color: _chatInk,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  backgroundColor: Colors.white,
+                  side: const BorderSide(color: _chatLine),
+                  onPressed: () => _sendMessage(answer.question),
                 );
               }).toList(),
             ),
-          ),
-          const SizedBox(height: 9),
-          Text(
-            selectedSection.subtitle,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: _chatMuted,
-              fontSize: 11.5,
-              height: 1.25,
-            ),
-          ),
-          const SizedBox(height: 9),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: selectedSection.questions.take(compact ? 4 : 5).map((
-              answer,
-            ) {
-              return ActionChip(
-                avatar: const Icon(
-                  Icons.bolt_rounded,
-                  size: 15,
-                  color: _chatAccent,
-                ),
-                label: Text(answer.question),
-                labelStyle: const TextStyle(
-                  color: _chatInk,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-                backgroundColor: Colors.white,
-                side: const BorderSide(color: _chatLine),
-                onPressed: () => _sendMessage(answer.question),
-              );
-            }).toList(),
-          ),
           ],
         ],
       ),
@@ -3014,10 +3058,7 @@ class _MessageBubble extends StatelessWidget {
   final _ChatMessage message;
   final ValueChanged<_ChatAction> onActionSelected;
 
-  const _MessageBubble({
-    required this.message,
-    required this.onActionSelected,
-  });
+  const _MessageBubble({required this.message, required this.onActionSelected});
 
   @override
   Widget build(BuildContext context) {
@@ -3223,7 +3264,6 @@ class _ChatMessage {
     final minute = createdAt.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
   }
-
 }
 
 class _ChatAction {
@@ -3525,13 +3565,7 @@ List<_FaqSection> _faqSectionsForRole(String role) {
           question: 'Roles de usuario',
           answer:
               'Los roles principales son Empresa, Propietario y Conductor. Cada uno tiene permisos y vistas diferentes segun sus responsabilidades.',
-          keywords: [
-            'rol',
-            'roles',
-            'empresa',
-            'propietario',
-            'conductor',
-          ],
+          keywords: ['rol', 'roles', 'empresa', 'propietario', 'conductor'],
         ),
       ],
     ),

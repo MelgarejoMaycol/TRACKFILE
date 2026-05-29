@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'l10n/app_language.dart';
 import 'router/app_router.dart';
+import 'services/notifications/notificaciones_realtime_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,8 +16,33 @@ void main() async {
   runApp(const TrackFileApp());
 }
 
-class TrackFileApp extends StatelessWidget {
+class TrackFileApp extends StatefulWidget {
   const TrackFileApp({super.key});
+
+  @override
+  State<TrackFileApp> createState() => _TrackFileAppState();
+}
+
+class _TrackFileAppState extends State<TrackFileApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      NotificacionesRealtimeService.checkNow();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

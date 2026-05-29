@@ -37,6 +37,10 @@ class NotificacionesRealtimeService {
     onNotificationsChanged = null;
   }
 
+  static Future<void> checkNow() {
+    return _checkNotifications();
+  }
+
   static Future<void> _checkNotifications({bool firstLoad = false}) async {
     try {
       final activas = await NotificacionesPreferenciasService.estanActivas();
