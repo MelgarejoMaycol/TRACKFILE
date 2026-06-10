@@ -14,6 +14,7 @@ import '../screens/roles/empresa_screen.dart';
 import '../screens/roles/propietario_screen.dart';
 import '../screens/roles/secretaria_screen.dart';
 import '../utils/role_router.dart';
+import '../utils/session_security.dart';
 import '../widgets/android_download_prompt.dart';
 
 class DashboardSessionLoader extends StatefulWidget {
@@ -121,29 +122,7 @@ class _DashboardSessionLoaderState extends State<DashboardSessionLoader> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogCtx) => AlertDialog(
-          title: const Text('Sesion cerrada'),
-          content: const Text(
-            'Cerramos su sesion por su seguridad. Inicie sesion nuevamente para continuar.',
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () async {
-                await clearSession();
-                if (!dialogCtx.mounted) return;
-                Navigator.of(dialogCtx).pop();
-                if (!mounted) return;
-                context.go('/login');
-              },
-              child: const Text('Aceptar'),
-            ),
-          ],
-        ),
-      );
+      await showSecurityLogoutDialog(context);
     });
   }
 
