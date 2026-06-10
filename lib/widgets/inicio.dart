@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../l10n/app_language.dart';
 import '../services/api_service.dart';
+import '../utils/session_security.dart';
 import 'documents/document_preview_modal.dart';
 import 'utils/shimmer_skeleton.dart';
 
@@ -48,6 +49,7 @@ class _InicioWidgetState extends State<InicioWidget> {
   final Map<String, Map<String, dynamic>> _documentRawData = {};
   Map<String, dynamic> _summaryMetrics = {};
   final List<Map<String, dynamic>> _alerts = [];
+  bool _securityLogoutScheduled = false;
 
   // User profile data
   String _userName = 'Usuario';
@@ -332,6 +334,70 @@ class _InicioWidgetState extends State<InicioWidget> {
       _documentVehicle = docDetails;
       _fleetVehicles = fleet;
       _summaryMetrics = summary;
+    });
+
+    if (_shouldCloseSessionForEmptyLoad(summary, docs, fleet)) {
+      _scheduleSecurityLogout();
+    }
+  }
+
+  bool _shouldCloseSessionForEmptyLoad(
+    Map<String, dynamic> summary,
+    Map<String, DateTime> docs,
+    List<Map<String, dynamic>> fleet,
+  ) {
+    final role = _role.toLowerCase();
+    final metricKeysByRole = <String, Set<String>>{
+      'empresa': {
+        'fleetSize',
+        'activeDrivers',
+        'documentsExpired',
+        'maintenanceScheduled',
+        'maintenanceSuggested',
+        'certificateRequests',
+      },
+      'conductor': {
+        'assignedVehicles',
+        'myDocuments',
+        'expiredDocuments',
+        'expiringInDays',
+        'maintenanceScheduled',
+        'maintenanceSuggested',
+      },
+      'propietario': {
+        'myVehicles',
+        'myDocuments',
+        'expiredDocuments',
+        'expiringInDays',
+        'maintenanceScheduled',
+        'maintenanceSuggested',
+      },
+      'admin': {'totalDocuments', 'totalVehicles', 'documentsExpired'},
+    };
+
+    final expectedKeys = metricKeysByRole[role];
+    if (expectedKeys == null || expectedKeys.isEmpty) return false;
+
+    final hasExpectedSummary = expectedKeys.any(summary.containsKey);
+    if (!hasExpectedSummary) return false;
+
+    final allMetricsAreZero = expectedKeys.every((key) {
+      final value = summary[key];
+      if (value == null) return true;
+      if (value is num) return value == 0;
+      return int.tryParse(value.toString()) == 0;
+    });
+
+    return allMetricsAreZero && docs.isEmpty && fleet.isEmpty;
+  }
+
+  void _scheduleSecurityLogout() {
+    if (_securityLogoutScheduled) return;
+    _securityLogoutScheduled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await showSecurityLogoutDialog(context);
     });
   }
 
