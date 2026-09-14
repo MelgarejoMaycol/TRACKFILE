@@ -505,10 +505,55 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
+  Future<bool> _isServerReady() async {
+    try {
+      final response = await http
+          .get(
+            _endpoint('/health'),
+            headers: const {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache',
+            },
+          )
+          .timeout(const Duration(seconds: 7));
+
+      return response.statusCode == 200;
+    } on TimeoutException {
+      return false;
+    } on http.ClientException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _showServerStartingMessage() {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          duration: Duration(seconds: 8),
+          content: Text(
+            'Encendiendo servidor. Como el servicio usa el plan gratuito, puede tardar unos minutos. Espere un momento y vuelva a intentar.',
+          ),
+        ),
+      );
+  }
+
   Future<void> _doLogin() async {
     if (!_isLoginValid || _loginLoading) return;
     setState(() => _loginLoading = true);
     try {
+      final serverReady = await _isServerReady();
+      if (!mounted) return;
+
+      if (!serverReady) {
+        _showServerStartingMessage();
+        return;
+      }
+
       final response = await http
           .post(
             _endpoint('/api/auth/login'),
@@ -518,7 +563,7 @@ class _LoginScreenState extends State<LoginScreen>
               'contrasena': _passCtrl.text.trim(),
             }),
           )
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 30));
 
       if (!mounted) return;
 
@@ -690,15 +735,9 @@ class _LoginScreenState extends State<LoginScreen>
         ).showSnackBar(SnackBar(content: Text(message)));
       }
     } on TimeoutException {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'El servidor esta en mantenimiento. Intente nuevamente en 5 minutos.',
-            ),
-          ),
-        );
-      }
+      _showServerStartingMessage();
+    } on http.ClientException {
+      _showServerStartingMessage();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
