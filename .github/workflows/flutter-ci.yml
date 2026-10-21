@@ -28,3 +28,6 @@ jobs:
 
       - name: Run tests
         run: flutter test
+
+      - name: Build production web app
+        run: flutter build web --release
