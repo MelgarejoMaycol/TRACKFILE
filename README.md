@@ -1,5 +1,8 @@
 # TrackFile — Gestión documental y operativa
 
+[![Flutter CI](https://github.com/MelgarejoMaycol/TRACKFILE/actions/workflows/flutter-ci.yml/badge.svg)](https://github.com/MelgarejoMaycol/TRACKFILE/actions/workflows/flutter-ci.yml)
+[![Backend CI](https://github.com/MelgarejoMaycol/BackTrackfile/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/MelgarejoMaycol/BackTrackfile/actions/workflows/backend-ci.yml)
+
 Proyecto de grado desarrollado para facilitar el seguimiento de documentos y procesos operativos de empresas de transporte.
 
 **Aplicación:** https://trackfile.vercel.app/  
@@ -46,8 +49,11 @@ Para revisar la calidad del cliente:
 ```bash
 flutter analyze
 flutter test
+flutter build web --release
 ```
-Estos comandos son los puntos de verificación habituales del SDK; su ejecución satisfactoria depende de la configuración y las pruebas incluidas en el repositorio.
+Los tres comandos forman parte del CI automatizado. El backend mantiene una verificación Maven independiente.
+
+**Nota sobre artefactos:** el historial de este repositorio todavía contiene archivos de `build/` y APK generados por compilaciones anteriores. Se ha añadido una regla para no incorporar nuevos artefactos; la limpieza de los ya versionados requiere migrar primero el despliegue web a compilación desde fuentes para evitar interrumpirlo.
 
 ## Revisión técnica
 
