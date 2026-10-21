@@ -1,16 +1,58 @@
-# frontendproyecto
+# TrackFile — Gestión documental y operativa
 
-A new Flutter project.
+Proyecto de grado desarrollado para facilitar el seguimiento de documentos y procesos operativos de empresas de transporte.
 
-## Getting Started
+**Aplicación:** https://trackfile.vercel.app/  
+**Frontend:** Flutter y Dart  
+**Backend:** [Java 17, Spring Boot 3, Spring Security y PostgreSQL](https://github.com/MelgarejoMaycol/BackTrackfile)
 
-This project is a starting point for a Flutter application.
+## Objetivo y alcance
 
-A few resources to get you started if this is your first Flutter project:
+TrackFile reúne gestión de usuarios y empresas, vehículos, conductores, propietarios, documentos, solicitudes, mantenimiento y notificaciones. La solución separa el cliente Flutter de una API REST con persistencia en PostgreSQL.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Mi participación
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Análisis de necesidades y diseño de flujos de consulta y seguimiento documental.
+- Desarrollo e integración de interfaces, servicios y persistencia de datos.
+- Trabajo con autenticación, archivos y funcionalidades operativas.
+- Implementación como proyecto académico; no se presenta como experiencia laboral contratada.
+
+## Arquitectura
+
+```text
+Flutter / Dart (cliente)
+     │ HTTP / JSON
+     ▼
+Spring Boot (API REST)
+     │
+     ▼
+PostgreSQL (datos)
+```
+
+El backend incluye Spring Security, JWT, Spring Data JPA, validación de entrada, gestión de archivos con Cloudinary y notificaciones por correo. Consulta su [README](https://github.com/MelgarejoMaycol/BackTrackfile#readme) para información de instalación y configuración.
+
+## Ejecutar el cliente
+
+Requiere Flutter SDK y un dispositivo o emulador compatible. Los valores concretos de entorno y el endpoint de la API deben configurarse de acuerdo con la aplicación.
+
+```bash
+git clone https://github.com/MelgarejoMaycol/TRACKFILE.git
+cd TRACKFILE
+flutter pub get
+flutter run
+```
+
+Para revisar la calidad del cliente:
+```bash
+flutter analyze
+flutter test
+```
+Estos comandos son los puntos de verificación habituales del SDK; su ejecución satisfactoria depende de la configuración y las pruebas incluidas en el repositorio.
+
+## Revisión técnica
+
+- [Código del frontend](https://github.com/MelgarejoMaycol/TRACKFILE)
+- [Código y documentación de la API](https://github.com/MelgarejoMaycol/BackTrackfile)
+- [Portafolio profesional](https://melgarejomaycol.vercel.app/)
+
+**Autor:** Maycol Melgarejo — Unidades Tecnológicas de Santander.
