@@ -71,3 +71,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Los nuevos artefactos de Flutter se generan en CI; no versionar builds adicionales.
+# Archivos antiguos de build/ aún están rastreados hasta migrar Vercel al build desde fuentes.
+/build/
