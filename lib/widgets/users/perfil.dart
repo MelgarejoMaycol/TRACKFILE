@@ -107,6 +107,40 @@ class _PerfilWidgetState extends State<PerfilWidget> {
   static const Color _borderColor = Color(0xFF5653D9);
   static const Color _softBorderColor = Color(0xFF3E3BB8);
 
+  bool get _isDemoAccount {
+    final email = (_perfil?.email ?? widget.userEmail ?? '').trim().toLowerCase();
+    return const {
+      'empresademo@test.com',
+      'propietario@test.com',
+      'conductor@test.com',
+    }.contains(email);
+  }
+
+  Widget _buildDemoNotice() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _softBorderColor),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.visibility_outlined, color: Colors.white),
+          SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              'Modo demostración: puedes explorar las funciones, pero la '
+              'configuración de cuenta y los cambios de datos están deshabilitados.',
+              style: TextStyle(color: Colors.white, height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   bool _notificacionesActivas = true;
   bool _isLoading = true;
   bool _hasError = false;
@@ -300,9 +334,13 @@ class _PerfilWidgetState extends State<PerfilWidget> {
                       ],
 
                       const SizedBox(height: 24),
-                      _buildPreferenciasCard(isCompact),
-                      const SizedBox(height: 24),
-                      _buildAccionesPerfil(isCompact),
+                      if (_isDemoAccount)
+                        _buildDemoNotice()
+                      else ...[
+                        _buildPreferenciasCard(isCompact),
+                        const SizedBox(height: 24),
+                        _buildAccionesPerfil(isCompact),
+                      ],
                       const SizedBox(height: 30),
                       Align(
                         alignment: Alignment.center,
